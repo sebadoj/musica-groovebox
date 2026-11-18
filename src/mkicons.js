@@ -1,0 +1,14 @@
+const {chromium}=require('/opt/npm-tools/node_modules/playwright');
+const d=require('fs').readFileSync('iso/d.txt','utf8');
+(async()=>{const b=await chromium.launch({executablePath:'/usr/bin/google-chrome',args:['--no-sandbox']});
+const p=await (await b.newContext()).newPage();await p.goto('file:///home/claude/work/iso/view.html');
+const out=await p.evaluate(d=>{const P=new Path2D(d),res={};
+  const mk=(sz,pad,round)=>{const c=document.createElement('canvas');c.width=c.height=sz;const x=c.getContext('2d');
+    x.fillStyle='#232324';if(round){x.beginPath();x.roundRect(0,0,sz,sz,sz*.22);x.fill();}else x.fillRect(0,0,sz,sz);
+    const g=x.createLinearGradient(0,0,sz,sz);g.addColorStop(0,'rgba(255,255,255,.05)');g.addColorStop(1,'rgba(0,0,0,.12)');x.fillStyle=g;x.fillRect(0,0,sz,sz);
+    const w=sz*(1-2*pad),k=w/862;x.save();x.translate(sz*pad,sz/2-781*k/2+sz*.02);x.scale(k,k);x.fillStyle='#e8e5de';x.fill(P,'evenodd');x.restore();
+    return c.toDataURL('image/png');};
+  res['icon-192.png']=mk(192,.14,false);res['icon-512.png']=mk(512,.14,false);res['maskable-512.png']=mk(512,.24,false);res['apple-touch-icon.png']=mk(180,.14,false);res['favicon-64.png']=mk(64,.1,true);
+  return res;},d);
+for(const [n,u] of Object.entries(out))require('fs').writeFileSync('pwa/icons/'+n,Buffer.from(u.split(',')[1],'base64'));
+await b.close();})();
