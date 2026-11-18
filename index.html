@@ -465,6 +465,24 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
 .fad .sl.v .meter{position:absolute;top:2px;bottom:0;left:50%;width:32%;transform:translateX(-50%);background:rgba(232,229,222,.06);border-radius:2px;overflow:hidden;pointer-events:none;z-index:0}
 .fad .sl.v .meter em{position:absolute;left:0;right:0;bottom:0;height:0;background:linear-gradient(0deg,#3fbf5a,#a6d64a 70%,#f0b03c 85%,#e8483c)}
 .fad .sl.v .meter b{position:absolute;left:0;right:0;height:2px;bottom:0;background:var(--acc)}
+/* v13.10: el espacio que liberaron los faders va a los envíos (perillas más grandes, más aire) */
+#strips{gap:1px}#strips .strip{padding:4px 0}
+.strip.mst{flex:.72}
+.strip .sends{flex:.2 0 128px;height:auto;min-height:0;align-content:space-evenly;gap:4px 0}
+.strip .mini{font-size:7.5px;letter-spacing:.08em;gap:2px}
+.strip .mini .sl.h.knob{width:25px;height:25px!important;background:radial-gradient(circle,transparent 2.8px,rgba(232,229,222,.6) 3.2px,rgba(232,229,222,.6) 4.3px,transparent 4.7px)}
+.strip .sends .mini:first-child .sl.h.knob{width:34px;height:34px!important;background:radial-gradient(circle,transparent 3.6px,rgba(232,229,222,.6) 4px,rgba(232,229,222,.6) 5.4px,transparent 5.8px)}
+.strip .sends .mini:first-child .sl.h.knob::after{-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3.6px));mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3.6px))}
+.strip.mst .mini b{font-size:13px}
+/* v13.10: sampler CHOP / PADS + copiar */
+#sModeSeg{display:flex;flex:1.3;min-width:0;border-radius:999px;box-shadow:inset 0 0 0 1px var(--line2);overflow:hidden}
+#sModeSeg .cap{flex:1;border-radius:0;box-shadow:none;min-width:0;padding:0}
+#sModeSeg .cap.on{background:rgba(255,210,122,.18);color:#ffd27a}
+#sCopy.on{box-shadow:inset 0 0 0 1.5px #ffd27a;color:#ffd27a}
+#sPads .pad.cpdst{outline:2px dashed #ffd27a!important;outline-offset:2px}
+#sPads{grid-template-columns:repeat(4,minmax(0,1fr))}#sPads .pad{min-width:0;overflow:hidden}
+#sPads .pad small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:92%}
+#sInfo{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 @media (max-height:700px){#vview{height:62px}#scope{height:38px}.strip .sends{height:88px}#v-keys.paron #vview{height:54px}}
 </style>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20862%20862%22%3E%3Crect%20width%3D%22862%22%20height%3D%22862%22%20rx%3D%22190%22%20fill%3D%22%23232324%22%2F%3E%3Cg%20transform%3D%22translate%2886%20120%29%20scale%28.8%29%22%3E%3Cpath%20d%3D%22M254%20774C232%20771%20231%20771%20229%20769C224%20764%20223%20752%20226%20734C228%20725%20227%20722%20224%20726C223%20727%20221%20730%20219%20733C217%20736%20214%20739%20214%20741C212%20745%20208%20748%20203%20750C192%20754%20165%20760%20156%20760C153%20760%20148%20761%20146%20761C143%20763%20138%20763%20118%20762C85%20761%2081%20760%2078%20756C75%20752%2075%20752%2068%20757C59%20762%2054%20756%2058%20744C58%20741%2059%20735%2059%20731C59%20723%2060%20721%2066%20721C72%20721%2078%20727%2078%20734C78%20739%2078%20739%2097%20739C122%20739%20148%20737%20156%20736C199%20728%20208%20723%20218%20702C221%20696%20223%20694%20226%20692C231%20689%20232%20685%20232%20677C231%20673%20231%20670%20232%20668C234%20665%20234%20664%20233%20659C230%20651%20231%20650%20234%20646C241%20638%20241%20637%20241%20616C242%20594%20242%20594%20248%20594C252%20594%20253%20595%20255%20600C258%20606%20260%20608%20264%20611C272%20615%20270%20622%20261%20622C256%20622%20256%20622%20256%20626C256%20632%20258%20634%20263%20634C270%20634%20277%20639%20279%20646C281%20655%20268%20665%20260%20660C256%20657%20255%20658%20253%20684C253%20691%20252%20699%20251%20702C250%20705%20250%20713%20249%20720C248%20728%20247%20736%20247%20739C246%20744%20246%20744%20248%20746C250%20748%20263%20750%20267%20749C268%20748%20276%20748%20284%20747C306%20745%20336%20739%20342%20736C345%20733%20345%20729%20342%20669C342%20659%20341%20641%20340%20628C339%20600%20337%20584%20334%20565C329%20540%20328%20532%20327%20520C326%20504%20327%20505%20305%20503C296%20502%20285%20501%20280%20500C274%20500%20269%20499%20268%20499C266%20500%20267%20506%20270%20513C278%20528%20269%20541%20257%20534C255%20533%20252%20532%20250%20532C249%20532%20246%20531%20245%20530C242%20528%20243%20517%20247%20513C250%20511%20248%20509%20244%20510C239%20511%20237%20508%20237%20504C237%20501%20238%20500%20242%20500C248%20500%20251%20497%20249%20493C248%20491%20247%20491%20241%20491L234%20492%20L233%20483C233%20476%20233%20475%20235%20474C239%20472%20239%20469%20236%20464C234%20460%20233%20457%20235%20454C236%20453%20236%20450%20234%20445C233%20440%20233%20435%20233%20425C233%20406%20236%20407%20204%20407C189%20406%20175%20406%20172%20405C160%20403%20106%20404%20101%20406C96%20408%2081%20408%2070%20406C62%20405%2044%20406%2041%20408C40%20409%2040%20414%2040%20427C39%20451%2037%20469%2035%20475C31%20483%2033%20484%2045%20485C55%20486%2059%20484%2056%20479C52%20473%2055%20467%2060%20468C63%20469%2065%20472%2066%20479C66%20483%2067%20485%2075%20491C78%20494%2078%20500%2075%20506C68%20517%2070%20516%2040%20516C12%20516%2010%20516%207%20509C5%20503%207%20483%2012%20468C13%20464%2014%20456%2015%20451C16%20446%2016%20441%2016%20441C17%20441%2018%20432%2019%20422C21%20413%2022%20402%2023%20399C24%20396%2024%20394%2024%20393C24%20391%2037%20379%2041%20377C48%20374%2070%20374%2077%20376C81%20378%2082%20378%2085%20377C91%20375%20100%20375%20104%20377C107%20379%20109%20379%20135%20380C150%20380%20168%20380%20175%20381C182%20381%20194%20382%20203%20383C212%20383%20220%20384%20222%20384C232%20385%20233%20384%20233%20362C235%20313%20237%20303%20246%20296C254%20290%20257%20290%20285%20289C299%20289%20311%20289%20312%20289C314%20289%20315%20282%20315%20264C317%20227%20318%20212%20324%20184C327%20166%20339%20130%20350%20102C360%2075%20402%2032%20428%2022C451%2012%20485%206%20505%207C513%207%20520%208%20521%208C521%209%20526%2010%20532%2010C544%2013%20562%2018%20568%2022C594%2039%20610%2055%20618%2071C619%2072%20621%2075%20623%2077C626%2082%20629%2093%20634%20123C635%20130%20636%20131%20638%20134C642%20137%20642%20138%20638%20142C636%20145%20635%20146%20635%20156C635%20168%20634%20178%20631%20187C629%20191%20629%20194%20629%20198C630%20201%20629%20204%20626%20214C624%20221%20621%20233%20619%20240C616%20248%20614%20256%20613%20259C612%20264%20612%20270%20614%20273C617%20279%20614%20287%20608%20291C604%20293%20604%20294%20604%20299C604%20301%20603%20305%20602%20307C598%20313%20598%20314%20601%20320C606%20329%20603%20348%20596%20355C594%20357%20594%20358%20594%20362C595%20365%20595%20369%20595%20370C595%20384%20595%20388%20596%20391C597%20392%20598%20396%20598%20398C598%20401%20599%20403%20601%20405C603%20407%20604%20411%20605%20413C606%20417%20608%20417%20617%20415C621%20415%20631%20414%20639%20413C649%20413%20655%20413%20658%20411C662%20410%20667%20410%20696%20410C730%20411%20734%20410%20754%20408C781%20405%20781%20405%20789%20400C795%20396%20820%20391%20824%20394C825%20395%20835%20416%20835%20418C835%20418%20836%20421%20837%20423C839%20425%20841%20430%20841%20433C842%20437%20844%20441%20845%20443C848%20450%20847%20455%20842%20454C839%20453%20832%20441%20827%20430C825%20425%20824%20423%20822%20422C819%20422%20809%20424%20802%20426C788%20432%20760%20436%20738%20436C733%20436%20711%20436%20689%20436C658%20436%20646%20436%20634%20437C625%20438%20615%20439%20612%20439C606%20438%20606%20438%20606%20442C606%20447%20610%20470%20613%20484C614%20489%20616%20496%20616%20499C618%20507%20619%20508%20624%20506C631%20503%20633%20504%20638%20507C641%20510%20644%20511%20650%20513C654%20513%20661%20515%20666%20517C671%20518%20677%20519%20680%20519C682%20519%20685%20520%20687%20520C690%20522%20702%20524%20726%20527C738%20529%20750%20527%20764%20523C770%20522%20776%20520%20778%20520C779%20520%20787%20518%20796%20516C805%20514%20816%20512%20820%20512C836%20510%20840%20508%20847%20498C849%20495%20853%20494%20855%20496C858%20499%20856%20514%20853%20519C851%20521%20850%20523%20849%20525C849%20526%20849%20528%20848%20530C847%20537%20842%20540%20835%20537C830%20535%20822%20536%20808%20539C804%20540%20797%20541%20794%20542C792%20542%20788%20543%20787%20544C786%20544%20782%20545%20779%20545C773%20546%20763%20549%20758%20551C752%20553%20733%20553%20716%20550C708%20548%20694%20546%20685%20545C675%20544%20667%20542%20662%20540C658%20538%20652%20537%20648%20537C644%20536%20639%20535%20636%20533C628%20530%20625%20530%20624%20535C624%20539%20626%20540%20634%20543C648%20548%20647%20556%20632%20555C625%20554%20625%20556%20629%20563C632%20568%20632%20569%20630%20576C628%20580%20630%20585%20635%20590C639%20594%20639%20596%20634%20600C631%20601%20630%20603%20630%20604C630%20609%20632%20623%20634%20630C635%20634%20636%20639%20636%20641C636%20648%20636%20648%20665%20648C680%20648%20692%20648%20693%20649C695%20650%20697%20650%20700%20648C703%20647%20706%20646%20708%20646C709%20646%20712%20646%20714%20645C717%20644%20726%20643%20738%20641C744%20640%20750%20638%20749%20636C749%20635%20723%20635%20713%20637C708%20637%20700%20638%20690%20637C681%20637%20672%20636%20669%20637C661%20638%20656%20634%20657%20626C658%20624%20658%20624%20672%20623C681%20623%20691%20623%20696%20622C706%20621%20731%20621%20736%20622C739%20623%20751%20623%20764%20624C804%20625%20819%20627%20826%20633C829%20636%20829%20636%20835%20635C844%20635%20847%20635%20849%20639C853%20647%20846%20653%20836%20650C831%20648%20830%20648%20826%20650C820%20652%20820%20653%20824%20658C833%20671%20828%20681%20814%20676C809%20674%20806%20674%20804%20678C804%20680%20802%20682%20800%20683C799%20683%20797%20685%20797%20687C796%20689%20795%20690%20787%20690C780%20690%20778%20691%20776%20692C775%20693%20771%20695%20768%20696C765%20697%20761%20699%20760%20700C757%20702%20753%20704%20749%20704C747%20704%20742%20706%20737%20708C732%20710%20724%20713%20719%20715C710%20718%20691%20728%20689%20730C686%20735%20675%20738%20662%20738C653%20739%20648%20739%20643%20741C639%20742%20632%20744%20626%20744C620%20745%20613%20746%20610%20746C607%20747%20601%20747%20597%20747C593%20747%20585%20748%20580%20748C575%20749%20568%20750%20564%20751C550%20753%20547%20754%20533%20761C518%20768%20516%20768%20512%20761C511%20758%20509%20754%20506%20752C500%20745%20498%20731%20502%20724C504%20722%20504%20720%20503%20714C499%20684%20497%20667%20494%20630C493%20606%20492%20598%20487%20576C485%20570%20484%20563%20484%20561C482%20554%20476%20528%20475%20524C473%20520%20470%20520%20430%20515C425%20514%20418%20513%20414%20513C388%20510%20344%20507%20343%20508C342%20509%20345%20538%20351%20572C354%20593%20356%20606%20358%20646C359%20655%20360%20675%20361%20688C363%20724%20363%20751%20361%20756C358%20762%20356%20763%20330%20768C307%20773%20273%20776%20254%20774ZM536%20733C543%20730%20546%20729%20560%20727C587%20723%20599%20720%20599%20717C599%20713%20593%20705%20589%20703C578%20695%20577%20668%20587%20663C590%20661%20609%20655%20614%20654C618%20653%20619%20651%20618%20646C618%20643%20616%20637%20616%20632C615%20628%20613%20620%20612%20616C612%20612%20610%20605%20610%20600C609%20594%20609%20590%20607%20587C605%20585%20605%20583%20605%20580C606%20577%20605%20572%20605%20568C604%20565%20603%20560%20603%20558C602%20551%20600%20548%20597%20547C593%20545%20581%20543%20574%20543C569%20543%20567%20543%20565%20541C560%20537%20550%20535%20526%20531C522%20530%20514%20528%20510%20527C497%20524%20494%20524%20494%20528C494%20531%20498%20550%20501%20559C503%20565%20504%20570%20508%20593C509%20599%20511%20606%20511%20610C513%20618%20515%20637%20516%20664C516%20674%20517%20685%20518%20688C519%20695%20521%20712%20521%20718C521%20724%20525%20737%20528%20737C528%20737%20532%20735%20536%20733ZM619%20717C623%20717%20629%20715%20631%20714C633%20714%20638%20713%20641%20712C650%20710%20652%20708%20649%20704C648%20703%20645%20698%20643%20694C637%20685%20632%20679%20629%20679C626%20679%20605%20683%20603%20684C599%20685%20599%20693%20603%20699C606%20703%20607%20708%20604%20712C602%20716%20603%20717%20606%20718C611%20719%20610%20719%20619%20717ZM77%20714C73%20709%2072%20705%2075%20698C75%20695%2076%20689%2077%20684C77%20674%2079%20666%2084%20649C87%20640%2088%20638%2093%20635C95%20634%2097%20633%2097%20632C97%20631%2089%20631%2085%20632C70%20637%2067%20636%2065%20628C65%20626%2065%20623%2066%20622C67%20620%2090%20617%2096%20619C101%20620%20109%20619%20140%20615C154%20613%20183%20614%20184%20616C184%20619%20183%20620%20175%20621C160%20623%20155%20626%20166%20627C172%20628%20176%20630%20176%20634C176%20635%20177%20637%20178%20639C183%20646%20179%20648%20161%20648C147%20648%20137%20649%20120%20652C103%20655%20102%20656%2099%20673C98%20680%2096%20688%2095%20690C93%20695%2091%20702%2091%20707C91%20717%2083%20721%2077%20714ZM692%20699C700%20695%20708%20691%20710%20690C713%20689%20718%20687%20721%20685C731%20681%20748%20674%20759%20671C764%20670%20770%20668%20774%20667C777%20666%20784%20665%20788%20664C802%20663%20807%20660%20797%20659C780%20657%20763%20659%20742%20666C728%20671%20696%20675%20671%20675C650%20675%20650%20675%20663%20692C671%20702%20675%20706%20676%20706C676%20706%20684%20703%20692%20699ZM578%20518C582%20516%20587%20515%20588%20515C592%20514%20594%20511%20594%20509C592%20506%20586%20473%20585%20464C583%20444%20582%20444%20570%20446C560%20449%20557%20447%20557%20439C557%20434%20560%20431%20567%20428C577%20425%20578%20423%20575%20418C574%20415%20573%20413%20573%20411C573%20410%20572%20406%20570%20403C565%20392%20564%20377%20567%20372C571%20368%20571%20366%20568%20362C565%20358%20566%20355%20569%20351C572%20347%20572%20348%20571%20337C567%20316%20563%20314%20556%20328C551%20337%20547%20341%20543%20341C539%20341%20538%20339%20538%20327C538%20315%20540%20317%20517%20315C501%20314%20501%20314%20497%20316C491%20320%20487%20320%20484%20317C481%20315%20481%20315%20476%20320C470%20328%20464%20326%20464%20317L464%20312%20L457%20311C449%20311%20449%20311%20448%20316C446%20322%20436%20321%20424%20313C420%20311%20419%20311%20408%20310C387%20308%20387%20308%20385%20313C382%20322%20371%20320%20364%20308C362%20305%20361%20304%20358%20303C355%20302%20352%20301%20351%20301C344%20299%20338%20301%20338%20305C338%20316%20320%20319%20312%20309C309%20307%20308%20306%20302%20305C295%20305%20268%20308%20266%20309C265%20310%20264%20318%20263%20337C263%20351%20261%20367%20260%20373C258%20386%20258%20386%20265%20388C277%20393%20275%20407%20263%20407C259%20407%20259%20408%20260%20426C261%20435%20261%20448%20262%20456C262%20467%20262%20469%20265%20471C266%20473%20267%20475%20266%20476C263%20483%20266%20485%20274%20485C278%20484%20284%20485%20289%20485C308%20487%20322%20488%20345%20489C358%20490%20374%20490%20378%20491C383%20491%20393%20492%20400%20493C414%20494%20439%20498%20451%20500C464%20502%20467%20501%20467%20495C467%20484%20480%20488%20485%20500C487%20505%20490%20506%20503%20507C507%20508%20515%20509%20522%20511C530%20513%20540%20515%20546%20516C551%20516%20558%20518%20561%20519C569%20520%20570%20520%20578%20518ZM581%20302C583%20300%20584%20293%20581%20291C580%20289%20578%20289%20573%20289C566%20290%20566%20290%20566%20295C566%20300%20567%20302%20573%20303C579%20304%20579%20304%20581%20302ZM544%20299C548%20297%20551%20288%20549%20284C546%20280%20519%20269%20517%20272C517%20272%20515%20277%20513%20283C510%20297%20510%20297%20524%20298C529%20299%20533%20299%20534%20299C536%20300%20542%20300%20544%20299ZM487%20294C489%20293%20491%20291%20492%20289C495%20284%20499%20266%20498%20264C497%20260%20478%20257%20474%20260C470%20263%20468%20284%20471%20289C474%20294%20481%20296%20487%20294ZM453%20293C455%20292%20455%20262%20453%20260C453%20259%20449%20259%20444%20260L436%20260%20L435%20276C434%20290%20434%20292%20436%20293C438%20294%20450%20294%20453%20293ZM414%20290C415%20290%20416%20289%20416%20289C418%20279%20419%20264%20418%20263C416%20261%20393%20261%20392%20263C391%20265%20385%20286%20385%20287C385%20290%20390%20292%20404%20292C411%20292%20413%20292%20414%20290ZM364%20280C368%20279%20374%20262%20376%20246C377%20242%20378%20238%20378%20236C383%20227%20399%20227%20404%20236C407%20240%20409%20241%20418%20240C449%20236%20491%20235%20497%20238C501%20240%20504%20239%20506%20235C508%20233%20509%20232%20512%20232C518%20232%20519%20234%20523%20244C524%20248%20523%20247%20536%20254C544%20257%20548%20258%20555%20259C560%20260%20564%20261%20565%20261C566%20262%20570%20263%20574%20263C586%20264%20587%20263%20591%20248C592%20243%20594%20236%20596%20232C597%20228%20599%20222%20600%20218C600%20214%20603%20207%20604%20200C614%20170%20619%20122%20615%20116C613%20113%20612%20114%20610%20122C609%20129%20608%20131%20602%20141C597%20147%20573%20165%20568%20165C564%20165%20560%20163%20557%20160C556%20159%20553%20156%20550%20154C543%20148%20542%20145%20544%20142C545%20139%20545%20139%20544%20137C541%20134%20541%20133%20543%20130C545%20129%20547%20125%20548%20121C559%2094%20589%2083%20607%2099C613%20106%20614%20104%20609%2090C598%2058%20569%2034%20539%2032C535%2031%20529%2030%20526%2029C515%2025%20480%2027%20460%2034C433%2043%20428%2046%20401%2073C377%2097%20370%20108%20365%20130C363%20135%20360%20146%20358%20154C356%20162%20354%20170%20354%20172C354%20173%20353%20180%20352%20186C351%20192%20349%20202%20348%20207C348%20212%20347%20218%20346%20220C345%20223%20344%20232%20344%20242C343%20251%20343%20262%20342%20267C342%20277%20343%20279%20351%20279C354%20279%20358%20280%20359%20280C362%20281%20363%20281%20364%20280ZM392%20167C390%20165%20389%20162%20389%20159C388%20154%20386%20151%20380%20144C376%20140%20377%20132%20382%20127C385%20123%20385%20123%20384%20120C381%20114%20393%2095%20403%2089C405%2088%20410%2085%20413%2082C423%2074%20429%2072%20435%2076C437%2078%20440%2079%20442%2080C453%2085%20456%2098%20447%20111C438%20123%20418%20144%20407%20151C404%20154%20402%20156%20401%20163C399%20171%20396%20172%20392%20167Z%22%20fill%3D%22%23e8e5de%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E">
@@ -561,8 +579,10 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
     <div id="sInfo" class="lcd"></div>
     <canvas id="wave"></canvas>
     <div class="smprow">
-      <button id="sEq" class="cap dark sm">4 IGUALES</button>
-      <button id="sTr" class="cap dark sm">TRANSIENTES</button>
+      <div id="sModeSeg"><button data-m="chop" class="cap dark sm">CHOP</button><button data-m="pads" class="cap dark sm">PADS</button></div>
+      <button id="sEq" class="cap dark sm">IGUALES</button>
+      <button id="sTr" class="cap dark sm" aria-label="Cortar por transientes">AUTO</button>
+      <button id="sCopy" class="cap dark sm">⧉ COPIAR</button>
     </div>
     <div id="sPads"></div>
     <div id="sPar"></div>
@@ -1041,29 +1061,34 @@ function mfxOff(type){
 }
 
 /* ---------------- SAMPLER: motor ---------------- */
-const SMPL={buf:null,rbuf:null,name:'',sel:0,voice:[null,null,null,null],
-  chops:[0,1,2,3].map(i=>({s:i/4,e:(i+1)/4,pitch:0,filt:.5,crush:0,gain:1,rev:false,mode:'one'}))};
+/* dos modos: CHOP = un sample cortado en 4 · PADS = cada uno de los 4 botones tiene su propio sample (con su recorte ps..pe) */
+const SMPL={buf:null,rbuf:null,name:'',sel:0,mode:'chop',pads:[null,null,null,null],voice:[null,null,null,null],
+  chops:[0,1,2,3].map(i=>({s:i/4,e:(i+1)/4,ps:0,pe:1,pitch:0,filt:.5,crush:0,gain:1,rev:false,mode:'one'}))};
+const smpSrc=i=>SMPL.mode==='pads'?SMPL.pads[i]:(SMPL.buf?{buf:SMPL.buf,rbuf:SMPL.rbuf,name:SMPL.name}:null);
+const smpHas=()=>SMPL.mode==='pads'?SMPL.pads.some(Boolean):!!SMPL.buf;
+const smpReg=(C)=>SMPL.mode==='pads'?[C.ps??0,C.pe??1]:[C.s,C.e];
 const CRCACHE={};
 function crushCurve(bits){if(CRCACHE[bits])return CRCACHE[bits];const n=2048,c=new Float32Array(n),L=Math.pow(2,bits)/2;for(let i=0;i<n;i++){const x=i*2/(n-1)-1;c[i]=Math.round(x*L)/L;}return CRCACHE[bits]=c;}
 function smpEqual(){SMPL.chops.forEach((C,i)=>{C.s=i/4;C.e=(i+1)/4;});}
-function smpSet(data,rate,name){
-  if(!data||data.length<64)return false;
+function smpSet(data,rate,name,slot){
+  if(!data||data.length<64)return false;if(slot===undefined)slot=SMPL.mode==='pads'?SMPL.sel:-1;
   const mkB=(n,r)=>ctx?ctx.createBuffer(1,n,r):new AudioBuffer({length:n,sampleRate:r,numberOfChannels:1});
   const maxN=Math.floor(rate*12);if(data.length>maxN)data=data.subarray(0,maxN);
   let pk=0;for(let i=0;i<data.length;i++){const a=Math.abs(data[i]);if(a>pk)pk=a;}
   const g=pk>.0005?.95/pk:1,b=mkB(data.length,rate),d=b.getChannelData(0),rb=mkB(data.length,rate),rd=rb.getChannelData(0),N=data.length;
   for(let i=0;i<N;i++){const v=data[i]*g;d[i]=v;rd[N-1-i]=v;}
-  SMPL.buf=b;SMPL.rbuf=rb;SMPL.name=name||'SAMPLE';smpEqual();SMPL.sel=0;
+  if(slot>=0){SMPL.pads[slot]={buf:b,rbuf:rb,name:name||'SAMPLE'};const C=SMPL.chops[slot];C.ps=0;C.pe=1;}
+  else{SMPL.buf=b;SMPL.rbuf=rb;SMPL.name=name||'SAMPLE';smpEqual();if(SMPL.mode==='chop')SMPL.sel=0;}
   if(!SMPL._rs&&typeof smpStore==='function')smpStore();   // queda guardado en el teléfono
   return true;
 }
 function chopPlay(i,t,vel,dur){
-  if(!ctx||!SMPL.buf)return null;const C=SMPL.chops[i],N=SMPL.buf.duration;if(!C)return null;
+  const P=smpSrc(i);if(!ctx||!P)return null;const C=SMPL.chops[i],N=P.buf.duration;if(!C)return null;
   if(SMPL.voice[i]){try{SMPL.voice[i].stop(t);}catch(e){}}
-  let s=C.s*N,e=C.e*N;if(C.rev){const ss=N-e;e=N-s;s=ss;}
+  const R=smpReg(C);let s=R[0]*N,e=R[1]*N;if(C.rev){const ss=N-e;e=N-s;s=ss;}
   if(e-s<.005)return null;
   const rate=Math.pow(2,C.pitch/12),src=ctx.createBufferSource(),g=G(0),f=ctx.createBiquadFilter();
-  src.buffer=C.rev?SMPL.rbuf:SMPL.buf;src.playbackRate.value=rate;
+  src.buffer=C.rev?P.rbuf:P.buf;src.playbackRate.value=rate;
   if(C.filt<.47){f.type='lowpass';f.frequency.value=200*Math.pow(90,C.filt/.47);}
   else if(C.filt>.53){f.type='highpass';f.frequency.value=20*Math.pow(300,(C.filt-.53)/.47);}
   else{f.type='lowpass';f.frequency.value=22000;}
@@ -1086,7 +1111,7 @@ let CAP=null,micStream=null;
 function capStart(srcNode,label,stream){
   if(CAP||!ctx)return;
   const node=ctx.createScriptProcessor(4096,2,1),z=G(0);
-  CAP={node,srcNode,z,label,chunks:[],n:0,max:Math.floor(ctx.sampleRate*12),stream:stream||null,t0:ctx.currentTime};
+  CAP={slot:SMPL.mode==='pads'?SMPL.sel:-1,node,srcNode,z,label,chunks:[],n:0,max:Math.floor(ctx.sampleRate*12),stream:stream||null,t0:ctx.currentTime};
   node.onaudioprocess=e=>{if(!CAP)return;const a=e.inputBuffer.getChannelData(0),b=e.inputBuffer.numberOfChannels>1?e.inputBuffer.getChannelData(1):null,m=new Float32Array(a.length);
     for(let i=0;i<a.length;i++)m[i]=b?(a[i]+b[i])*.5:a[i];CAP.chunks.push(m);CAP.n+=m.length;if(CAP.n>=CAP.max)setTimeout(capStop,0);};
   srcNode.connect(node);node.connect(z);z.connect(ctx.destination);smpUi();
@@ -1096,7 +1121,7 @@ function capStop(){
   try{C.srcNode.disconnect(C.node);}catch(e){}try{C.node.disconnect();C.z.disconnect();}catch(e){}C.node.onaudioprocess=null;
   if(C.stream)C.stream.getTracks().forEach(t=>t.stop());
   const out=new Float32Array(C.n);let o=0;C.chunks.forEach(c=>{out.set(c,o);o+=c.length;});
-  if(smpSet(out,ctx.sampleRate,C.label))toast(C.label+' LISTO · '+(C.n/ctx.sampleRate).toFixed(1)+' s');else toast('NO SE CAPTURÓ AUDIO');
+  if(smpSet(out,ctx.sampleRate,C.label,C.slot))toast(C.label+(C.slot>=0?' EN PAD '+(C.slot+1):'')+' LISTO · '+(C.n/ctx.sampleRate).toFixed(1)+' s');else toast('NO SE CAPTURÓ AUDIO');
   smpUi();queueSave();
 }
 async function micToggle(){
@@ -1122,7 +1147,20 @@ function smpDemo(){
   [0,.5,.75,1,1.25,1.75].forEach(t=>add(t,(t_)=>Math.sin(2*Math.PI*(42*t_+118*(1-Math.exp(-t_*22))/22*1))*Math.exp(-t_*9)*.9,.4));
   [.25,.75,1.25,1.75].forEach(t=>add(t,(t_)=>((Math.random()*2-1)*.6+Math.sin(2*Math.PI*190*t_)*.4)*Math.exp(-t_*16)*.8,.22));
   for(let k=0;k<8;k++)add(k*.25+.125,(t_)=>(Math.random()*2-1)*Math.exp(-t_*60)*.35,.06);
-  if(smpSet(d,sr,'DEMO BREAK')){toast('DEMO: 4 CHOPS · TOCÁ LOS PADS');smpUi();}
+  if(smpSet(d,sr,'DEMO BREAK')){toast(SMPL.mode==='pads'?'DEMO EN PAD '+(SMPL.sel+1):'DEMO: 4 CHOPS · TOCÁ LOS PADS');smpUi();}
+}
+function smpMode(m){
+  if(m===SMPL.mode)return;SMPL.voice.forEach(v=>{try{v&&v.stop();}catch(e){}});let conv=false;
+  if(m==='pads'&&SMPL.buf&&!SMPL.pads.some(Boolean)){const d=SMPL.buf.getChannelData(0),N=d.length,sr=SMPL.buf.sampleRate;
+    SMPL._rs=true;try{SMPL.chops.forEach((C,i)=>{const a=Math.floor(C.s*N),b=Math.floor(C.e*N);if(b-a>64)smpSet(d.slice(a,b),sr,(SMPL.name||'SAMPLE').slice(0,12)+' '+(i+1),i);});}finally{SMPL._rs=false;}conv=true;}
+  SMPL.mode=m;if(typeof smpStore==='function')smpStore();queueSave();return conv;
+}
+/* copiar un pad en otro: en PADS copia el sample + recorte + ajustes; en CHOP copia la región y los ajustes */
+function smpCopy(a,b){
+  if(a===b||a<0||b<0||a>3||b>3)return false;const A=SMPL.chops[a],B=SMPL.chops[b];
+  if(SMPL.mode==='pads'){if(!SMPL.pads[a])return false;SMPL.pads[b]=Object.assign({},SMPL.pads[a]);}
+  try{SMPL.voice[b]&&SMPL.voice[b].stop();}catch(e){}
+  Object.assign(B,JSON.parse(JSON.stringify(A)));if(typeof smpStore==='function')smpStore();queueSave();return true;
 }
 function smpTransients(){
   if(!SMPL.buf)return;const d=SMPL.buf.getChannelData(0),sr=SMPL.buf.sampleRate,w=Math.floor(sr*.01),nb=Math.floor(d.length/w),env=new Float32Array(nb);
@@ -1141,10 +1179,10 @@ function smpEncode(B,nm){
   const by=new Uint8Array(out.buffer);let s='';for(let i=0;i<by.length;i+=8192)s+=String.fromCharCode.apply(null,by.subarray(i,i+8192));
   return{rate:tr,len:n,name:nm,b64:btoa(s)};
 }
-function smpDecode(o){
+function smpDecode(o,slot){
   if(!o||!o.b64)return false;const s=atob(o.b64),by=new Uint8Array(s.length);for(let i=0;i<s.length;i++)by[i]=s.charCodeAt(i);
   const i16=new Int16Array(by.buffer,0,Math.floor(by.length/2)),f=new Float32Array(i16.length);for(let i=0;i<f.length;i++)f[i]=i16[i]/32767;
-  const keep=JSON.parse(JSON.stringify(SMPL.chops));const ok=smpSet(f,o.rate||22050,o.name);SMPL.chops.forEach((C,i)=>Object.assign(C,keep[i]));return ok;
+  const keep=JSON.parse(JSON.stringify(SMPL.chops));const ok=smpSet(f,o.rate||22050,o.name,slot===undefined?-1:slot);SMPL.chops.forEach((C,i)=>Object.assign(C,keep[i]));return ok;
 }
 
 /* ---------------- secuenciador ---------------- */
@@ -1209,8 +1247,8 @@ function recGate(st,heldSec){if(st<0)return;const n=heldSec/sd();chdGate[st]=GAT
 const KEY='musica_gb_mobile_v1';let saveT=null;
 function snapshot(withSample){
   const o={v:8,name:S.name,saved:Date.now(),bpm:S.bpm,key:S.key,scale:S.scale,pat,seqN,chdSeq,chdGate,smpSeq,pre:S.pre,par:S.par,chdPar:S.chdPar,chdPre:S.chdPre,ko:S.ko,master:S.master,
-    ch:CH.map(c=>[c.vol,c.dly,c.rev,c.mod,c.pan,c.dst]),fx:FXP,smp:{chops:SMPL.chops},kit:S.kit,part:S.part,song:S.song,rep:S.rep,parts:PARTS,len:LEN,rm:RM,rs:RS,xy:S.xy,dk:S.dk};
-  if(withSample){const e=smpEncode();if(e)o.smp.pcm=e;}
+    ch:CH.map(c=>[c.vol,c.dly,c.rev,c.mod,c.pan,c.dst]),fx:FXP,smp:{chops:SMPL.chops,mode:SMPL.mode},kit:S.kit,part:S.part,song:S.song,rep:S.rep,parts:PARTS,len:LEN,rm:RM,rs:RS,xy:S.xy,dk:S.dk};
+  if(withSample){const e=smpEncode();if(e)o.smp.pcm=e;if(SMPL.pads.some(Boolean))o.smp.pads=SMPL.pads.map(p=>p?smpEncode(p.buf,p.name):null);}
   return o;
 }
 function applySnapshot(j){
@@ -1231,7 +1269,8 @@ function applySnapshot(j){
   S.dk=DR.map((_,i)=>Object.assign({},DKD,(Array.isArray(j.dk)&&j.dk[i])||{}));
   for(let i=0;i<NR;i++){LEN[i]=(j.len&&j.len[i])||16;RM[i]=!!(j.rm&&j.rm[i]);RS[i]=!!(j.rs&&j.rs[i]);}
   if(j.fx){const b=FXD();['dly','rev','mod','mst','dst'].forEach(k=>Object.assign(FXP[k],b[k],j.fx[k]||{}));}
-  if(j.smp&&j.smp.chops)j.smp.chops.forEach((C,i)=>{if(SMPL.chops[i])Object.assign(SMPL.chops[i],C);});
+  if(j.smp&&j.smp.chops)j.smp.chops.forEach((C,i)=>{if(SMPL.chops[i])Object.assign(SMPL.chops[i],{ps:0,pe:1},C);});
+  SMPL.mode=j.smp&&j.smp.mode==='pads'?'pads':'chop';
 }
 function queueSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(snapshot(false)));}catch(e){}},500);}
 const DEF=JSON.parse(JSON.stringify(snapshot(false)));   // estado de fábrica (para NUEVA SESIÓN)
@@ -1356,7 +1395,7 @@ function refreshSeq(){
   $$('#grid .row').forEach((row,r)=>row.classList.toggle('sel',S.sel.r===r));try{ringUi();}catch(e){}
   $$('#pageSeg button').forEach(b=>{b.classList.toggle('on',+b.dataset.p===S.page);b.classList.toggle('ph',S.cur>=0&&Math.floor(S.cur/8)===+b.dataset.p&&+b.dataset.p!==S.page);});
   const R=ROWS[S.sel.r],st=S.sel.s;let info='PASO '+String(st+1).padStart(2,'0')+' · '+R.n;
-  if(R.t==='syn')info+=' · '+noteName(scaleNote(seqN[R.k][st],BASEOCT[R.k]));else if(R.t==='chd')info+=' · '+chordName(chdSeq[st],false).name+' · G'+chdGate[st];else if(R.t==='smp'&&smpSeq[st])info+=' · CHOP '+smpSeq[st];
+  if(R.t==='syn')info+=' · '+noteName(scaleNote(seqN[R.k][st],BASEOCT[R.k]));else if(R.t==='chd')info+=' · '+chordName(chdSeq[st],false).name+' · G'+chdGate[st];else if(R.t==='smp'&&smpSeq[st])info+=(SMPL.mode==='pads'?' · PAD ':' · CHOP ')+smpSeq[st];
   $('#stepInfo').textContent=(S.ring&&!$('#rNote').classList.contains('on'))?'':info+(pat[S.sel.r][st]?' [ON]':'');
 }
 function kitPrev(quiet){ensureKit();queueSave();renderPalette();if(S.tab==='keys')renderKeys();if(ctx){drumPlay(0,ctx.currentTime+.01,1);drumPlay(1,ctx.currentTime+.32,1);drumPlay(2,ctx.currentTime+.32,1);}if(!quiet)toast('KIT '+KITS[S.kit].n);}
@@ -1409,7 +1448,7 @@ function renderPalette(){
       b.onclick=()=>{initAudio();seqN[R.k][st]=d;pat[S.sel.r][st]=1;preview(S.sel.r,st);dirty=true;queueSave();renderPalette();};}
     else if(R.t==='chd'){const c=chordName(i,S.seventh);b.innerHTML=c.roman+'<small>'+c.name+'</small>';
       b.onclick=()=>{initAudio();chdSeq[st]=i;pat[S.sel.r][st]=1;if(ctx)chordPlay(i,S.seventh,ctx.currentTime+.005,bus[3].inp,.5);dirty=true;queueSave();renderPalette();};}
-    else{b.classList.toggle('pk',smpSeq[st]===i+1&&!!pat[S.sel.r][st]);b.innerHTML='CHOP '+(i+1)+'<small>'+(SMPL.buf?'':'sin sample')+'</small>';
+    else{b.classList.toggle('pk',smpSeq[st]===i+1&&!!pat[S.sel.r][st]);b.innerHTML=(SMPL.mode==='pads'?'PAD ':'CHOP ')+(i+1)+'<small>'+(smpSrc(i)?(SMPL.mode==='pads'?(smpSrc(i).name||'').slice(0,8):''):'sin sample')+'</small>';
       b.onclick=()=>{initAudio();smpSeq[st]=i+1;pat[S.sel.r][st]=1;SMPL.sel=i;preview(S.sel.r,st);dirty=true;queueSave();renderPalette();};}
     row.appendChild(b);
   }
@@ -1742,26 +1781,31 @@ function drawWave(){
   const cv=wave,r=cv.getBoundingClientRect(),dpr=window.devicePixelRatio||1,W=Math.max(10,Math.floor(r.width*dpr)),H=Math.max(10,Math.floor(r.height*dpr));
   if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H;}
   const c=cv.getContext('2d');c.clearRect(0,0,W,H);
-  if(!SMPL.buf){c.fillStyle='#7b828c';c.font=(12*dpr)+'px '+getComputedStyle(document.body).getPropertyValue('--mono');c.textAlign='center';c.fillText('SIN SAMPLE · grabá, elegí un audio o probá DEMO',W/2,H/2);return;}
-  const d=SMPL.buf.getChannelData(0),N=d.length,mid=H/2;
-  SMPL.chops.forEach((C,i)=>{c.fillStyle=i===SMPL.sel?'rgba(255,210,122,.16)':'rgba(255,255,255,.025)';c.fillRect(C.s*W,0,(C.e-C.s)*W,H);});
+  const PM=SMPL.mode==='pads',P=PM?SMPL.pads[SMPL.sel]:(SMPL.buf?{buf:SMPL.buf}:null);
+  if(!P){c.fillStyle='#7b828c';c.font=(12*dpr)+'px '+getComputedStyle(document.body).getPropertyValue('--mono');c.textAlign='center';c.fillText(PM?'PAD '+(SMPL.sel+1)+' VACÍO · grabá, elegí un audio, DEMO o ⧉ COPIAR':'SIN SAMPLE · grabá, elegí un audio o probá DEMO',W/2,H/2);return;}
+  const d=P.buf.getChannelData(0),N=d.length,mid=H/2;
+  if(PM){const C=SMPL.chops[SMPL.sel],a=C.ps??0,b=C.pe??1;c.fillStyle='rgba(0,0,0,.45)';c.fillRect(0,0,a*W,H);c.fillRect(b*W,0,(1-b)*W,H);c.fillStyle='rgba(255,210,122,.12)';c.fillRect(a*W,0,(b-a)*W,H);}
+  else SMPL.chops.forEach((C,i)=>{c.fillStyle=i===SMPL.sel?'rgba(255,210,122,.16)':'rgba(255,255,255,.025)';c.fillRect(C.s*W,0,(C.e-C.s)*W,H);});
   c.strokeStyle=CH[5].c;c.lineWidth=1;c.beginPath();
   for(let x=0;x<W;x++){const i0=Math.floor(x/W*N),i1=Math.max(i0+1,Math.floor((x+1)/W*N)),st=Math.max(1,Math.floor((i1-i0)/48));let mn=1,mx=-1;for(let i=i0;i<i1;i+=st){const v=d[i];if(v<mn)mn=v;if(v>mx)mx=v;}c.moveTo(x+.5,mid-mx*mid*.92);c.lineTo(x+.5,mid-mn*mid*.92);}
   c.stroke();
+  if(PM){const C=SMPL.chops[SMPL.sel];c.fillStyle='#ffd27a';c.fillRect(Math.round((C.ps??0)*W),0,3*dpr,H);c.fillRect(Math.round((C.pe??1)*W)-3*dpr,0,3*dpr,H);
+    c.font='700 '+(13*dpr)+'px sans-serif';c.textAlign='left';c.fillText('PAD '+(SMPL.sel+1),(C.ps??0)*W+6*dpr,15*dpr);return;}
   SMPL.chops.forEach((C,i)=>{const sel=i===SMPL.sel;c.fillStyle=sel?'#ffd27a':'#c9ffee';c.globalAlpha=sel?1:.55;c.fillRect(Math.round(C.s*W),0,sel?3*dpr:1.5*dpr,H);c.fillRect(Math.round(C.e*W)-(sel?3*dpr:1.5*dpr),0,sel?3*dpr:1.5*dpr,H);
     c.globalAlpha=1;c.font='700 '+(13*dpr)+'px sans-serif';c.textAlign='left';c.fillText(String(i+1),C.s*W+5*dpr,15*dpr);});
 }
 (function waveTouch(){
   let drag=null;
   const fr=e=>{const r=wave.getBoundingClientRect();return clamp((e.clientX-r.left)/r.width,0,1);};
-  wave.addEventListener('pointerdown',e=>{if(!SMPL.buf)return;e.preventDefault();try{wave.setPointerCapture(e.pointerId);}catch(x){}
+  wave.addEventListener('pointerdown',e=>{if(!smpSrc(SMPL.sel)&&!(SMPL.mode==='chop'&&SMPL.buf))return;e.preventDefault();try{wave.setPointerCapture(e.pointerId);}catch(x){}
     const x=fr(e),r=wave.getBoundingClientRect(),tol=18/r.width;let best=null,bd=1;
+    if(SMPL.mode==='pads'){const C=SMPL.chops[SMPL.sel];drag={i:SMPL.sel,k:Math.abs(x-(C.ps??0))<Math.abs(x-(C.pe??1))?'ps':'pe'};return;}
     SMPL.chops.forEach((C,i)=>{[['s',C.s],['e',C.e]].forEach(h=>{const dd=Math.abs(h[1]-x);if(dd<bd){bd=dd;best={i,k:h[0]};}});});
     if(best&&bd<=tol){drag=best;SMPL.sel=best.i;}
     else{const hit=SMPL.chops.findIndex(C=>x>=C.s&&x<=C.e);if(hit>=0)SMPL.sel=hit;drag=null;}
     smpUi();});
   wave.addEventListener('pointermove',e=>{if(!drag)return;const C=SMPL.chops[drag.i],x=fr(e);
-    if(drag.k==='s')C.s=clamp(x,0,C.e-.01);else C.e=clamp(x,C.s+.01,1);drawWave();});
+    if(drag.k==='s')C.s=clamp(x,0,C.e-.01);else if(drag.k==='e')C.e=clamp(x,C.s+.01,1);else if(drag.k==='ps')C.ps=clamp(x,0,(C.pe??1)-.01);else C.pe=clamp(x,(C.ps??0)+.01,1);drawWave();});
   const end=()=>{if(drag){drag=null;queueSave();smpUi();}};wave.addEventListener('pointerup',end);wave.addEventListener('pointercancel',end);
 })();
 const sPads=$('#sPads');
@@ -1769,8 +1813,8 @@ const sPads=$('#sPads');
   for(let i=0;i<4;i++){
     const el=document.createElement('div');el.className='pad cap'+(i%2?' dark':'');el.style.setProperty('--c',CH[5].c);el.dataset.i=i;
     el.innerHTML='<span class="rn">'+(i+1)+'</span><small></small>';
-    bindPad(el,()=>{SMPL.sel=i;if(!ctx)return;if(!SMPL.buf){toast('PRIMERO GRABÁ O CARGÁ UN SAMPLE');return;}el._v=chopPlay(i,ctx.currentTime+.003,1);recWrite(R_SMP,i+1);smpUi(true);},
-      ()=>{const C=SMPL.chops[i];if(C.mode!=='one'&&SMPL.voice[i])SMPL.voice[i].stop(ctx.currentTime);});
+    bindPad(el,()=>{if(SCP.on){smpCopyTo(i);return;}const ch=SMPL.sel!==i;SMPL.sel=i;if(ch&&SMPL.mode==='pads')smpUi();if(!ctx)return;if(!smpSrc(i)){toast(SMPL.mode==='pads'?'PAD '+(i+1)+' VACÍO · GRABÁ O CARGÁ ACÁ':'PRIMERO GRABÁ O CARGÁ UN SAMPLE');smpUi(true);return;}el._v=chopPlay(i,ctx.currentTime+.003,1);recWrite(R_SMP,i+1);smpUi(true);},
+      ()=>{const C=SMPL.chops[i];if(ctx&&C.mode!=='one'&&SMPL.voice[i])SMPL.voice[i].stop(ctx.currentTime);});
     sPads.appendChild(el);
   }
 })();
@@ -1778,21 +1822,36 @@ function smpUi(light){
   const has=!!SMPL.buf,mic=$('#sMic'),res=$('#sRes');
   mic.classList.toggle('on',!!CAP&&CAP.label==='MIC');mic.classList.toggle('smp-rec',!!CAP&&CAP.label==='MIC');mic.textContent=CAP&&CAP.label==='MIC'?'■ PARAR':'● MIC';
   res.classList.toggle('on',!!CAP&&CAP.label==='RESAMPLE');res.classList.toggle('smp-rec',!!CAP&&CAP.label==='RESAMPLE');res.textContent=CAP&&CAP.label==='RESAMPLE'?'■ PARAR':'● RESAMPLE';
-  [...sPads.children].forEach((el,i)=>{const C=SMPL.chops[i];el.style.outline=(i===SMPL.sel)?'2px solid #ffd27a':'none';el.style.outlineOffset='2px';
-    el.querySelector('small').textContent=has?((C.e-C.s)*SMPL.buf.duration).toFixed(2)+'s · '+(C.mode==='one'?'ONE':C.mode.toUpperCase()):'vacío';});
+  const PM=SMPL.mode==='pads',MD=C=>C.mode==='one'?'ONE':C.mode.toUpperCase();
+  [...sPads.children].forEach((el,i)=>{const C=SMPL.chops[i],P=smpSrc(i),R=smpReg(C);el.style.outline=(i===SMPL.sel)?'2px solid #ffd27a':'none';el.style.outlineOffset='2px';
+    el.classList.toggle('cpdst',SCP.on&&i!==SMPL.sel);el.classList.toggle('cpsrc',SCP.on&&i===SMPL.sel);
+    el.querySelector('.rn').textContent=PM?'P'+(i+1):String(i+1);
+    el.querySelector('small').textContent=P?((R[1]-R[0])*P.buf.duration).toFixed(2)+'s · '+MD(C):'vacío';});
+  $$('#sModeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.m===SMPL.mode));
+  $('#sEq').textContent=PM?'ENTERO':'IGUALES';$('#sTr').style.display=PM?'none':'';
+  $('#sCopy').classList.toggle('on',SCP.on);$('#sCopy').textContent=SCP.on?'ELEGÍ DESTINO ✕':'⧉ COPIAR';
   if(light)return;
-  $('#sInfo').textContent=CAP?'GRABANDO '+CAP.label+'…':has?SMPL.name+' · '+SMPL.buf.duration.toFixed(2)+' s · CHOP '+(SMPL.sel+1)+' (arrastrá los bordes)':'Sin sample. Sin micrófono en el visor: GRABADOR abre la app del cel.';
-  const pn=$('#sPar');pn.innerHTML='';pn.style.display=has?'block':'none';
-  if(has){const C=SMPL.chops[SMPL.sel];
-    mkSeg(pn,'CHOP '+(SMPL.sel+1),[['1-SHOT','one'],['GATE','gate'],['LOOP','loop']],o=>C.mode===o[1],o=>{C.mode=o[1];smpUi(true);queueSave();});
+  const P=smpSrc(SMPL.sel);
+  $('#sInfo').textContent=CAP?'GRABANDO '+CAP.label+(CAP.slot>=0?' EN PAD '+(CAP.slot+1):'')+'…':
+    PM?('PAD '+(SMPL.sel+1)+' · '+(P?P.name+' · '+P.buf.duration.toFixed(2)+' s (arrastrá los bordes para recortar)':'vacío · MIC, ARCHIVO o DEMO graban acá')):
+    has?SMPL.name+' · '+SMPL.buf.duration.toFixed(2)+' s · CHOP '+(SMPL.sel+1)+' (arrastrá los bordes)':'Sin sample. Sin micrófono en el visor: GRABADOR abre la app del cel.';
+  const pn=$('#sPar');pn.innerHTML='';const show=PM?!!P:has;pn.style.display=show?'block':'none';
+  if(show){const C=SMPL.chops[SMPL.sel];
+    mkSeg(pn,(PM?'PAD ':'CHOP ')+(SMPL.sel+1),[['1-SHOT','one'],['GATE','gate'],['LOOP','loop']],o=>C.mode===o[1],o=>{C.mode=o[1];smpUi(true);queueSave();});
     mkSeg(pn,'REVERSA',[['NO',false],['SÍ',true]],o=>C.rev===o[1],o=>{C.rev=o[1];queueSave();});
     mkGrid(pn,C,['pitch','filt','crush','gain'],SMPDEF,()=>queueSave());}
   drawWave();
 }
 $('#sMic').onclick=micToggle;$('#sRes').onclick=resToggle;
 $('#sDemo').onclick=smpDemo;
-$('#sClr').onclick=()=>{if(CAP)capStop();SMPL.buf=null;SMPL.rbuf=null;SMPL.name='';smpUi();toast('SAMPLER VACÍO');};
-$('#sEq').onclick=()=>{if(!SMPL.buf)return;smpEqual();smpUi();queueSave();};
+$('#sClr').onclick=()=>{if(CAP)capStop();if(SMPL.mode==='pads'){SMPL.pads[SMPL.sel]=null;smpStore();smpUi();toast('PAD '+(SMPL.sel+1)+' VACÍO');return;}SMPL.buf=null;SMPL.rbuf=null;SMPL.name='';smpStore();smpUi();toast('SAMPLER VACÍO');};
+$('#sEq').onclick=()=>{if(SMPL.mode==='pads'){const C=SMPL.chops[SMPL.sel];C.ps=0;C.pe=1;smpUi();queueSave();return;}if(!SMPL.buf)return;smpEqual();smpUi();queueSave();};
+/* modo y copia */
+const SCP={on:false};
+$$('#sModeSeg button').forEach(b=>b.onclick=()=>{SCP.on=false;const conv=smpMode(b.dataset.m);smpUi();renderPalette();
+  toast(b.dataset.m==='pads'?(conv?'PADS: LOS 4 CHOPS AHORA SON 4 SAMPLES':'PADS: CADA BOTÓN SU PROPIO SAMPLE'):'CHOP: UN SAMPLE EN 4 PARTES');});
+$('#sCopy').onclick=()=>{if(!SCP.on&&!smpSrc(SMPL.sel)){toast('ESE PAD ESTÁ VACÍO');return;}SCP.on=!SCP.on;smpUi(true);if(SCP.on)toast('TOCÁ EL PAD DONDE LO QUERÉS COPIAR');};
+function smpCopyTo(i){SCP.on=false;if(i===SMPL.sel){smpUi(true);toast('COPIA CANCELADA');return;}const a=SMPL.sel;if(smpCopy(a,i)){SMPL.sel=i;smpUi();renderPalette();toast((SMPL.mode==='pads'?'PAD ':'CHOP ')+(a+1)+' → '+(i+1));}else smpUi(true);}
 $('#sTr').onclick=()=>{if(!SMPL.buf)return;smpTransients();smpUi();queueSave();};
 $('#sRecL').addEventListener('pointerdown',()=>initAudio());$('#sFileL').addEventListener('pointerdown',()=>initAudio());
 $('#sRecF').onchange=e=>{smpFromFile(e.target.files[0],'GRABACIÓN');e.target.value='';};
@@ -1850,7 +1909,7 @@ async function drvSave(){
   const b=$('#shShare');b.disabled=true;shMsg('Guardando en Drive…');
   try{
     let snap=snapshot(true),body=JSON.stringify(snap),note='';
-    if(body.length>900000){delete snap.smp.pcm;body=JSON.stringify(snap);note='\n(el sample era muy pesado y no se incluyó)';}
+    if(body.length>900000){delete snap.smp.pcm;delete snap.smp.pads;body=JSON.stringify(snap);note='\n(los samples eran muy pesados y no se incluyeron)';}
     const d=new Date(),slug=(S.name||'sesion').trim().replace(/[^\w\-]+/g,'_').replace(/^_+|_+$/g,'')||'sesion';
     const title='GB-'+slug+'-'+d.getFullYear()+pad2(d.getMonth()+1)+pad2(d.getDate())+'-'+pad2(d.getHours())+pad2(d.getMinutes())+'.json';
     let folder=null;try{folder=await drvFolder(m);}catch(e){if(e&&e.code&&e.code!=='tool_error')throw e;}
@@ -1888,7 +1947,8 @@ async function drvLoad(id,title){
 }
 function loadSession(j){
   initAudio();applySnapshot(j);
-  if(j.smp&&j.smp.pcm&&ctx)smpDecode(j.smp.pcm);
+  if(j.smp&&j.smp.pcm)smpDecode(j.smp.pcm);
+  if(j.smp&&Array.isArray(j.smp.pads)){SMPL._rs=true;try{j.smp.pads.forEach((p,i)=>{if(p)smpDecode(p,i);else SMPL.pads[i]=null;});}finally{SMPL._rs=false;}smpStore();}
   $('#selKey').value=S.key;$('#selScale').value=S.scale;
   renderKeys();renderPalette();paints.forEach(p=>p());applyAll();applyFx();sync();dirty=true;smpUi();fxUi();partUi();ensureKit();queueSave();
 }
@@ -1897,7 +1957,7 @@ let newT=null;
 function newSession(){
   if(S.playing)stop();if(CAP)capStop();
   const j=JSON.parse(JSON.stringify(DEF));j.pat.forEach(r=>r.fill(0));j.seqN.forEach(r=>r.fill(0));j.chdSeq.fill(0);j.chdGate.fill(2);j.smpSeq.fill(0);j.parts=null;j.part=0;j.song=false;j.name='';delete j.smp.pcm;
-  SMPL.buf=null;SMPL.rbuf=null;SMPL.name='';smpStore();UNDO=null;S.hasUndo=false;try{$('#bUndo').classList.remove('has');}catch(e){}
+  SMPL.buf=null;SMPL.rbuf=null;SMPL.name='';SMPL.pads.fill(null);SMPL.mode='chop';smpStore();UNDO=null;S.hasUndo=false;try{$('#bUndo').classList.remove('has');}catch(e){}
   loadSession(j);S.name='';$('#shName').value='';queueSave();
 }
 $('#shNew').onclick=()=>{const b=$('#shNew');
@@ -1998,14 +2058,17 @@ const IDB={p:null,
 try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});}catch(e){}
 const fmtD=ms=>{const d=new Date(ms);return pad2(d.getDate())+'/'+pad2(d.getMonth()+1)+'/'+d.getFullYear()+' '+pad2(d.getHours())+':'+pad2(d.getMinutes());};
 /* sample actual: se guarda solo cada vez que cambia y vuelve al abrir */
-const smpPack=()=>{const b=SMPL.buf;if(!b)return null;const d=b.getChannelData(0),q=new Int16Array(d.length);for(let i=0;i<d.length;i++)q[i]=Math.round(clamp(d[i],-1,1)*32767);return{rate:b.sampleRate,name:SMPL.name,pcm:q.buffer};};
-function smpUnpack(o,chops){
+const smpPack=(b,nm)=>{if(b===undefined){b=SMPL.buf;nm=SMPL.name;}if(!b)return null;const d=b.getChannelData(0),q=new Int16Array(d.length);for(let i=0;i<d.length;i++)q[i]=Math.round(clamp(d[i],-1,1)*32767);return{rate:b.sampleRate,name:nm,pcm:q.buffer};};
+const padsPack=()=>SMPL.pads.map(p=>p?smpPack(p.buf,p.name):null);
+function smpUnpack(o,chops,slot){
   if(!o||!o.pcm)return false;const q=new Int16Array(o.pcm),f=new Float32Array(q.length);for(let i=0;i<q.length;i++)f[i]=q[i]/32767;
-  const keep=JSON.parse(JSON.stringify(chops||SMPL.chops));SMPL._rs=true;let ok=false;try{ok=smpSet(f,o.rate,o.name);}finally{SMPL._rs=false;}
+  const keep=JSON.parse(JSON.stringify(chops||SMPL.chops));SMPL._rs=true;let ok=false;try{ok=smpSet(f,o.rate,o.name,slot===undefined?-1:slot);}finally{SMPL._rs=false;}
   if(ok)SMPL.chops.forEach((C,i)=>{if(keep[i])Object.assign(C,keep[i]);});return ok;}
+function padsUnpack(a,chops){for(let i=0;i<4;i++){if(a&&a[i])smpUnpack(a[i],chops,i);else SMPL.pads[i]=null;}}
 var smpT=null;
-function smpStore(){if(SMPL._rs)return;clearTimeout(smpT);smpT=setTimeout(()=>{const o=smpPack();(o?IDB.put('kv',Object.assign(o,{saved:Date.now()}),'smp'):IDB.del('kv','smp')).catch(()=>{});},350);}
-const SMPR=(async()=>{try{const o=await IDB.get('kv','smp');if(o&&!SMPL.buf&&smpUnpack(o)){smpUi();dirty=true;}}catch(e){}})();
+function smpStore(){if(SMPL._rs)return;clearTimeout(smpT);smpT=setTimeout(()=>{const o=smpPack();(o?IDB.put('kv',Object.assign(o,{saved:Date.now()}),'smp'):IDB.del('kv','smp')).catch(()=>{});IDB.put('kv',{mode:SMPL.mode,pads:padsPack()},'smpP').catch(()=>{});},350);}
+const SMPR=(async()=>{try{const o=await IDB.get('kv','smp');if(o&&!SMPL.buf&&smpUnpack(o)){smpUi();dirty=true;}
+  const p=await IDB.get('kv','smpP');if(p&&Array.isArray(p.pads)&&!SMPL.pads.some(Boolean)){padsUnpack(p.pads);smpUi();dirty=true;}}catch(e){}})();
 /* botón que pide un segundo toque */
 function armTap(b,txt,fn){if(b._arm){clearTimeout(b._arm);b._arm=null;b.classList.remove('arm');fn();return;}
   const o=b.innerHTML;b.classList.add('arm');b.innerHTML=txt;b._arm=setTimeout(()=>{b._arm=null;b.classList.remove('arm');b.innerHTML=o;},2600);}
@@ -2014,19 +2077,20 @@ const sesId=nm=>'s_'+(nm.trim().toLowerCase().replace(/[^\w\-]+/g,'_').replace(/
 async function libSave(){
   const nm=(($('#shName').value||S.name||'').trim()).slice(0,40)||('SESIÓN '+fmtD(Date.now()));S.name=nm;$('#shName').value=nm;
   const id=sesId(nm),snap=snapshot(false);snap.name=nm;let had=false;try{had=!!(await IDB.get('ses',id));}catch(e){}
-  try{await IDB.put('ses',{id,name:nm,saved:Date.now(),snap:JSON.parse(JSON.stringify(snap)),smp:smpPack()});}
+  try{await IDB.put('ses',{id,name:nm,saved:Date.now(),snap:JSON.parse(JSON.stringify(snap)),smp:smpPack(),pads:SMPL.pads.some(Boolean)?padsPack():null});}
   catch(e){shMsg('No pude guardar en el teléfono ('+(e&&(e.name||e.message)||e)+').');return false;}
   queueSave();shMsg('✓ GUARDADA EN EL TELÉFONO: '+nm+(had?' (reemplacé la anterior con ese nombre)':''));libList();return true;}
 async function libOpen(id){
   let r=null;try{r=await IDB.get('ses',id);}catch(e){}if(!r){shMsg('No encontré esa sesión.');libList();return;}
   loadSession(r.snap);S.name=r.name;$('#shName').value=r.name;
-  if(r.smp){smpUnpack(r.smp,r.snap.smp&&r.snap.smp.chops);}else{SMPL.buf=null;SMPL.rbuf=null;SMPL.name='';}
+  const ch=r.snap.smp&&r.snap.smp.chops;if(r.smp){smpUnpack(r.smp,ch);}else{SMPL.buf=null;SMPL.rbuf=null;SMPL.name='';}padsUnpack(r.pads,ch);
   smpStore();smpUi();queueSave();shMsg('✓ ABIERTA: '+r.name);toast('SESIÓN '+r.name);setTimeout(()=>sheet.classList.remove('on'),700);}
 async function libShare(id){
   let r=null;try{r=await IDB.get('ses',id);}catch(e){}if(!r)return;
   const j=JSON.parse(JSON.stringify(r.snap));j.smp=j.smp||{};
   if(r.smp){const q=new Int16Array(r.smp.pcm),f=new Float32Array(q.length);for(let i=0;i<q.length;i++)f[i]=q[i]/32767;
     const e=smpEncode({getChannelData:()=>f,sampleRate:r.smp.rate,duration:f.length/r.smp.rate},r.smp.name);if(e)j.smp.pcm=e;}
+  if(r.pads)j.smp.pads=r.pads.map(p=>{if(!p)return null;const q=new Int16Array(p.pcm),f=new Float32Array(q.length);for(let i=0;i<q.length;i++)f[i]=q[i]/32767;return smpEncode({getChannelData:()=>f,sampleRate:p.rate,duration:f.length/p.rate},p.name);});
   const d=new Date(r.saved),fn='GB-'+(r.name.replace(/[^\w\-]+/g,'_').replace(/^_+|_+$/g,'')||'sesion')+'-'+d.getFullYear()+pad2(d.getMonth()+1)+pad2(d.getDate())+'.json',data=JSON.stringify(j);
   try{const f=new File([data],fn,{type:'application/json'});
     if(navigator.share&&navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:fn});shMsg('✓ Enviada: '+fn);return;}}
@@ -2038,7 +2102,7 @@ const lrow=(main,sub,onMain,btns)=>{const r=document.createElement('div');r.clas
 async function libList(){
   const box=$('#shLocL');let a=[];try{a=await IDB.all('ses');}catch(e){box.innerHTML='';box.dataset.empty='Este navegador no deja guardar acá: usá ENVIAR A DRIVE.';return;}
   a.sort((x,y)=>y.saved-x.saved);box.innerHTML='';
-  a.forEach(r=>box.appendChild(lrow(r.name,fmtD(r.saved)+(r.smp?' · CON SAMPLE':''),m=>armTap(m,'<span>¿ABRIR '+r.name.replace(/</g,'')+'?</span><small>REEMPLAZA LO ACTUAL · TOCÁ DE NUEVO</small>',()=>libOpen(r.id)),
+  a.forEach(r=>box.appendChild(lrow(r.name,fmtD(r.saved)+(r.pads&&r.pads.some(Boolean)?' · CON PADS':r.smp?' · CON SAMPLE':''),m=>armTap(m,'<span>¿ABRIR '+r.name.replace(/</g,'')+'?</span><small>REEMPLAZA LO ACTUAL · TOCÁ DE NUEVO</small>',()=>libOpen(r.id)),
     [['↗','Enviar a Drive',()=>libShare(r.id)],['✕','Borrar',b=>armTap(b,'?',()=>IDB.del('ses',r.id).then(libList).then(()=>shMsg('Sesión borrada: '+r.name)).catch(()=>{}))]])));
   useEst();}
 async function libLive(){
@@ -2386,7 +2450,7 @@ document.addEventListener('keydown',e=>{if(e.code==='Space'&&!e.repeat&&e.target
 document.addEventListener('visibilitychange',()=>{if(document.hidden){sirHolds.clear();if(sirV)sirStop();}});
 window.addEventListener('resize',()=>{if(S.tab==='smp')drawWave();});
 renderPalette();renderKeys();fxUi();sync();refreshSeq();smpUi();partUi();ringUi();frame();
-window.GB={IDB,libSave,libOpen,libList,libLive,smpPack,smpUnpack,SMPR,drumRe,dkE,renderDrum,KH:()=>KH,LV,wavEncode,xyApply,LIVE,drawSiren:()=>drawSiren(),TILT,partCopy,LEN,RM,RS,ringSel,rowTool,viz:{drawScope:()=>drawScope(),drawVoice:()=>drawVoice(),drawXY:()=>drawXY(),drawBus:()=>drawBus(),drawRing:()=>drawRing()},newSession,KB:()=>KB,SYNP,sdSend:(i,v)=>{CH[i].dst=v;applyCh(i);},anM:()=>anM,shareSes,PARTS,partGo,partSwitch,partBar,drumPreset,KITS,DPRE,trig,sd,PERF,S,CH,FXP,SMPL,pat,smpSeq,chdGate,snapshot,applySnapshot,loadSession,smpDemo,chopPlay,smpSet,smpEncode,smpDecode,get ctx(){return ctx;},get lim(){return lim;},get CAP(){return CAP;},recWrite,takeUndo,doUndo,bus,extractText};
+window.GB={smpMode,smpCopy,smpSrc,SCP:()=>SCP,padsPack,IDB,libSave,libOpen,libList,libLive,smpPack,smpUnpack,SMPR,drumRe,dkE,renderDrum,KH:()=>KH,LV,wavEncode,xyApply,LIVE,drawSiren:()=>drawSiren(),TILT,partCopy,LEN,RM,RS,ringSel,rowTool,viz:{drawScope:()=>drawScope(),drawVoice:()=>drawVoice(),drawXY:()=>drawXY(),drawBus:()=>drawBus(),drawRing:()=>drawRing()},newSession,KB:()=>KB,SYNP,sdSend:(i,v)=>{CH[i].dst=v;applyCh(i);},anM:()=>anM,shareSes,PARTS,partGo,partSwitch,partBar,drumPreset,KITS,DPRE,trig,sd,PERF,S,CH,FXP,SMPL,pat,smpSeq,chdGate,snapshot,applySnapshot,loadSession,smpDemo,chopPlay,smpSet,smpEncode,smpDecode,get ctx(){return ctx;},get lim(){return lim;},get CAP(){return CAP;},recWrite,takeUndo,doUndo,bus,extractText};
 </script>
 <script>
 /* app instalable: guarda la app en el teléfono para abrir sin internet y se actualiza sola */
