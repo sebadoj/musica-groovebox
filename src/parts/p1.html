@@ -353,6 +353,28 @@ select option{background:#2a2926}
 /* hojas, pestañas, toast */
 #liveSheet{position:fixed;inset:0;z-index:62;display:none;align-items:center;justify-content:center;padding:12px;background:rgba(20,20,21,.82);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 #liveSheet.on{display:flex}
+#calSheet{position:fixed;inset:0;z-index:63;display:none;align-items:center;justify-content:center;padding:12px;background:rgba(20,20,21,.86);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+#calSheet.on{display:flex}
+.pgrid.one{grid-template-columns:1fr}
+.opts .grow.tight{letter-spacing:0;font-size:10px}
+@media (max-width:430px){#kopts{gap:5px}#kopts .cap.sm{padding:0 7px;letter-spacing:.02em;min-width:0}#kopts .grow{letter-spacing:0;font-size:10px}}
+.dbars{display:flex;gap:5px;height:128px;margin:0 0 8px}
+.dbar{flex:1;min-width:0;display:flex;flex-direction:column;align-items:stretch;gap:3px;text-align:center}
+.dbar .sl.v{flex:1;min-height:0;border-radius:6px;background:repeating-linear-gradient(0deg,rgba(232,229,222,.16) 0 1px,transparent 1px 12.5%);box-shadow:inset 0 0 0 1.2px rgba(232,229,222,.2);overflow:hidden}
+.dbar .sl.v i{position:absolute;left:0;right:0;bottom:0;background:color-mix(in srgb,var(--c) 55%,transparent)}
+.dbar span{font:400 8px var(--ui);color:var(--dim);white-space:nowrap}.dbar b{font:300 12px var(--ui);color:var(--ink)}#calSheet .sbox{gap:12px;align-items:stretch}
+.calpad{align-self:center;width:min(56vw,230px);aspect-ratio:1;border-radius:50%;border:0;background:transparent;box-shadow:inset 0 0 0 1.5px var(--line2);color:var(--ink);font:300 13px/1.35 var(--ui);letter-spacing:.14em;touch-action:none;transition:box-shadow .08s,background .08s}
+.calpad.beat{box-shadow:inset 0 0 0 2px var(--acc)}.calpad.hit{background:var(--acc);color:#1d1e20}
+#calMsg:empty{display:none}#calMsg{white-space:pre-line;text-align:center}
+.bpm .cnt{display:flex;flex-direction:column;align-items:flex-end;line-height:1;min-width:3.4ch;margin-right:2px}
+.bpm .cnt output{font:300 16px var(--ui);color:var(--dim);font-variant-numeric:tabular-nums;min-width:0}
+.bpm .cnt.on output{color:var(--acc)}
+.bpm .cnt small{display:block;font:400 7px var(--ui);letter-spacing:.14em;color:var(--dim);margin-top:3px}
+#bpmD{touch-action:none;cursor:ew-resize;border-radius:10px;padding:5px 6px;position:relative;-webkit-user-select:none;user-select:none}
+#bpmD::after{content:"";position:absolute;left:10%;right:10%;bottom:1px;height:1px;background:linear-gradient(90deg,transparent,var(--line2),transparent)}
+#bpmD.drag{background:rgba(255,148,64,.1)}#bpmD.drag output{color:var(--acc)}
+.seqbar #bSteps{flex:none;width:auto;min-width:40px;padding:0 8px}.seqbar #bSteps.on{color:var(--acc)}
+#pageSeg.p4 button{font-size:10px;letter-spacing:0;padding:0}
 #xySheet{position:fixed;inset:0;z-index:60;display:none;align-items:flex-end;justify-content:center;padding:12px 12px calc(env(safe-area-inset-bottom) + 70px)}
 #xySheet.on{display:flex}
 #sheet,#kitSheet,#xySheet{background:rgba(20,20,21,.82);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
@@ -492,7 +514,7 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
   <div class="r1">
     <button id="bPlay" class="cap key" aria-label="Play / Stop">▶</button>
     <button id="bRec" class="cap dark key" aria-label="Grabar">● REC</button>
-    <div class="bpm"><button id="bpmM" class="cap dark sm" aria-label="Bajar BPM">−</button><div class="bn"><output id="bpmV">090</output><small>BPM</small></div><button id="bpmT" class="cap dark sm tap" aria-label="Marcar el tempo tocando">TAP</button><button id="bpmP" class="cap dark sm" aria-label="Subir BPM">+</button></div>
+    <div class="bpm"><div class="cnt" id="cntBox" aria-label="Compás y tiempo"><output id="cntV">1.1</output><small>COMPÁS</small></div><div class="bn" id="bpmD" role="slider" aria-label="Tempo: arrastrá a los costados" aria-valuemin="50" aria-valuemax="200"><output id="bpmV">090</output><small>BPM</small></div><button id="bpmT" class="cap dark sm tap" aria-label="Marcar el tempo tocando">TAP</button></div>
     <button id="bSir" class="cap red key" aria-label="Sirena (mantener)">SIREN</button>
   </div>
   <div class="r2">
@@ -512,6 +534,7 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
     <div class="seqbar">
       <div class="seg" id="pageSeg"><button data-p="0" class="on">1–8</button><button data-p="1">9–16</button></div>
       <span id="stepInfo" class="lcd"></span>
+      <button id="bSteps" class="cap dark sm" aria-label="Pasos del patrón: 16 o 32">16</button>
       <button id="bRing" class="cap dark sm" aria-label="Ver grilla">▦</button>
       <button id="bKit" class="cap dark sm" aria-label="Menú de batería">BATERÍA ▾</button>
     </div>
@@ -534,7 +557,7 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
 
   <section id="v-keys" class="view">
     <div class="seg" id="kmodeSeg">
-      <button data-m="syn0" class="on">SYN 1</button><button data-m="syn1">SYN 2</button><button data-m="chd">ACORDES</button><button data-m="drum">DRUMS</button>
+      <button data-m="syn0" class="on">SYN 1</button><button data-m="syn1">SYN 2</button><button data-m="chd">ACORDES</button><button data-m="vin">VINT</button><button data-m="drum">DRUMS</button>
     </div>
     <div class="opts" id="kopts"></div>
     <canvas id="vview" aria-hidden="true"></canvas>
@@ -591,6 +614,7 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
   <div class="sbox">
     <div class="phead"><span>KIT DE BATERÍA</span><button id="kitX" class="cap dark sm" aria-label="Cerrar">✕</button></div>
     <div id="kitList"></div>
+    <div id="kitSw"></div>
     <div class="phead" style="margin:4px 0 0"><span>PATRÓN (reemplaza la batería de esta parte)</span></div>
     <div id="patList"></div>
     <div class="pnote" style="margin:0">Elegir un kit lo prueba al instante. Un patrón se deshace con ↶.</div>
@@ -603,6 +627,13 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
   <div class="shbtns"><button id="lvWav" class="cap">GUARDAR WAV</button><button id="lvShare" class="cap dark">COMPARTIR</button></div>
   <div class="shbtns"><button id="lvRaw" class="cap dark">GUARDAR LIVIANO</button><button id="lvDel" class="cap dark">BORRAR TOMA</button></div>
   <div id="lvMsg" class="lcd"></div>
+</div></div>
+<div id="calSheet" role="dialog" aria-label="Calibrar latencia"><div class="sbox">
+  <div class="phead"><span>CALIBRAR LATENCIA</span><button id="calX" class="cap dark sm" aria-label="Cerrar">✕</button></div>
+  <div class="pnote" style="margin:0">Con los auriculares que vas a usar puestos: tocá EMPEZAR y después tocá el círculo justo cuando ESCUCHÁS cada click (son 12).</div>
+  <button id="calPad" class="calpad" aria-label="Tocá con el click"><span>TOCÁ CON<br>EL CLICK</span></button>
+  <div id="calMsg" class="lcd"></div>
+  <div class="shbtns"><button id="calGo" class="cap">EMPEZAR</button><button id="calOff" class="cap dark">SIN COMPENSAR</button></div>
 </div></div>
 <div id="xySheet" role="dialog" aria-label="Arrastre sobre la tecla"><div class="sbox" id="xyBox"></div></div>
 <div id="sheet" role="dialog" aria-label="Sesiones">
@@ -622,6 +653,7 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
     <div id="shLiveL" class="lib" data-empty="Las tomas de ● LIVE quedan guardadas acá."></div>
     <div class="phead sub"><span>AUDIO</span></div>
     <div class="shbtns"><button id="pfLite" class="cap dark">MODO LIVIANO</button><button id="pfLat" class="cap dark">LATENCIA</button></div>
-    <div class="pnote" style="margin:0">Si suena a ruido o se corta: activá LIVIANO (menos voces, reverb simple) y subí la latencia a MEDIA o ALTA. Cambiar la latencia reinicia el audio.</div>
+    <div class="shbtns"><button id="pfLc" class="cap dark">COMPENSAR: NADA</button><button id="pfCal" class="cap dark">CALIBRAR BT</button></div>
+    <div class="pnote" style="margin:0">Si suena a ruido o se corta: activá LIVIANO (menos voces, reverb simple) y subí la latencia a MEDIA o ALTA. Cambiar la latencia reinicia el audio. Con auriculares Bluetooth: CALIBRAR BT mide cuánto tarda el sonido y COMPENSAR lo descuenta al grabar con REC y en los gráficos (NADA = como antes, AUTO = lo que informa el teléfono, MEDIDA = tu calibración).</div>
   </div>
 </div>

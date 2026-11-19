@@ -19,12 +19,13 @@ La app publicada (`../index.html`) es un solo HTML armado desde estas fuentes.
   - `t37`: biblioteca, LIVE, baterías y mixer
   - `t38`: sampler PADS
   - `t1q`: regresión general
+  - `t39`: v13.11 — compensación de latencia y calibración, swing, VINTAGE, 32 pasos, tempo por arrastre, contador y la paleta del anillo
 
 ## Publicar una versión
 ```bash
 cd src
 python3 build.py 13.11          # arma el HTML
-V=13.11 node tests/t38.js       # pruebas (necesitan playwright + /usr/bin/google-chrome)
+for t in t37 t38 t1q t39; do V=13.11 node tests/$t.js; done   # pruebas (necesitan playwright + /usr/bin/google-chrome)
 python3 mkpwa.py 13.11          # actualiza ../index.html y ../sw.js
 cd .. && git add -A && git commit -m "v13.11: …" && git push
 ```

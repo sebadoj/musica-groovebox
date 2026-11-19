@@ -13,7 +13,7 @@ await p.tap('#pads .pad:nth-child(2)');await p.waitForTimeout(200);
 const e0=await en();
 await p.evaluate(async()=>{Object.assign(GB.S.dk[1],{hit:1,snap:.05});await GB.drumRe(1);});const e1=await en();
 console.log(JSON.stringify({e0,e1}));ok(e1.t/e1.r>e0.t/e0.r*1.3,'GOLPE alto + CUERPO cambia el golpe (transiente/cola '+(e0.t/e0.r).toFixed(1)+' → '+(e1.t/e1.r).toFixed(1)+')');
-ok(await p.evaluate(()=>document.querySelectorAll('#parPanel .prm').length===8),'8 parámetros en el panel');
+ok(await p.evaluate(()=>document.querySelectorAll('#parPanel .prm').length===9),'8 parámetros + SWING en el panel');
 await p.evaluate(()=>GB.S.dk[1]&&0);await p.evaluate(()=>{GB.S.dsel=1;});await p.tap('#pads .pad:nth-child(2)');await p.waitForTimeout(150);
 await p.screenshot({path:'v139-drum.png'});
 ok(await p.evaluate(()=>document.querySelector('#pads .pad:nth-child(2)').classList.contains('ed')||true),'pad editado marcado');
