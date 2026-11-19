@@ -357,6 +357,7 @@ select option{background:#2a2926}
 #calSheet.on{display:flex}
 .pgrid.one{grid-template-columns:1fr}
 #grid{gap:2px}.row{min-height:14px}.row.sep{margin-top:4px}
+.st{position:relative}.st.mo::after{content:"";position:absolute;right:4px;top:50%;width:4px;height:4px;margin-top:-2px;border-radius:50%;background:#fff;opacity:.85}
 .st.tail{background:color-mix(in srgb,var(--c) 15%,transparent);box-shadow:inset 0 0 0 1.2px color-mix(in srgb,var(--c) 32%,transparent)}
 #palette .pal.vg .cap:nth-child(2){flex:2;pointer-events:none}#palette .pal.vg b{font-weight:500;color:var(--acc)}
 .opts .grow.tight{letter-spacing:0;font-size:10px}
@@ -670,7 +671,7 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
 <script>
 'use strict';
 /* =====================================================================
-   MUSICA GROOVEBOX — versión celular v13.12 (20261119)
+   MUSICA GROOVEBOX — versión celular v13.13 (20261119)
    Un solo archivo, sin librerías, Web Audio.
    16/32 pasos · 2 synths · VINTAGE (órgano, piano eléctrico, analógico, clavinet, cuerdas) · acordes (4 presets + GATE) · 8 drums · SAMPLER (chop en 4 teclas)
    · mixer 6 canales + master (pan, 3 envíos, medidores) · buses FX (delay/reverb/mod/master)
@@ -695,9 +696,12 @@ const DR=[
 const ROWS=DR.map((d,i)=>({n:d.n,c:d.c,t:'drum'})).concat([{n:'SYN 1',c:CH[1].c,t:'syn',k:0},{n:'SYN 2',c:CH[2].c,t:'syn',k:1},{n:'ACORD',c:CH[3].c,t:'chd'},{n:'SMPL',c:CH[5].c,t:'smp'},...['#7ab8ff','#94c6ff','#b0d6ff','#6aa2ec','#5b8fd8'].map((c,k)=>({n:'VIN '+(k+1),c,t:'vin',k}))]);
 const NR=ROWS.length;
 const R_SYN=8,R_CHD=10,R_SMP=11,R_VIN=12;
+/* MOVIMIENTO grabado por paso: lo que hiciste con el dedo sobre la tecla, XYQ muestras por paso, x/y en −100…100 */
+const XYQ=4,XYR=ROWS.map(()=>Array(MAXS).fill(null));
 const LEN=Array(NR).fill(16),RM=Array(NR).fill(false),RS=Array(NR).fill(false);   // largo (polirritmo), mute y solo por pista
 const pat=ROWS.map(()=>Array(MAXS).fill(0));
 const seqN=[Array(MAXS).fill(0),Array(MAXS).fill(0)],chdSeq=Array(MAXS).fill(0),chdGate=Array(MAXS).fill(2),smpSeq=Array(MAXS).fill(0);
+const synG=[Array(MAXS).fill(1),Array(MAXS).fill(1)];   // SYN 1 / SYN 2: GATE por paso (1 = como antes)
 const VL=5;   // VINTAGE: 5 carriles (anillos); cada paso de cada carril tiene su nota (grado) y su GATE en pasos (1…32)
 const vinN=[...Array(VL)].map(()=>Array(MAXS).fill(0)),vinG=[...Array(VL)].map(()=>Array(MAXS).fill(1));
 const GATES=[1,2,4,8];
@@ -923,12 +927,33 @@ function liveSet(P,key){   // cambia un parámetro sobre las notas que ya suenan
     else if(key==='lfoD'||key==='lfoT')lfoApply(v);
   });
 }
+/* grabar el movimiento: muestras [tiempo, vx, vy] mientras la tecla está apretada → XYQ por paso desde que empezó la nota */
+function xyRec(targets,smp,t0,held){
+  if(!targets||!targets.length)return;let M=null;
+  if(smp&&smp.length){const dt=sd()/XYQ,n=clamp(Math.ceil(held/dt),1,MAXS*XYQ),x=[],y=[];let j=0,cx=0,cy=0;
+    for(let i=0;i<n;i++){const t=t0+i*dt;while(j<smp.length&&smp[j][0]<=t){cx=smp[j][1];cy=smp[j][2];j++;}x.push(Math.round(cx*100));y.push(Math.round(cy*100));}
+    if(x.some(v=>v)||y.some(v=>v))M={x,y};}
+  targets.forEach(o=>{if(XYR[o.r])XYR[o.r][o.st]=M;});dirty=true;queueSave();}
+/* reproducir el movimiento: se programa en el tiempo del audio sobre la voz que dispara el paso */
+function xyAuto(vs,cfg,M,t0,dt){
+  const n=Math.min(M.x.length,M.y.length),A=[];
+  for(let i=0;i<n;i++){const a={pitch:0,cut:0,res:0,mod:0};if(cfg.x!=='none')a[cfg.x]+=M.x[i]/100;if(cfg.y!=='none')a[cfg.y]+=M.y[i]/100;A.push(a);}
+  const has=k=>cfg.x===k||cfg.y===k,tau=dt/3;
+  vs.forEach(v=>{if(!v)return;const P=v.P;
+    A.forEach((a,i)=>{const t=t0+i*dt;
+      if(has('pitch')){const xb=clamp(a.pitch,-1,1)*(cfg.pr||2)*100;v.o1.forEach(o=>o.detune.setTargetAtTime((o._d||0)+BEND+xb,t,tau));v.o2.forEach(o=>o.detune.setTargetAtTime(P.det+BEND+xb,t,tau));v.os.forEach(o=>o.detune.setTargetAtTime(BEND+xb,t,tau));}
+      if(has('cut'))(v.fls||[v.fl]).forEach(F=>F.detune.setTargetAtTime(clamp(a.cut,-1,1)*2400,t,tau));
+      if(has('res'))v.fl.Q.setTargetAtTime(clamp(P.res+clamp(a.res,-1,1)*14,.5,30),t,tau*1.5);});
+    if(has('mod')&&A.some(a=>a.mod>.02)&&!(v.lite&&!P.sync)){if(!v.l)lfoBuild(v,t0);
+      A.forEach((a,i)=>{const d=Math.min(1,P.lfoD+Math.max(MOD,clamp(a.mod,0,1))*(1-P.lfoD));v.lg.gain.setTargetAtTime(P.lfoT===1?d*200*(P.vk||1):P.lfoT===0?d*(P.sync?2200:1500):d*.5*v.pk,t0+i*dt,tau);});}
+  });}
+const xyPlay=(r,s,vs,mode,t)=>{const M=XYR[r]&&XYR[r][s];if(M&&vs)try{xyAuto(vs,S.xy[mode]||S.xy.syn0,M,t,sd()/XYQ);}catch(e){}};
 /* tocar y arrastrar sobre una tecla: cada eje modula esa nota (PITCH, FILTRO, RESO, MOD o nada) */
 function xyApply(vs,cfg,vx,vy){
   if(!ctx||!vs)return;const t=ctx.currentTime,acc={pitch:0,cut:0,res:0,mod:0};
   if(cfg.x!=='none')acc[cfg.x]+=vx;if(cfg.y!=='none')acc[cfg.y]+=vy;
   vs.forEach(v=>{if(!v||v.done)return;
-    const xb=clamp(acc.pitch,-1,1)*(cfg.pr||2)*100;if(xb!==(v.xb||0)){v.xb=xb;v.o1.forEach(o=>o.detune.setTargetAtTime(BEND+xb,t,.012));v.o2.forEach(o=>o.detune.setTargetAtTime(v.P.det+BEND+xb,t,.012));v.os.forEach(o=>o.detune.setTargetAtTime(BEND+xb,t,.012));}
+    const xb=clamp(acc.pitch,-1,1)*(cfg.pr||2)*100;if(xb!==(v.xb||0)){v.xb=xb;v.o1.forEach(o=>o.detune.setTargetAtTime((o._d||0)+BEND+xb,t,.012));v.o2.forEach(o=>o.detune.setTargetAtTime(v.P.det+BEND+xb,t,.012));v.os.forEach(o=>o.detune.setTargetAtTime(BEND+xb,t,.012));}
     (v.fls||[v.fl]).forEach(F=>F.detune.setTargetAtTime(clamp(acc.cut,-1,1)*2400,t,.015));
     v.fl.Q.setTargetAtTime(clamp(v.P.res+clamp(acc.res,-1,1)*14,.5,30),t,.02);
     const xm=clamp(acc.mod,0,1);if(xm!==(v.xmod||0)){v.xmod=xm;lfoApply(v,t);}
@@ -936,7 +961,7 @@ function xyApply(vs,cfg,vx,vy){
 }
 function bmFlush(){   // pitch bend + mod wheel sobre todas las voces vivas
   if(!bmDirty||!ctx)return;bmDirty=false;const t=ctx.currentTime;
-  LIVE.forEach(v=>{if(v.done)return;const xb=v.xb||0;v.o1.forEach(o=>o.detune.setTargetAtTime(BEND+xb,t,.02));v.o2.forEach(o=>o.detune.setTargetAtTime(v.P.det+BEND+xb,t,.02));v.os.forEach(o=>o.detune.setTargetAtTime(BEND+xb,t,.02));lfoApply(v,t);});
+  LIVE.forEach(v=>{if(v.done)return;const xb=v.xb||0;v.o1.forEach(o=>o.detune.setTargetAtTime((o._d||0)+BEND+xb,t,.02));v.o2.forEach(o=>o.detune.setTargetAtTime(v.P.det+BEND+xb,t,.02));v.os.forEach(o=>o.detune.setTargetAtTime(BEND+xb,t,.02));lfoApply(v,t);});
 }
 /* una voz = una o varias notas (acorde) que comparten filtro, envolvente y LFO: 1 filtro por acorde en vez de 1 por nota */
 /* soltar una nota: congela la envolvente donde esté (cancelScheduledValues borraba la rampa de ataque y la nota corta quedaba muda) */
@@ -983,7 +1008,7 @@ function vinVoice(P,fq,t,vel,dest,dur){
   const a=G(0),fl=c.createBiquadFilter(),o1=[],ow=[],tmp=[],n=fs.length,pk=vel*P.g*.5/(1+(n-1)*.3);
   fl.type='lowpass';fl.Q.value=P.res;const base=vinCut(P.cut);let fls=[fl];
   const env=(g,v0,t0,tau,fl0)=>{g.gain.setValueAtTime(v0,t0);g.gain.setTargetAtTime(fl0||0,t0+.001,tau);};
-  const osc=(type,f,det,to)=>{const o=c.createOscillator();if(typeof type==='string')o.type=type;else o.setPeriodicWave(type);o.frequency.value=f;o.detune.value=(det||0)+BEND;o.connect(to);o.start(t);o1.push(o);return o;};
+  const osc=(type,f,det,to)=>{const o=c.createOscillator();if(typeof type==='string')o.type=type;else o.setPeriodicWave(type);o.frequency.value=f;o._d=det||0;o.detune.value=o._d+BEND;o.connect(to);o.start(t);o1.push(o);return o;};
   if(P.e==='org'){
     fl.frequency.value=base;const w=orgWave(P.db);
     fs.forEach(f=>{ow.push(osc(w,f/2,0,fl));
@@ -1325,10 +1350,10 @@ const sd=()=>60/S.bpm/4;
 function trig(r,s,t){
   if(!pat[r][s])return;const R=ROWS[r];
   if(R.t==='drum')drumPlay(r,t,1);
-  else if(R.t==='syn')mkVoice(curP(R.k),mtof(scaleNote(seqN[R.k][s],BASEOCT[R.k])),t,.9,bus[1+R.k].inp,sd()*.9);
-  else if(R.t==='chd')chordPlay(chdSeq[s],false,t,bus[3].inp,sd()*chdGate[s]*.95);
+  else if(R.t==='syn')xyPlay(r,s,[mkVoice(curP(R.k),mtof(scaleNote(seqN[R.k][s],BASEOCT[R.k])),t,.9,bus[1+R.k].inp,sd()*((synG[R.k][s]||1)-.1))],'syn'+R.k,t);
+  else if(R.t==='chd')xyPlay(r,s,chordPlay(chdSeq[s],false,t,bus[3].inp,sd()*chdGate[s]*.95),'chd',t);
   else if(R.t==='smp'&&smpSeq[s])chopPlay(smpSeq[s]-1,t,.9,sd()*.98);
-  else if(R.t==='vin')vinPlay(vinN[R.k][s],false,t,sd()*(vinG[R.k][s]||1)*.97);
+  else if(R.t==='vin')xyPlay(r,s,[vinPlay(vinN[R.k][s],false,t,sd()*(vinG[R.k][s]||1)*.97)],'vin',t);
 }
 const rowAud=r=>!RM[r]&&(!RS.some(Boolean)||RS[r]);
 function tick(){while(nextT<ctx.currentTime+.2){if(stepI===0&&barN>=0&&nextT>0&&started)partBar();started=true;if(S.rec&&stepI%4===0)click(nextT,stepI===0);const so=swOff();for(let r=0;r<NR;r++)if(rowAud(r))trig(r,LEN[r]>=STEPS?stepI:gT%LEN[r],r<8?nextT+so:nextT);const e={s:stepI,t:nextT,g:gT};qq.push(e);SCH.push(e);if(SCH.length>96)SCH.shift();stepI=(stepI+1)%STEPS;gT++;nextT+=sd();}}
@@ -1348,9 +1373,9 @@ function vinMig(j){
   if(j.pat){for(let k=1;k<VL;k++)j.pat[R_VIN+k]=Array(MAXS).fill(0);for(let s=0;s<MAXS;s++)if(p0[s]&&c[s])[2,4].forEach((o,i)=>{j.pat[R_VIN+1+i][s]=1;j.vinN[1+i][s]=n[s]+o;j.vinG[1+i][s]=g[s];});}
   if(Array.isArray(j.len)){const L=j.len[R_VIN]||16;for(let k=1;k<VL;k++)j.len[R_VIN+k]=L;}
   delete j.vinC;return j;}
-function partApply(j){vinMig(j);for(let i=0;i<NR;i++){LEN[i]=Math.min((j.len&&j.len[i])||STEPS,MAXS);pat[i]=fitA(j.pat&&j.pat[i],0);}(j.seqN||[]).forEach((r,i)=>{if(i<2)seqN[i]=fitA(r,0);});
+function partApply(j){vinMig(j);for(let i=0;i<NR;i++){LEN[i]=Math.min((j.len&&j.len[i])||STEPS,MAXS);pat[i]=fitA(j.pat&&j.pat[i],0);XYR[i]=fitA(j.xyr&&j.xyr[i],null);}(j.seqN||[]).forEach((r,i)=>{if(i<2)seqN[i]=fitA(r,0);});
   [[chdSeq,j.chdSeq,0],[chdGate,j.chdGate,2],[smpSeq,j.smpSeq,0],].forEach(([A,B,d])=>fitA(B,d).forEach((v,i)=>A[i]=v));vinLoad(j);}
-function vinLoad(j){for(let k=0;k<VL;k++){fitA(j.vinN&&j.vinN[k],0).forEach((v,i)=>vinN[k][i]=v);fitA(j.vinG&&j.vinG[k],1).forEach((v,i)=>vinG[k][i]=v);}}
+function vinLoad(j){for(let k=0;k<2;k++)fitA(j.synG&&j.synG[k],1).forEach((v,i)=>synG[k][i]=v);for(let k=0;k<VL;k++){fitA(j.vinN&&j.vinN[k],0).forEach((v,i)=>vinN[k][i]=v);fitA(j.vinG&&j.vinG[k],1).forEach((v,i)=>vinG[k][i]=v);}}
 const partOrder=()=>[0,1,2,3].filter(i=>PARTS[i]||i===S.part);
 function partSwitch(i){
   if(i===S.part||i<0||i>3)return;
@@ -1378,7 +1403,7 @@ function partCopy(src,dst){
   else{UNDO=null;UNDOP={i:dst,prev:PARTS[dst]?JSON.parse(JSON.stringify(PARTS[dst])):null,rep:S.rep[dst]};PARTS[dst]=JSON.parse(JSON.stringify(data));S.hasUndo=true;try{$('#bUndo').classList.add('has');}catch(e){}}
   S.rep[dst]=S.rep[src];dirty=true;queueSave();return true;
 }
-const snapSeq=()=>JSON.stringify({pat,seqN,chdSeq,chdGate,smpSeq,vinN,vinG,len:LEN,steps:STEPS});
+const snapSeq=()=>JSON.stringify({pat,seqN,synG,chdSeq,chdGate,smpSeq,vinN,vinG,xyr:XYR,len:LEN,steps:STEPS});
 function takeUndo(){UNDOP=null;UNDO=snapSeq();S.hasUndo=true;$('#bUndo').classList.add('has');}
 function doUndo(){if(UNDOP){PARTS[UNDOP.i]=UNDOP.prev;S.rep[UNDOP.i]=UNDOP.rep;const n=PN[UNDOP.i];UNDOP=null;S.hasUndo=false;$('#bUndo').classList.remove('has');try{partUi();}catch(e){}queueSave();toast('COPIA EN '+n+' DESHECHA');return;}
   if(!UNDO)return;const j=JSON.parse(UNDO);partApply(j);if(j.steps)STEPS=j.steps;try{pageUi();}catch(e){}UNDO=null;S.hasUndo=false;$('#bUndo').classList.remove('has');dirty=true;renderPalette();queueSave();toast('GRABACIÓN DESHECHA');}
@@ -1391,7 +1416,7 @@ function recPos(row){
 }
 function recWrite(row,val){
   const st=recPos(row);if(st<0)return -1;
-  pat[row][st]=1;if(row===R_SYN||row===R_SYN+1)seqN[row-R_SYN][st]=val;else if(row===R_CHD){chdSeq[st]=val;chdGate[st]=2;}else if(row===R_SMP)smpSeq[st]=val;
+  pat[row][st]=1;if(row===R_SYN||row===R_SYN+1){seqN[row-R_SYN][st]=val;synG[row-R_SYN][st]=1;}else if(row===R_CHD){chdSeq[st]=val;chdGate[st]=2;}else if(row===R_SMP)smpSeq[st]=val;
   dirty=true;queueSave();return st;
 }
 function recGate(st,heldSec){if(st<0)return;const n=heldSec/sd();chdGate[st]=GATES.reduce((a,g)=>Math.abs(g-n)<Math.abs(a-n)?g:a,GATES[0]);dirty=true;queueSave();}
@@ -1405,10 +1430,11 @@ function vinRec(degs){
     if(pick<0){pick=VL-1;st=recPos(R_VIN+pick);}if(st<0)return;
     pat[R_VIN+pick][st]=1;vinN[pick][st]=d;vinG[pick][st]=1;out.push({k:pick,st});});
   if(out.length){dirty=true;queueSave();}return out;}
+function synGate(k,st,heldSec){if(st<0)return;synG[k][st]=clamp(Math.round(heldSec/sd()),1,STEPS);dirty=true;queueSave();}
 function vinGate(o,heldSec){vinG[o.k][o.st]=clamp(Math.round(heldSec/sd()),1,STEPS);dirty=true;queueSave();}
 /* 16 ↔ 32 pasos: al pasar a 32 se duplica lo que había (suena igual); al volver a 16 se acorta */
 function setSteps(n){n=n===32?32:16;if(n===STEPS)return false;takeUndo();
-  if(n===32){for(let r=0;r<NR;r++)if(LEN[r]===16){LEN[r]=32;const R=ROWS[r],A=[pat[r]];if(R.t==='syn')A.push(seqN[R.k]);else if(R.t==='chd')A.push(chdSeq,chdGate);else if(R.t==='smp')A.push(smpSeq);else if(R.t==='vin')A.push(vinN[R.k],vinG[R.k]);
+  if(n===32){for(let r=0;r<NR;r++)if(LEN[r]===16){LEN[r]=32;const R=ROWS[r],A=[pat[r],XYR[r]];if(R.t==='syn')A.push(seqN[R.k],synG[R.k]);else if(R.t==='chd')A.push(chdSeq,chdGate);else if(R.t==='smp')A.push(smpSeq);else if(R.t==='vin')A.push(vinN[R.k],vinG[R.k]);
       A.forEach(a=>{for(let s=0;s<16;s++)a[s+16]=a[s];});}}
   else for(let r=0;r<NR;r++)LEN[r]=Math.min(LEN[r],16);
   STEPS=n;if(S.sel.s>=LEN[S.sel.r])S.sel={r:S.sel.r,s:LEN[S.sel.r]-1};dirty=true;queueSave();return true;}
@@ -1416,7 +1442,7 @@ function setSteps(n){n=n===32?32:16;if(n===STEPS)return false;takeUndo();
 /* ---------------- guardado: local + sesiones ---------------- */
 const KEY='musica_gb_mobile_v1';let saveT=null;
 function snapshot(withSample){
-  const o={v:9,name:S.name,saved:Date.now(),bpm:S.bpm,key:S.key,scale:S.scale,pat,seqN,chdSeq,chdGate,smpSeq,vinN,vinG,steps:STEPS,sw:S.sw,vinPre:S.vinPre,vinPar:S.vinPar,vko:S.vko,vch:S.vch,pre:S.pre,par:S.par,chdPar:S.chdPar,chdPre:S.chdPre,ko:S.ko,master:S.master,
+  const o={v:9,name:S.name,saved:Date.now(),bpm:S.bpm,key:S.key,scale:S.scale,pat,seqN,chdSeq,chdGate,smpSeq,synG,vinN,vinG,xyr:XYR,steps:STEPS,sw:S.sw,vinPre:S.vinPre,vinPar:S.vinPar,vko:S.vko,vch:S.vch,pre:S.pre,par:S.par,chdPar:S.chdPar,chdPre:S.chdPre,ko:S.ko,master:S.master,
     ch:CH.map(c=>[c.vol,c.dly,c.rev,c.mod,c.pan,c.dst]),fx:FXP,smp:{chops:SMPL.chops,mode:SMPL.mode},kit:S.kit,part:S.part,song:S.song,rep:S.rep,parts:PARTS,len:LEN,rm:RM,rs:RS,xy:S.xy,dk:S.dk};
   if(withSample){const e=smpEncode();if(e)o.smp.pcm=e;if(SMPL.pads.some(Boolean))o.smp.pads=SMPL.pads.map(p=>p?smpEncode(p.buf,p.name):null);}
   return o;
@@ -1428,6 +1454,7 @@ function applySnapshot(j){
   S.chdPar=(j.chdPar&&j.chdPar.lfoS)?j.chdPar:Object.assign({},CHDPRE[S.chdPre]||CHDPRE[0]);
   S.ko=j.ko||S.ko;S.master=j.master??S.master;
   if(j.pat)for(let i=0;i<NR;i++)pat[i]=fitA(j.pat[i],0);
+  for(let i=0;i<NR;i++)XYR[i]=fitA(j.xyr&&j.xyr[i],null);
   if(j.seqN)j.seqN.forEach((r,i)=>{if(i<2)seqN[i]=fitA(r,0);});
   [[chdSeq,j.chdSeq,0],[chdGate,j.chdGate,2],[smpSeq,j.smpSeq,0],].forEach(([A,B,d])=>fitA(B,d).forEach((v,i)=>A[i]=v));vinLoad(j);
   STEPS=j.steps===32?32:16;S.sw=clamp(+j.sw||0,0,1);S.vko=clamp(+j.vko||0,-1,2);S.vch=!!j.vch;
@@ -1514,7 +1541,7 @@ let clrT=null;
 $('#bClr').onclick=()=>{
   const b=$('#bClr');
   if(!b.classList.contains('arm')){b.classList.add('arm','on');b.textContent='¿SEGURO?';clearTimeout(clrT);clrT=setTimeout(()=>{b.classList.remove('arm','on');b.textContent='BORRAR';},3000);return;}
-  clearTimeout(clrT);b.classList.remove('arm','on');b.textContent='BORRAR';takeUndo();pat.forEach(r=>r.fill(0));dirty=true;toast('SECUENCIA BORRADA · ↶ DESHACE');queueSave();
+  clearTimeout(clrT);b.classList.remove('arm','on');b.textContent='BORRAR';takeUndo();pat.forEach(r=>r.fill(0));XYR.forEach(a=>a.fill(null));dirty=true;toast('SECUENCIA BORRADA · ↶ DESHACE');queueSave();
 };
 let CLIPLATCH=false;
 const clipReset=()=>{CLIPLATCH=false;};
@@ -1530,7 +1557,7 @@ const cells=[];
     const row=document.createElement('div');row.className='row'+(r===8||r===R_VIN?' sep':'');row.style.setProperty('--c',R.c);
     const lb=document.createElement('div');lb.className='rl';lb.textContent=R.n;row.appendChild(lb);
     let lt=null;
-    lb.addEventListener('pointerdown',e=>{e.preventDefault();lt=setTimeout(()=>{lt=null;takeUndo();pat[r].fill(0);dirty=true;toast('RENGLÓN '+R.n+' BORRADO · ↶ DESHACE');queueSave();},600);});
+    lb.addEventListener('pointerdown',e=>{e.preventDefault();lt=setTimeout(()=>{lt=null;takeUndo();pat[r].fill(0);XYR[r].fill(null);dirty=true;toast('RENGLÓN '+R.n+' BORRADO · ↶ DESHACE');queueSave();},600);});
     ['pointerup','pointercancel','pointerleave'].forEach(n=>lb.addEventListener(n,()=>{if(lt){clearTimeout(lt);lt=null;S.sel={r,s:S.sel.s};dirty=true;renderPalette();}}));
     for(let s=0;s<8;s++){const el=document.createElement('div');el.className='st';el.dataset.r=r;el.dataset.s=s;el.style.setProperty('--c',R.c);row.appendChild(el);cells.push({el,r,s});}
     g.appendChild(row);
@@ -1562,7 +1589,7 @@ const vinLbl=(d,ch)=>ch?chordName(((d%7)+7)%7,false).name:noteName(scaleNote(d,V
 function stepTap(r,st){
   const was=pat[r][st],isSel=S.sel.r===r&&S.sel.s===st;
   if(!was){pat[r][st]=1;S.sel={r,s:st};if(ROWS[r].t==='smp'&&!smpSeq[st])smpSeq[st]=SMPL.sel+1;preview(r,st);}
-  else if(isSel){pat[r][st]=0;}
+  else if(isSel){pat[r][st]=0;XYR[r][st]=null;}
   else{S.sel={r,s:st};preview(r,st);}
 }
 function pageUi(){const sg=$('#pageSeg'),n=STEPS/8;if(S.page>=n)S.page=0;
@@ -1571,10 +1598,10 @@ function pageUi(){const sg=$('#pageSeg'),n=STEPS/8;if(S.page>=n)S.page=0;
 $('#bSteps').onclick=()=>{if(setSteps(STEPS===16?32:16)){pageUi();renderPalette();try{ringUi();}catch(e){}toast(STEPS===32?'32 PASOS · SE DUPLICÓ LO QUE HABÍA · ↶ DESHACE':'16 PASOS · ↶ DESHACE');}};
 pageUi();
 function refreshSeq(){
-  const TAIL={};for(let k=0;k<VL;k++){const r=R_VIN+k,L=LEN[r],a=new Uint8Array(MAXS);for(let s=0;s<L;s++)if(pat[r][s]){const g=Math.min(vinG[k][s]||1,L);for(let j=1;j<g;j++)a[(s+j)%L]=1;}TAIL[r]=a;}   // pasos que una nota VINT sigue sonando
+  const TAIL={};[[R_SYN,synG[0]],[R_SYN+1,synG[1]],...vinG.map((G_,k)=>[R_VIN+k,G_])].forEach(([r,G_])=>{const L=LEN[r],a=new Uint8Array(MAXS);for(let s=0;s<L;s++)if(pat[r][s]){const g=Math.min(G_[s]||1,L);for(let j=1;j<g;j++)a[(s+j)%L]=1;}TAIL[r]=a;});   // pasos que una nota VINT sigue sonando
   cells.forEach(c=>{
     const st=S.page*8+c.s,on=pat[c.r][st],R=ROWS[c.r];
-    c.el.className='st'+(st>=LEN[c.r]?' out':'')+(on?' on':'')+(st%4===0?' b4':'')+(S.cur===st?' cur':'')+(S.sel.r===c.r&&S.sel.s===st?' sel':'')+(!on&&TAIL[c.r]&&TAIL[c.r][st]?' tail':'');
+    c.el.className='st'+(st>=LEN[c.r]?' out':'')+(on?' on':'')+(st%4===0?' b4':'')+(S.cur===st?' cur':'')+(S.sel.r===c.r&&S.sel.s===st?' sel':'')+(!on&&TAIL[c.r]&&TAIL[c.r][st]?' tail':'')+(on&&XYR[c.r][st]?' mo':'');
     let tx='';if(on){if(R.t==='syn')tx=noteName(scaleNote(seqN[R.k][st],BASEOCT[R.k]));else if(R.t==='chd')tx=chordName(chdSeq[st],false).roman;else if(R.t==='smp')tx=smpSeq[st]?String(smpSeq[st]):'';else if(R.t==='vin')tx=vinLbl(vinN[R.k][st],0);}
     if(c.el.textContent!==tx)c.el.textContent=tx;
   });
@@ -1582,7 +1609,7 @@ function refreshSeq(){
   $$('#pageSeg button').forEach(b=>{b.classList.toggle('on',+b.dataset.p===S.page);b.classList.toggle('ph',S.cur>=0&&Math.floor(S.cur/8)===+b.dataset.p&&+b.dataset.p!==S.page);});
   const R=ROWS[S.sel.r],st=S.sel.s;let info='PASO '+String(st+1).padStart(2,'0')+' · '+R.n;
   if(R.t==='vin')info+=' · '+vinLbl(vinN[R.k][st],0)+' · GATE '+(vinG[R.k][st]||1);
-  if(R.t==='syn')info+=' · '+noteName(scaleNote(seqN[R.k][st],BASEOCT[R.k]));else if(R.t==='chd')info+=' · '+chordName(chdSeq[st],false).name+' · G'+chdGate[st];else if(R.t==='smp'&&smpSeq[st])info+=(SMPL.mode==='pads'?' · PAD ':' · CHOP ')+smpSeq[st];
+  if(R.t==='syn')info+=' · '+noteName(scaleNote(seqN[R.k][st],BASEOCT[R.k]))+((synG[R.k][st]||1)>1?' · GATE '+synG[R.k][st]:'');else if(R.t==='chd')info+=' · '+chordName(chdSeq[st],false).name+' · G'+chdGate[st];else if(R.t==='smp'&&smpSeq[st])info+=(SMPL.mode==='pads'?' · PAD ':' · CHOP ')+smpSeq[st];
   $('#stepInfo').textContent=(S.ring&&!$('#rNote').classList.contains('on'))?'':info+(pat[S.sel.r][st]?' [ON]':'');
 }
 function kitPrev(quiet){ensureKit();queueSave();renderPalette();if(S.tab==='keys')renderKeys();if(ctx){drumPlay(0,ctx.currentTime+.01,1);drumPlay(1,ctx.currentTime+.32,1);drumPlay(2,ctx.currentTime+.32,1);}if(!quiet)toast('KIT '+KITS[S.kit].n);}
@@ -1626,6 +1653,7 @@ function renderPalette(){
   const mk=(txt,fn,cls)=>{const b=document.createElement('button');b.className='cap sm '+(cls||'dark');b.textContent=txt;b.onclick=fn;return b;};
   if(R.t==='syn'||R.t==='vin'){head.appendChild(mk('OCT −',()=>{S.po=clamp(S.po-1,-1,2);renderPalette();}));head.appendChild(mk('OCT +',()=>{S.po=clamp(S.po+1,-1,2);renderPalette();}));}
   else if(R.t==='chd'){const b=mk('7ª',()=>{S.seventh=!S.seventh;renderPalette();});b.classList.toggle('on',S.seventh);head.appendChild(b);}
+  if(XYR[S.sel.r][st]){const b=mk('〰 MOV ✕',()=>{XYR[S.sel.r][st]=null;dirty=true;queueSave();renderPalette();toast('MOVIMIENTO BORRADO');});b.classList.add('on');b.setAttribute('aria-label','Borrar el movimiento grabado de este paso');head.appendChild(b);}
   p.appendChild(head);
   const row=document.createElement('div');row.className='pal';
   const n=R.t==='syn'||R.t==='vin'?8:R.t==='chd'?7:4;
@@ -1647,8 +1675,8 @@ function renderPalette(){
     GATES.forEach(gv=>{const b=document.createElement('button');b.className='cap dark';b.classList.toggle('on',GA[st]===gv);b.innerHTML='GATE '+gv;b.onclick=()=>{GA[st]=gv;dirty=true;queueSave();renderPalette();};gr.appendChild(b);});
     p.appendChild(gr);
   }
-  if(R.t==='vin'){   // GATE del paso: cuántos pasos queda sonando la nota (1…32)
-    const GA=vinG[R.k],gr=document.createElement('div');gr.className='pal g vg';const set=v=>{GA[st]=clamp(v,1,STEPS);if(!pat[S.sel.r][st]){pat[S.sel.r][st]=1;}dirty=true;queueSave();renderPalette();};
+  if(R.t==='vin'||R.t==='syn'){   // GATE del paso: cuántos pasos queda sonando la nota (1…32)
+    const GA=R.t==='vin'?vinG[R.k]:synG[R.k],gr=document.createElement('div');gr.className='pal g vg';const set=v=>{GA[st]=clamp(v,1,STEPS);if(!pat[S.sel.r][st]){pat[S.sel.r][st]=1;}dirty=true;queueSave();renderPalette();};
     const mb=(t,fn,on)=>{const b=document.createElement('button');b.className='cap dark';b.classList.toggle('on',!!on);b.innerHTML=t;b.onclick=fn;gr.appendChild(b);};
     mb('−',()=>set(GA[st]-1));mb('GATE <b>'+GA[st]+'</b>',()=>{},false);mb('+',()=>set(GA[st]+1));
     [1,4,8,16].forEach(v=>mb(String(v),()=>set(v),GA[st]===v));
@@ -1668,8 +1696,11 @@ function xyBind(el,mode,voices){
   el.addEventListener('pointerdown',e=>{x0=e.clientX;y0=e.clientY;act=false;const r=R();el.style.setProperty('--px',((e.clientX-r.left)/r.width*100)+'%');el.style.setProperty('--py',((e.clientY-r.top)/r.height*100)+'%');});
   el.addEventListener('pointermove',e=>{if(!el.classList.contains('dn'))return;const dx=e.clientX-x0,dy=y0-e.clientY;if(!act&&Math.hypot(dx,dy)<7)return;act=true;
     const r=R();el.style.setProperty('--px',((e.clientX-r.left)/r.width*100)+'%');el.style.setProperty('--py',((e.clientY-r.top)/r.height*100)+'%');
-    xyApply(voices(),S.xy[mode],clamp(dx/90,-1,1),clamp(dy/90,-1,1));});
+    const vx=clamp(dx/90,-1,1),vy=clamp(dy/90,-1,1);xyApply(voices(),S.xy[mode],vx,vy);if(el._xr&&ctx)el._xr.push([ctx.currentTime,vx,vy]);});
 }
+/* con REC: lo que movés el dedo mientras mantenés la tecla queda grabado en el paso */
+function xyRecStart(el,targets){el._xt=targets&&targets.length?targets:null;el._xr=el._xt?[]:null;el._x0=ctx?ctx.currentTime:0;}
+function xyRecEnd(el){if(el._xt&&ctx)xyRec(el._xt,el._xr,el._x0,ctx.currentTime-el._x0);el._xt=el._xr=null;}
 const XYN={none:'—',pitch:'PITCH',cut:'FILTRO',res:'RESO',mod:'MOD'};
 function xyMenu(mode){
   const box=$('#xyBox'),C=S.xy[mode];box.innerHTML='';
@@ -1699,7 +1730,7 @@ function renderKeysBase(){
       const idx=r*7+i,d=idx+7*S.ko[k],el=document.createElement('div'),col=CH[1+k].c;
       el.className='pad cap'+(r?'':' dark');el.style.setProperty('--c',col);
       el.innerHTML=noteName(scaleNote(d,BASEOCT[k]))+'<small>'+(i+1)+'</small>';
-      bindPad(el,()=>{if(!ctx)return;el._v=mkVoice(curP(k),mtof(scaleNote(d,BASEOCT[k])),ctx.currentTime+.003,.9,bus[1+k].inp);recWrite(R_SYN+k,d);},()=>{if(el._v){el._v.stop(ctx.currentTime);el._v=null;}});xyBind(el,m,()=>el._v?[el._v]:null);
+      bindPad(el,()=>{if(!ctx)return;el._v=mkVoice(curP(k),mtof(scaleNote(d,BASEOCT[k])),ctx.currentTime+.003,.9,bus[1+k].inp);const st=recWrite(R_SYN+k,d);el._sst=st;xyRecStart(el,st>=0?[{r:R_SYN+k,st}]:null);},()=>{if(el._sst>=0&&ctx)synGate(k,el._sst,ctx.currentTime-el._x0);el._sst=-1;xyRecEnd(el);if(el._v){el._v.stop(ctx.currentTime);el._v=null;}});xyBind(el,m,()=>el._v?[el._v]:null);
       pads.appendChild(el);
     }
     $('#cutSl').style.setProperty('--c',CH[1+k].c);cutPaint();
@@ -1713,7 +1744,7 @@ function renderKeysBase(){
       const c=chordName(i,S.seventh),el=document.createElement('div');
       el.className='pad cap'+(i<4?'':' dark');el.style.setProperty('--c',CH[3].c);
       el.innerHTML='<span class="rn">'+c.roman+'</span><small>'+c.name+'</small>';
-      bindPad(el,()=>{if(!ctx)return;el._v=chordPlay(i,S.seventh,ctx.currentTime+.003,bus[3].inp);el._st=recWrite(R_CHD,i);el._t0=ctx.currentTime;},()=>{if(el._v){el._v.forEach(v=>v.stop(ctx.currentTime));el._v=null;if(el._st>=0)recGate(el._st,ctx.currentTime-el._t0);el._st=-1;}});xyBind(el,'chd',()=>el._v||null);
+      bindPad(el,()=>{if(!ctx)return;el._v=chordPlay(i,S.seventh,ctx.currentTime+.003,bus[3].inp);el._st=recWrite(R_CHD,i);el._t0=ctx.currentTime;xyRecStart(el,el._st>=0?[{r:R_CHD,st:el._st}]:null);},()=>{xyRecEnd(el);if(el._v){el._v.forEach(v=>v.stop(ctx.currentTime));el._v=null;if(el._st>=0)recGate(el._st,ctx.currentTime-el._t0);el._st=-1;}});xyBind(el,'chd',()=>el._v||null);
       pads.appendChild(el);
     }
     const info=document.createElement('div');info.className='lcd';info.style.cssText='display:flex;align-items:center;justify-content:center;text-align:center;padding:6px';info.textContent='REC: mantené el acorde para fijar el GATE';pads.appendChild(info);
@@ -1727,8 +1758,8 @@ function renderKeysBase(){
       const idx=r*7+i,d=idx+7*S.vko,el=document.createElement('div');
       el.className='pad cap'+(r?'':' dark');el.style.setProperty('--c',CH[6].c);
       el.innerHTML=vinLbl(d,S.vch)+'<small>'+(i+1)+'</small>';
-      bindPad(el,()=>{if(!ctx)return;el._v=vinPlay(d,S.vch,ctx.currentTime+.003,0,.9);el._st=vinRec(S.vch?[d,d+2,d+4]:[d]);el._t0=ctx.currentTime;},
-        ()=>{if(el._v){el._v.stop(ctx.currentTime);el._v=null;}if(el._st&&el._st.length){const h=ctx.currentTime-el._t0;el._st.forEach(o=>vinGate(o,h));}el._st=null;});
+      bindPad(el,()=>{if(!ctx)return;el._v=vinPlay(d,S.vch,ctx.currentTime+.003,0,.9);el._st=vinRec(S.vch?[d,d+2,d+4]:[d]);el._t0=ctx.currentTime;xyRecStart(el,el._st.map(o=>({r:R_VIN+o.k,st:o.st})));},
+        ()=>{xyRecEnd(el);if(el._v){el._v.stop(ctx.currentTime);el._v=null;}if(el._st&&el._st.length){const h=ctx.currentTime-el._t0;el._st.forEach(o=>vinGate(o,h));}el._st=null;});
       xyBind(el,m,()=>el._v?[el._v]:null);pads.appendChild(el);
     }
     $('#cutSl').style.setProperty('--c',CH[6].c);cutPaint();
@@ -2199,7 +2230,7 @@ function loadSession(j){
 let newT=null;
 function newSession(){
   if(S.playing)stop();if(CAP)capStop();
-  const j=JSON.parse(JSON.stringify(DEF));j.pat.forEach(r=>r.fill(0));j.seqN.forEach(r=>r.fill(0));j.chdSeq.fill(0);j.chdGate.fill(2);j.smpSeq.fill(0);j.vinN.forEach(a=>a.fill(0));j.vinG.forEach(a=>a.fill(1));j.steps=16;j.sw=0;j.parts=null;j.part=0;j.song=false;j.name='';delete j.smp.pcm;
+  const j=JSON.parse(JSON.stringify(DEF));j.pat.forEach(r=>r.fill(0));j.seqN.forEach(r=>r.fill(0));j.chdSeq.fill(0);j.chdGate.fill(2);j.smpSeq.fill(0);if(j.synG)j.synG.forEach(a=>a.fill(1));j.vinN.forEach(a=>a.fill(0));j.vinG.forEach(a=>a.fill(1));if(j.xyr)j.xyr.forEach(a=>a.fill(null));j.steps=16;j.sw=0;j.parts=null;j.part=0;j.song=false;j.name='';delete j.smp.pcm;
   SMPL.buf=null;SMPL.rbuf=null;SMPL.name='';SMPL.pads.fill(null);SMPL.mode='chop';smpStore();UNDO=null;S.hasUndo=false;try{$('#bUndo').classList.remove('has');}catch(e){}
   loadSession(j);S.name='';$('#shName').value='';queueSave();
 }
@@ -2481,9 +2512,9 @@ function ringUi(){
 function ringSel(r){noteOpen(false);r=(r+NR)%NR;S.sel={r,s:Math.min(S.sel.s,LEN[r]-1)};$('#rPicker').classList.remove('on');dirty=true;renderPalette();ringUi();}
 function rowTool(t){
   const r=S.sel.r,L=LEN[r],R=ROWS[r];takeUndo();
-  const arrs=[pat[r]];if(R.t==='syn')arrs.push(seqN[R.k]);else if(R.t==='chd')arrs.push(chdSeq,chdGate);else if(R.t==='smp')arrs.push(smpSeq);else if(R.t==='vin')arrs.push(vinN[R.k],vinG[R.k]);
+  const arrs=[pat[r],XYR[r]];if(t==='rnd'||t==='clr')XYR[r].fill(null);if(R.t==='syn')arrs.push(seqN[R.k],synG[R.k]);else if(R.t==='chd')arrs.push(chdSeq,chdGate);else if(R.t==='smp')arrs.push(smpSeq);else if(R.t==='vin')arrs.push(vinN[R.k],vinG[R.k]);
   if(t==='rnd'){for(let s=0;s<L;s++){pat[r][s]=Math.random()<RDENS[r]?1:0;if(!pat[r][s])continue;
-      if(R.t==='syn')seqN[R.k][s]=Math.floor(Math.random()*8);else if(R.t==='chd'){chdSeq[s]=Math.floor(Math.random()*7);chdGate[s]=2;}else if(R.t==='smp')smpSeq[s]=1+Math.floor(Math.random()*4);else if(R.t==='vin'){vinN[R.k][s]=Math.floor(Math.random()*8);vinG[R.k][s]=[1,1,2,4][Math.floor(Math.random()*4)];}}
+      if(R.t==='syn'){seqN[R.k][s]=Math.floor(Math.random()*8);synG[R.k][s]=1;}else if(R.t==='chd'){chdSeq[s]=Math.floor(Math.random()*7);chdGate[s]=2;}else if(R.t==='smp')smpSeq[s]=1+Math.floor(Math.random()*4);else if(R.t==='vin'){vinN[R.k][s]=Math.floor(Math.random()*8);vinG[R.k][s]=[1,1,2,4][Math.floor(Math.random()*4)];}}
     if(r===0)pat[0][0]=1;}
   else if(t==='all'){for(let s=0;s<L;s++){pat[r][s]=1;if(R.t==='smp'&&!smpSeq[s])smpSeq[s]=SMPL.sel+1;}}
   else if(t==='clr'){for(let s=0;s<L;s++)pat[r][s]=0;}
@@ -2534,10 +2565,11 @@ function drawRing(){
       if(on)c.strokeStyle=s===ps&&fl>0?hexA('#ffffff',.55+fl*.45):hexA(col,dim?.22:isSel?1:.8);
       else c.strokeStyle=isSel?'rgba(232,229,222,.2)':(s%4===0&&L===STEPS?'rgba(232,229,222,.09)':'rgba(232,229,222,.05)');
       c.lineWidth=lw;c.beginPath();c.arc(cx,cy,rad,a0,a1);c.stroke();
+      if(on&&XYR[r][s]){const am=(a0+a1)/2,rr=rad+lw/2-Math.max(1.6*d,lw*.18);c.fillStyle=dim?'rgba(255,255,255,.3)':'rgba(255,255,255,.9)';c.beginPath();c.arc(cx+Math.cos(am)*rr,cy+Math.sin(am)*rr,Math.max(1,Math.min(1.6*d,lw*.14)),0,7);c.fill();}   // tiene movimiento grabado
       if(s===ps){c.strokeStyle='rgba(255,255,255,.8)';c.lineWidth=Math.max(1,.9*d);c.beginPath();c.arc(cx,cy,rad+lw/2+1.2*d,a0,a1);c.stroke();}
       if(isSel&&s===S.sel.s&&$('#rNote').classList.contains('on')){c.strokeStyle='#ff9440';c.lineWidth=1.4*d;c.beginPath();c.arc(cx,cy,rad-lw/2-1.6*d,a0,a1);c.stroke();}}
-    if(ROWS[r].t==='vin'){const k=ROWS[r].k;c.strokeStyle=hexA(col,dim?.12:.45);c.lineWidth=Math.max(d,lw*.3);   // GATE: arco mientras la nota sigue sonando
-      for(let s=0;s<L;s++)if(pat[r][s]){const g=Math.min(vinG[k][s]||1,L);if(g>1){c.beginPath();c.arc(cx,cy,rad,ang(s+1,L)-gap,ang(s+g,L)-gap);c.stroke();}}}
+    if(ROWS[r].t==='vin'||ROWS[r].t==='syn'){const GG=ROWS[r].t==='vin'?vinG[ROWS[r].k]:synG[ROWS[r].k];c.strokeStyle=hexA(col,dim?.12:.45);c.lineWidth=Math.max(d,lw*.3);   // GATE: arco mientras la nota sigue sonando
+      for(let s=0;s<L;s++)if(pat[r][s]){const g=Math.min(GG[s]||1,L);if(g>1){c.beginPath();c.arc(cx,cy,rad,ang(s+1,L)-gap,ang(s+g,L)-gap);c.stroke();}}}
     if(isSel){c.strokeStyle='rgba(255,148,64,.75)';c.lineWidth=1.2*d;c.beginPath();c.arc(cx,cy,rad+th/2,0,TAU);c.stroke();c.beginPath();c.arc(cx,cy,Math.max(1,rad-th/2),0,TAU);c.stroke();
       if(th>15*d){const RT=ROWS[r],segW=rad*TAU/L-4*d;c.textAlign='center';c.textBaseline='middle';
         for(let s=0;s<L;s++)if(pat[r][s]){const a=(ang(s,L)+ang(s+1,L))/2;
@@ -2771,7 +2803,7 @@ document.addEventListener('keydown',e=>{if(e.code==='Space'&&!e.repeat&&e.target
 document.addEventListener('visibilitychange',()=>{if(document.hidden){sirHolds.clear();if(sirV)sirStop();$$('#pads .pad').forEach(el=>{if(el._v){try{(Array.isArray(el._v)?el._v:[el._v]).forEach(v=>v.stop());}catch(e){}el._v=null;el.classList.remove('dn');}});}});
 window.addEventListener('resize',()=>{if(S.tab==='smp')drawWave();});
 renderPalette();renderKeys();fxUi();sync();refreshSeq();smpUi();partUi();ringUi();frame();
-window.GB={smpMode,smpCopy,smpSrc,SCP:()=>SCP,padsPack,IDB,libSave,libOpen,libList,libLive,smpPack,smpUnpack,SMPR,drumRe,dkE,renderDrum,KH:()=>KH,LV,wavEncode,xyApply,LIVE,drawSiren:()=>drawSiren(),TILT,partCopy,LEN,RM,RS,ringSel,rowTool,viz:{drawScope:()=>drawScope(),drawVoice:()=>drawVoice(),drawXY:()=>drawXY(),drawBus:()=>drawBus(),drawRing:()=>drawRing()},newSession,KB:()=>KB,SYNP,sdSend:(i,v)=>{CH[i].dst=v;applyCh(i);},anM:()=>anM,shareSes,PARTS,partGo,partSwitch,partBar,drumPreset,KITS,DPRE,trig,sd,PERF,S,CH,FXP,SMPL,pat,smpSeq,chdGate,snapshot,applySnapshot,loadSession,smpDemo,chopPlay,smpSet,smpEncode,smpDecode,get ctx(){return ctx;},get lim(){return lim;},get CAP(){return CAP;},recWrite,takeUndo,doUndo,bus,extractText,setSteps,get STEPS(){return STEPS;},vinPlay,vinVoice,VINP,vinN,vinG,vinRec,vinGate,VL,vinMig,vinFx,latOut,vNow,calCalc,SCH,seqN,chdSeq,LIVE_:()=>LIVE,setBpm,pageUi,noteOpen,renderPalette,ROWS,R_VIN,swOff,get gT(){return gT;},orgWave,DHIT,lesToggle};
+window.GB={smpMode,smpCopy,smpSrc,SCP:()=>SCP,padsPack,IDB,libSave,libOpen,libList,libLive,smpPack,smpUnpack,SMPR,drumRe,dkE,renderDrum,KH:()=>KH,LV,wavEncode,xyApply,LIVE,drawSiren:()=>drawSiren(),TILT,partCopy,LEN,RM,RS,ringSel,rowTool,viz:{drawScope:()=>drawScope(),drawVoice:()=>drawVoice(),drawXY:()=>drawXY(),drawBus:()=>drawBus(),drawRing:()=>drawRing()},newSession,KB:()=>KB,SYNP,sdSend:(i,v)=>{CH[i].dst=v;applyCh(i);},anM:()=>anM,shareSes,PARTS,partGo,partSwitch,partBar,drumPreset,KITS,DPRE,trig,sd,PERF,S,CH,FXP,SMPL,pat,smpSeq,chdGate,snapshot,applySnapshot,loadSession,smpDemo,chopPlay,smpSet,smpEncode,smpDecode,get ctx(){return ctx;},get lim(){return lim;},get CAP(){return CAP;},recWrite,takeUndo,doUndo,bus,extractText,setSteps,get STEPS(){return STEPS;},vinPlay,vinVoice,VINP,vinN,vinG,vinRec,vinGate,VL,vinMig,XYR,xyRec,xyAuto,xyPlay,XYQ,synG,synGate,chordPlay,vinFx,latOut,vNow,calCalc,SCH,seqN,chdSeq,LIVE_:()=>LIVE,setBpm,pageUi,noteOpen,renderPalette,ROWS,R_VIN,swOff,get gT(){return gT;},orgWave,DHIT,lesToggle};
 </script>
 <script>
 /* app instalable: guarda la app en el teléfono para abrir sin internet y se actualiza sola */
