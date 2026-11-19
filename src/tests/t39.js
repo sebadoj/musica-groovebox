@@ -122,21 +122,21 @@ ok(await p.evaluate(()=>GB.S.vinPar.n==='RHODES'&&!document.querySelector('#parP
 if(SH)await p.screenshot({path:SH+'/g-vint-rhodes.png'});
 await p.evaluate(()=>{GB.S.parOpen=false;});
 // secuenciador
-await tab('seq');await p.evaluate(()=>{GB.pat.forEach(r=>r.fill(0));GB.pat[12][0]=1;GB.vinN[0]=2;GB.vinC[0]=1;GB.vinG[0]=4;GB.S.vinPar=JSON.parse(JSON.stringify(GB.VINP[0]));GB.vinFx();GB.setBpm(120);});
+await tab('seq');await p.evaluate(()=>{GB.pat.forEach(r=>r.fill(0));GB.pat[12][0]=1;GB.vinN[0][0]=2;GB.vinG[0][0]=4;GB.S.vinPar=JSON.parse(JSON.stringify(GB.VINP[0]));GB.vinFx();GB.setBpm(120);});
 await p.tap('#bPlay');await W(300);
 const sq=await p.evaluate(()=>{const a=GB.bus[6].an,buf=new Uint8Array(a.fftSize);a.getByteTimeDomainData(buf);let pk=0;for(const x of buf)pk=Math.max(pk,Math.abs(x-128)/128);return pk;});
 await p.tap('#bPlay');ok(sq>.02,'la pista VINT suena en el secuenciador ('+sq.toFixed(3)+')');
-ok(await p.evaluate(()=>{const r=document.querySelectorAll('#grid .row');return r.length===13&&r[12].querySelector('.rl').textContent==='VINT';}),'renglón VINT en la grilla');
+ok(await p.evaluate(()=>{const r=document.querySelectorAll('#grid .row');return r.length===17&&[12,13,14,15,16].every((i,k)=>r[i].querySelector('.rl').textContent==='VIN '+(k+1));}),'5 carriles VIN 1…5 en la grilla');
 await p.evaluate(()=>{GB.S.sel={r:12,s:0};GB.renderPalette();});
-ok(await p.evaluate(()=>{const t=document.querySelector('#palette').textContent;return t.includes('ACORDE')&&t.includes('GATE 4');}),'paleta VINT: notas, ACORDE y GATE');
+ok(await p.evaluate(()=>{const t=document.querySelector('#palette').textContent;return t.includes('GATE 4')&&document.querySelectorAll('#palette .pal.vg .cap').length===7;}),'paleta VINT: notas y GATE − n + 1 4 8 16');
 // mixer
 await tab('mix');await W(120);ok(await p.$$eval('#strips .strip',a=>a.length===8&&a[6].querySelector('.nm').textContent==='VINT'),'mixer: canal VINT');
 if(SH)await p.screenshot({path:SH+'/h-mix.png'});
 await tab('seq');
 /* ---- guardado ---- */
-const rt=await p.evaluate(()=>{GB.setSteps(32);GB.S.sw=.6;GB.vinN[20]=5;GB.pat[12][20]=1;const j=JSON.parse(JSON.stringify(GB.snapshot(false)));GB.setSteps(16);GB.S.sw=0;GB.vinN[20]=0;GB.applySnapshot(j);return {st:GB.STEPS,sw:GB.S.sw,v:GB.vinN[20],p:GB.pat[12][20],vp:GB.S.vinPar.n};});
+const rt=await p.evaluate(()=>{GB.setSteps(32);GB.S.sw=.6;GB.vinN[0][20]=5;GB.pat[12][20]=1;const j=JSON.parse(JSON.stringify(GB.snapshot(false)));GB.setSteps(16);GB.S.sw=0;GB.vinN[0][20]=0;GB.applySnapshot(j);return {st:GB.STEPS,sw:GB.S.sw,v:GB.vinN[0][20],p:GB.pat[12][20],vp:GB.S.vinPar.n};});
 ok(rt.st===32&&rt.sw===.6&&rt.v===5&&rt.p===1&&!!rt.vp,'la sesión guarda 32 pasos, swing y VINT');
-const old=await p.evaluate(()=>{const j=JSON.parse(JSON.stringify(GB.snapshot(false)));j.v=8;delete j.steps;delete j.sw;delete j.vinN;delete j.vinC;delete j.vinG;delete j.vinPar;delete j.vinPre;j.pat=j.pat.slice(0,12).map(r=>r.slice(0,16));j.seqN=j.seqN.map(r=>r.slice(0,16));j.len=j.len.slice(0,12).map(()=>16);j.ch=j.ch.slice(0,6);delete j.xy.vin;
+const old=await p.evaluate(()=>{const j=JSON.parse(JSON.stringify(GB.snapshot(false)));j.v=8;delete j.steps;delete j.sw;delete j.vinN;delete j.vinG;delete j.vinPar;delete j.vinPre;j.pat=j.pat.slice(0,12).map(r=>r.slice(0,16));j.seqN=j.seqN.map(r=>r.slice(0,16));j.len=j.len.slice(0,12).map(()=>16);j.ch=j.ch.slice(0,6);delete j.xy.vin;
   GB.applySnapshot(j);return {st:GB.STEPS,l:GB.pat[12].length,l0:GB.pat[0].length,xy:!!GB.S.xy.vin,len:GB.LEN[12]};});
 ok(old.st===16&&old.l===32&&old.l0===32&&old.xy&&old.len===16,'sesión vieja (v13.10) abre bien');
 /* ---- bug: la paleta del anillo no se cierra sola ---- */
@@ -153,5 +153,38 @@ const pos=await p.evaluate(()=>{const cv=document.querySelector('#ring'),b=cv.ge
 // el paso 3 de 16 en el anillo de la pista elegida (radio exterior)
 const tapAt=await p.evaluate(()=>{const cv=document.querySelector('#ring'),b=cv.getBoundingClientRect(),d=cv.width/b.width;let rad=null;return null;});
 if(SH)await p.screenshot({path:SH+'/i-ring.png'});
+
+/* ---- VINT: 5 carriles, REC a carril libre, GATE por tiempo apretado ---- */
+const mig=await p.evaluate(()=>{const j=JSON.parse(JSON.stringify(GB.snapshot(false)));const n=Array(32).fill(0),c=Array(32).fill(0),g=Array(32).fill(1);n[4]=2;c[4]=1;g[4]=8;n[8]=5;
+  j.vinN=n;j.vinC=c;j.vinG=g;j.pat=j.pat.slice(0,13);j.pat[12]=Array(32).fill(0);j.pat[12][4]=1;j.pat[12][8]=1;j.len=j.len.slice(0,13);j.len[12]=16;GB.applySnapshot(j);
+  return {a:GB.pat[12][4]&&GB.pat[13][4]&&GB.pat[14][4],n:[GB.vinN[0][4],GB.vinN[1][4],GB.vinN[2][4]],g:GB.vinG[1][4],solo:GB.pat[12][8]&&!GB.pat[13][8],len:GB.LEN[14]};});
+ok(mig.a&&mig.n.join()==='2,4,6'&&mig.g===8&&mig.solo&&mig.len===16,'sesión v13.11: el acorde VINT pasa a 3 carriles');
+await p.evaluate(()=>{GB.pat.forEach(r=>r.fill(0));GB.setSteps(16);GB.setBpm(120);GB.PERF.lc='off';});
+await p.tap('#bRec');await p.tap('#bPlay');await W(900);
+const rec=await p.evaluate(()=>{const a=GB.vinRec([0]),b=GB.vinRec([4]),c=GB.vinRec([0]);return {a,b,c};});
+ok(rec.a[0].k===0&&rec.b[0].k===1&&rec.a[0].st===rec.b[0].st,'dos notas en el mismo paso van a carriles distintos');
+ok(rec.c[0].k===0,'la misma nota otra vez no duplica');
+const ch=await p.evaluate(()=>GB.vinRec([2,4,6]).map(o=>o.k));ok(ch.length===3&&new Set(ch).size===3,'ACORDE en el teclado graba 3 carriles ('+ch.join(',')+')');
+await p.evaluate(()=>GB.vinGate(GB.vinRec([3])[0],1.0));
+ok(await p.evaluate(()=>GB.vinG.some(a=>a.includes(8))),'mantener 1 s a 120 BPM = GATE 8');
+await p.tap('#bPlay');await p.tap('#bRec');await W(60);
+// teclado VINT: apretar y soltar con REC
+await tab('keys');await p.evaluate(()=>{GB.pat.forEach(r=>r.fill(0));GB.S.vch=false;document.querySelector('#kmodeSeg [data-m=vin]').click();});
+await p.tap('#bRec');await p.tap('#bPlay');await W(600);
+const k1=await (await p.$('#pads .pad:nth-child(9)')).boundingBox();await p.mouse.move(k1.x+k1.width/2,k1.y+k1.height/2);await p.mouse.down();await W(760);await p.mouse.up();
+const kr=await p.evaluate(()=>{for(let k=0;k<5;k++)for(let s=0;s<16;s++)if(GB.pat[12+k][s])return {k,s,g:GB.vinG[k][s]};return null;});
+await p.tap('#bPlay');await p.tap('#bRec');
+ok(kr&&kr.g>=5&&kr.g<=7,'tecla mantenida ~0,75 s se graba con GATE '+(kr&&kr.g));
+// bajo largo que sigue sonando mientras pasan los otros pasos
+await tab('seq');await p.evaluate(()=>{GB.pat.forEach(r=>r.fill(0));GB.S.vinPar=JSON.parse(JSON.stringify(GB.VINP[6]));GB.vinFx();GB.pat[12][0]=1;GB.vinN[0][0]=0;GB.vinG[0][0]=16;GB.pat[13][4]=1;GB.vinN[1][4]=4;GB.pat[14][8]=1;GB.vinN[2][8]=6;GB.setBpm(120);});
+await p.tap('#bPlay');await W(1300);
+const bass=await p.evaluate(()=>[...GB.LIVE_()].filter(v=>v.vin&&v.tr>GB.ctx.currentTime).length);
+await p.tap('#bPlay');ok(bass>=2,'el bajo GATE 16 sigue sonando mientras entran las otras notas ('+bass+' voces)');
+await p.evaluate(()=>{GB.S.sel={r:12,s:0};GB.renderPalette();if(GB.S.ring)document.querySelector('#bRing').click();});await W(150);
+ok(await p.evaluate(()=>document.querySelectorAll('#grid .row')[12].querySelectorAll('.st.tail').length===7),'la grilla muestra la cola del GATE');
+await p.evaluate(()=>{[...document.querySelectorAll('#palette .pal.vg .cap')].find(b=>b.textContent==='+').click();});
+ok(await p.evaluate(()=>GB.vinG[0][0]===16),'GATE + no pasa de 16 con 16 pasos');
+await p.evaluate(()=>{[...document.querySelectorAll('#palette .pal.vg .cap')].find(b=>b.textContent==='4').click();});ok(await p.evaluate(()=>GB.vinG[0][0]===4),'GATE 4 con un toque');
+if(SH){await p.screenshot({path:SH+'/m-vin-grid.png'});await p.evaluate(()=>document.querySelector('#bRing').click());await W(300);await p.evaluate(()=>GB.ringSel(12));await W(400);await p.screenshot({path:SH+'/n-vin-ring.png'});}
 console.log(e.length?'errors '+e.join(' | '):'errors none');
 await b.close();})();
