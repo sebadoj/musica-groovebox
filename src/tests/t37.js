@@ -1,6 +1,7 @@
 const {chromium}=require('/opt/npm-tools/node_modules/playwright');
 (async()=>{const b=await chromium.launch({executablePath:'/usr/bin/google-chrome',args:['--no-sandbox','--autoplay-policy=no-user-gesture-required']});
-const c=await b.newContext({viewport:{width:390,height:800},deviceScaleFactor:2,hasTouch:true,acceptDownloads:true});const p=await c.newPage();const e=[];p.on('pageerror',x=>e.push(x.message));
+const c=await b.newContext({viewport:{width:390,height:800},deviceScaleFactor:2,hasTouch:true,acceptDownloads:true});await c.addInitScript(()=>{delete window.showDirectoryPicker;});   // navegador sin carpetas: biblioteca del teléfono
+const p=await c.newPage();const e=[];p.on('pageerror',x=>e.push(x.message));
 const ok=(v,m)=>console.log((v?'PASS ':'FAIL ')+m);
 await p.goto('file://'+require('path').resolve(__dirname,'../build/MUSICA-GROOVEBOX-MOBILE-v'+(process.env.V||'13.10')+'.html'));await p.waitForTimeout(400);
 const nav=t=>p.evaluate(t=>[...document.querySelectorAll('nav button')].find(x=>x.textContent.includes(t)).click(),t);

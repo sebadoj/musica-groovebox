@@ -63,7 +63,7 @@ ok((await files(fid)).filter(t=>/TEMA UNO/.test(t)).join()==='TEMA UNO.json','el
 ok(await p.evaluate(()=>GB.drvAuto(true).then(r=>r===false)),'sin cambios nuevos no autoguarda');
 ok(await p.evaluate(()=>{GB.queueSave();return GB.drvAuto(true).then(r=>r===false);}),'si el contenido es igual no crea otra versión');
 // 12 autoguardados → quedan 10
-await p.evaluate(async()=>{for(let i=0;i<12;i++){GB.setBpm(100+i);GB.DV.last=0;await GB.drvAuto(true);}});
+await p.evaluate(async()=>{for(let i=0;i<12;i++)await GB.BK.drive.write('AUTOSAVE','TEMA UNO_AS_2026112'+String(100+i).padStart(5,'0')+'.json','{}','application/json');GB.setBpm(99);GB.DV.last=0;await GB.drvAuto(true);});
 const asN=await p.evaluate(()=>{const D=window.__D,sub=Object.values(D.f).find(f=>f.title==='AUTOSAVE'&&!f.trashed);return Object.values(D.f).filter(f=>f.parent===sub.id&&!f.trashed&&f.title.startsWith('TEMA UNO_AS_')).length;});
 ok(asN===10,'quedan las 10 versiones más nuevas ('+asN+')');
 ok(await p.evaluate(()=>{const D=window.__D;return Object.values(D.f).filter(f=>f.title.startsWith('TEMA UNO_AS_')&&f.trashed).length>=3;}),'las viejas van a la papelera');

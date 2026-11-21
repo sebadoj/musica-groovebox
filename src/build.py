@@ -8,6 +8,8 @@ assert p2.endswith('</script>');p2=p2[:-9]
 gb=open(W+'gb.txt').read().strip()   # window.GB = exportaciones para los tests
 old=re.search(r'window\.GB=\{.*\};',p3).group(0)
 p3=p3.replace(old,gb)
+import datetime
+p3=p3.replace('__GBVER__',ver).replace('__GBDATE__',datetime.date.today().strftime('%Y%m%d'))   # versión en el menú
 os.makedirs(W+'build',exist_ok=True)
 open(W+'build/MUSICA-GROOVEBOX-MOBILE-v%s.html'%ver,'w').write(p1+p2+p3)
 print('built',ver,len(p1+p2+p3))

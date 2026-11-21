@@ -19,6 +19,7 @@ La app publicada (`../index.html`) es un solo HTML armado desde estas fuentes.
   - `t37`: biblioteca, LIVE, baterías y mixer
   - `t38`: sampler PADS
   - `t1q`: regresión general
+  - `t42`: v13.15 — carpeta del TELÉFONO en la app instalada (File System Access, probado con OPFS) y versión en el menú
   - `t41`: v13.14 — sesiones en una carpeta de Drive (Drive simulado): GUARDAR, ÚLTIMAS 5, autoguardado _AS_, tomas a TOMAS
   - `t40`: v13.13 — movimiento sobre la tecla grabado en el secuenciador, GATE de SYN
   - `t39`: v13.11–13.12 — compensación de latencia y calibración, swing, VINTAGE con 5 carriles y GATE por tiempo apretado, 32 pasos, tempo por arrastre, contador y la paleta del anillo
@@ -26,9 +27,9 @@ La app publicada (`../index.html`) es un solo HTML armado desde estas fuentes.
 ## Publicar una versión
 ```bash
 cd src
-python3 build.py 13.14          # arma el HTML
-for t in t37 t38 t1q t39 t40 t41; do V=13.14 node tests/$t.js; done   # pruebas (necesitan playwright + /usr/bin/google-chrome)
-python3 mkpwa.py 13.14          # actualiza ../index.html y ../sw.js
+python3 build.py 13.15          # arma el HTML
+for t in t37 t38 t1q t39 t40 t41 t42; do V=13.15 node tests/$t.js; done   # pruebas (necesitan playwright + /usr/bin/google-chrome)
+python3 mkpwa.py 13.15          # actualiza ../index.html y ../sw.js
 cd .. && git add -A && git commit -m "v13.11: …" && git push
 ```
 GitHub Pages publica en 1–2 minutos. La app instalada se actualiza la próxima vez que se abre con internet.
