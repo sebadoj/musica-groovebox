@@ -1,7 +1,7 @@
 <script>
 'use strict';
 /* =====================================================================
-   MUSICA GROOVEBOX — versión celular v13.13 (20261119)
+   MUSICA GROOVEBOX — versión celular v13.14 (20261120)
    Un solo archivo, sin librerías, Web Audio.
    16/32 pasos · 2 synths · VINTAGE (órgano, piano eléctrico, analógico, clavinet, cuerdas) · acordes (4 presets + GATE) · 8 drums · SAMPLER (chop en 4 teclas)
    · mixer 6 canales + master (pan, 3 envíos, medidores) · buses FX (delay/reverb/mod/master)
@@ -800,7 +800,8 @@ function applySnapshot(j){
   if(j.smp&&j.smp.chops)j.smp.chops.forEach((C,i)=>{if(SMPL.chops[i])Object.assign(SMPL.chops[i],{ps:0,pe:1},C);});
   SMPL.mode=j.smp&&j.smp.mode==='pads'?'pads':'chop';
 }
-function queueSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(snapshot(false)));}catch(e){}},500);}
+const CHG={on:false,t0:0,cb:null};   // hay cambios desde el último guardado en Drive
+function queueSave(){if(!CHG.on){CHG.on=true;CHG.t0=Date.now();if(CHG.cb)try{CHG.cb();}catch(e){}}clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(snapshot(false)));}catch(e){}},500);}
 const DEF=JSON.parse(JSON.stringify(snapshot(false)));   // estado de fábrica (para NUEVA SESIÓN)
 (function load(){try{const j=JSON.parse(localStorage.getItem(KEY)||'null');if(j)applySnapshot(j);}catch(e){}})();
 </script>

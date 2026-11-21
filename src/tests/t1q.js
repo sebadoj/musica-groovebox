@@ -54,11 +54,13 @@ const srv=http.createServer((q,r)=>{r.setHeader('content-type','text/html');r.en
  await p.evaluate(s=>{GB.SMPL.buf=null;GB.loadSession(JSON.parse(s));},j);
  ok(await p.evaluate(()=>!!GB.SMPL.buf),'sample restored after load');
  // drive save/list/load via mock
- await p.tap('#bSes');await p.fill('#shName','test uno');await p.tap('#shShare');await p.waitForTimeout(400);
+ await p.tap('#bSes');await p.waitForTimeout(500);
+ ok(await p.evaluate(()=>!document.querySelector('#shFoldP').hidden),'sin carpeta: pide elegirla');
+ await p.fill('#shFoldQ','MI CARPETA');await p.waitForTimeout(700);await p.tap('#shFoldNew');await p.waitForTimeout(400);
+ await p.fill('#shName','test uno');await p.tap('#shLoc');await p.waitForTimeout(500);
  console.log('MSG:',await p.textContent('#shMsg'));
- await p.tap('#shList');await p.waitForTimeout(400);console.log('MSG:',await p.textContent('#shMsg'));
- ok(await p.locator('#shLst button').count()===1,'listed 1 session');
- await p.evaluate(()=>{GB.S.bpm=140;});await p.tap('#shLst button');await p.waitForTimeout(400);
+ ok(await p.locator('#shRecL .lm').count()===1,'listed 1 session');
+ await p.evaluate(()=>{GB.S.bpm=140;});await p.tap('#shRecL .lm');await p.waitForTimeout(150);await p.tap('#shRecL .lm');await p.waitForTimeout(500);
  ok(await p.evaluate(()=>GB.S.bpm===90||GB.S.bpm!==140),'loaded from drive bpm='+await p.evaluate(()=>GB.S.bpm));
  console.log('calls:',JSON.stringify(await p.evaluate(()=>window.__calls.map(c=>[c[0],c[1],c[2]&&(c[2].title||c[2].query||c[2].fileId)]))));
  await p.screenshot({path:'s_sheet.png'});

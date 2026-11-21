@@ -356,6 +356,14 @@ select option{background:#2a2926}
 #calSheet{position:fixed;inset:0;z-index:63;display:none;align-items:center;justify-content:center;padding:12px;background:rgba(20,20,21,.86);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 #calSheet.on{display:flex}
 .pgrid.one{grid-template-columns:1fr}
+#sheet:not(.drv) .donly,#sheet.drv .ponly{display:none!important}
+.fold{display:grid!important;grid-template-columns:1fr auto;grid-template-rows:auto auto;align-items:center;text-align:left;height:auto!important;padding:9px 14px!important;gap:2px 10px;border-radius:14px!important}
+.fold small{grid-column:1;font:400 8px var(--ui);letter-spacing:.16em;color:var(--dim)}.fold b{grid-column:1;font:400 14px var(--ui);letter-spacing:.06em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fold i{grid-column:2;grid-row:1/3;font:400 10px var(--ui);font-style:normal;letter-spacing:.12em;color:var(--acc)}
+.fold.need b{color:var(--acc)}
+.foldp{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:14px;box-shadow:inset 0 0 0 1px var(--line2)}.foldp[hidden]{display:none}
+.asline{font:400 10px/1.5 var(--ui);letter-spacing:.08em;color:var(--dim);white-space:pre-line}.asline em{font-style:normal;color:var(--acc)}.asline b{font-weight:400;color:#7dff9a}
+#bSes{position:relative}#bSes.chg::after{content:"";position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:var(--acc)}#bSes.ok::after{content:"";position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:#7dff9a}
 #grid{gap:2px}.row{min-height:14px}.row.sep{margin-top:4px}
 .st{position:relative}.st.mo::after{content:"";position:absolute;right:4px;top:50%;width:4px;height:4px;margin-top:-2px;border-radius:50%;background:#fff;opacity:.85}
 .st.tail{background:color-mix(in srgb,var(--c) 15%,transparent);box-shadow:inset 0 0 0 1.2px color-mix(in srgb,var(--c) 32%,transparent)}
@@ -650,17 +658,25 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
 <div id="sheet" role="dialog" aria-label="Sesiones">
   <div class="sbox">
     <div class="phead"><span>SESIONES</span><button id="shX" class="cap dark sm" aria-label="Cerrar">✕</button></div>
+    <button id="shFold" class="cap dark fold donly" aria-label="Carpeta de Drive donde se guardan las sesiones"><small>CARPETA DE DRIVE</small><b id="shFoldN">ELEGÍ UNA CARPETA</b><i>CAMBIAR</i></button>
+    <div id="shFoldP" class="foldp donly" hidden>
+      <input id="shFoldQ" type="text" placeholder="buscar carpeta o pegar el link de Drive" autocomplete="off">
+      <div id="shFoldL" class="lib" data-empty="Buscando carpetas…"></div>
+      <div class="shbtns"><button id="shFoldNew" class="cap dark">＋ CREAR CARPETA</button><button id="shFoldX" class="cap dark">CERRAR</button></div>
+    </div>
     <input id="shName" type="text" maxlength="40" placeholder="nombre de la sesión" autocomplete="off">
     <div class="shbtns"><button id="shLoc" class="cap">GUARDAR</button><button id="shNew" class="cap dark">＋ NUEVA</button></div>
+    <div id="shAs" class="asline donly"></div>
     <div id="shMsg" class="lcd"></div>
-    <div class="phead sub"><span>EN ESTE TELÉFONO</span></div>
-    <div id="shLocL" class="lib" data-empty="Todavía no guardaste sesiones en este teléfono."></div>
-    <div class="phead sub"><span>DRIVE · TU CUENTA DE GOOGLE</span></div>
-    <div class="shbtns"><button id="shShare" class="cap dark">ENVIAR A DRIVE</button><label class="cap dark lblbtn" style="height:40px;font-size:13px">ABRIR DE DRIVE<input id="shFile" type="file" accept=".json,application/json" hidden></label></div>
-    <div class="shbtns" id="shMcpRow" style="display:none"><button id="shList" class="cap dark">MIS SESIONES EN DRIVE</button><button id="shDl" class="cap dark">DESCARGAR .JSON</button></div>
-    <div class="pnote" style="margin:0">ENVIAR A DRIVE abre el menú del teléfono: elegí Drive y se guarda en la cuenta de Google de ese teléfono. ABRIR DE DRIVE: en el selector tocá ☰ y elegí Drive.</div>
-    <div id="shLst"></div>
-    <div class="phead sub"><span>GRABACIONES LIVE</span><small id="shUse"></small></div>
+    <div class="phead sub donly"><span id="shRecH">ÚLTIMAS 5</span><button id="shAll" class="cap dark sm">VER TODAS</button></div>
+    <div id="shRecL" class="lib donly" data-empty="Todavía no hay sesiones en esta carpeta."></div>
+    <div class="shbtns donly"><label class="cap dark lblbtn" style="height:40px;font-size:13px">IMPORTAR .JSON<input id="shImp" type="file" accept=".json,application/json" hidden></label><button id="shDl" class="cap dark">DESCARGAR .JSON</button></div>
+    <div class="phead sub ponly"><span>EN ESTE TELÉFONO</span></div>
+    <div id="shLocL" class="lib ponly" data-empty="Todavía no guardaste sesiones en este teléfono."></div>
+    <div class="phead sub ponly"><span>DRIVE · TU CUENTA DE GOOGLE</span></div>
+    <div class="shbtns ponly"><button id="shShare" class="cap dark">ENVIAR A DRIVE</button><label class="cap dark lblbtn" style="height:40px;font-size:13px">ABRIR DE DRIVE<input id="shFile" type="file" accept=".json,application/json" hidden></label></div>
+    <div class="pnote ponly" style="margin:0">En la app instalada no hay conexión directa a Drive: ENVIAR A DRIVE abre el menú del teléfono (elegí Drive) y ABRIR DE DRIVE abre el selector (tocá ☰ y elegí Drive). Con carpeta fija y autoguardado: abrí el groovebox desde claude.ai.</div>
+    <div class="phead sub"><span>GRABACIONES LIVE</span><small id="shUse" class="ponly"></small></div>
     <div id="shLiveL" class="lib" data-empty="Las tomas de ● LIVE quedan guardadas acá."></div>
     <div class="phead sub"><span>AUDIO</span></div>
     <div class="shbtns"><button id="pfLite" class="cap dark">MODO LIVIANO</button><button id="pfLat" class="cap dark">LATENCIA</button></div>
@@ -671,7 +687,7 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
 <script>
 'use strict';
 /* =====================================================================
-   MUSICA GROOVEBOX — versión celular v13.13 (20261119)
+   MUSICA GROOVEBOX — versión celular v13.14 (20261120)
    Un solo archivo, sin librerías, Web Audio.
    16/32 pasos · 2 synths · VINTAGE (órgano, piano eléctrico, analógico, clavinet, cuerdas) · acordes (4 presets + GATE) · 8 drums · SAMPLER (chop en 4 teclas)
    · mixer 6 canales + master (pan, 3 envíos, medidores) · buses FX (delay/reverb/mod/master)
@@ -1469,7 +1485,8 @@ function applySnapshot(j){
   if(j.smp&&j.smp.chops)j.smp.chops.forEach((C,i)=>{if(SMPL.chops[i])Object.assign(SMPL.chops[i],{ps:0,pe:1},C);});
   SMPL.mode=j.smp&&j.smp.mode==='pads'?'pads':'chop';
 }
-function queueSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(snapshot(false)));}catch(e){}},500);}
+const CHG={on:false,t0:0,cb:null};   // hay cambios desde el último guardado en Drive
+function queueSave(){if(!CHG.on){CHG.on=true;CHG.t0=Date.now();if(CHG.cb)try{CHG.cb();}catch(e){}}clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(snapshot(false)));}catch(e){}},500);}
 const DEF=JSON.parse(JSON.stringify(snapshot(false)));   // estado de fábrica (para NUEVA SESIÓN)
 (function load(){try{const j=JSON.parse(localStorage.getItem(KEY)||'null');if(j)applySnapshot(j);}catch(e){}})();
 
@@ -2134,7 +2151,9 @@ $('#sFile').onchange=e=>{smpFromFile(e.target.files[0],'ARCHIVO');e.target.value
 
 /* ---------------- sesiones: Drive + archivo ---------------- */
 const sheet=$('#sheet'),shMsg=t=>{$('#shMsg').textContent=t||'';};
-$('#bSes').onclick=()=>{try{lcUi();}catch(e){}$('#shName').value=S.name||'';shMsg('');$('#shLst').innerHTML='';$('#shMcpRow').style.display=window.claude&&window.claude.use?'flex':'none';libList();libLive();sheet.classList.add('on');};
+$('#bSes').onclick=()=>{try{lcUi();}catch(e){}$('#shName').value=S.name||'';shMsg('');const d=drvMode();sheet.classList.toggle('drv',d);
+  if(d){$('#shFoldP').hidden=true;drvUi();drvRecent();if(!DV.f){shMsg('Elegí la carpeta de Drive donde van a vivir tus sesiones.');foldOpen(true);}}else libList();
+  libLive();sheet.classList.add('on');};
 $('#shX').onclick=()=>sheet.classList.remove('on');
 $('#shName').oninput=e=>{S.name=e.target.value.slice(0,40);};
 const DRV='Google Drive';let MCP=null,MCPE=null;
@@ -2168,47 +2187,100 @@ async function dlSes(){
 }
 const jarr=p=>{if(Array.isArray(p))return p;if(p&&typeof p==='object'){for(const k of ['files','items','results'])if(Array.isArray(p[k]))return p[k];for(const k in p)if(Array.isArray(p[k]))return p[k];}return null;};
 const fid=f=>f&&(f.id||f.fileId||f.file_id),ftitle=f=>f&&(f.title||f.name);
-async function drvFolder(m){
-  let id=null;try{id=localStorage.getItem('musica_gb_drive_folder');}catch(e){}if(id)return id;
-  const r=await m.callTool(DRV,'search_files',{query:"mimeType = 'application/vnd.google-apps.folder' and title = 'MUSICA GROOVEBOX' and trashed = false",pageSize:5,excludeContentSnippets:true});
-  const a=jarr(r.payload);if(a===null)return null;
-  if(a.length&&fid(a[0]))id=fid(a[0]);
-  else{const c=await m.callTool(DRV,'create_file',{title:'MUSICA GROOVEBOX',mimeType:'application/vnd.google-apps.folder'});id=fid(c.payload)||fid(c.payload&&c.payload.file)||null;}
-  if(id){try{localStorage.setItem('musica_gb_drive_folder',id);}catch(e){}}
-  return id;
-}
 const pad2=n=>String(n).padStart(2,'0');
-async function drvSave(){
-  const m=await mcpGet();if(!m){shMsg(mcpWhy()+'\nAbro el menú de compartir: elegí Drive.');if(!(await shareSes()))await dlSes();return;}
-  const b=$('#shShare');b.disabled=true;shMsg('Guardando en Drive…');
-  try{
-    let snap=snapshot(true),body=JSON.stringify(snap),note='';
-    if(body.length>900000){delete snap.smp.pcm;delete snap.smp.pads;body=JSON.stringify(snap);note='\n(los samples eran muy pesados y no se incluyeron)';}
-    const d=new Date(),slug=(S.name||'sesion').trim().replace(/[^\w\-]+/g,'_').replace(/^_+|_+$/g,'')||'sesion';
-    const title='GB-'+slug+'-'+d.getFullYear()+pad2(d.getMonth()+1)+pad2(d.getDate())+'-'+pad2(d.getHours())+pad2(d.getMinutes())+'.json';
-    let folder=null;try{folder=await drvFolder(m);}catch(e){if(e&&e.code&&e.code!=='tool_error')throw e;}
-    const inp={title,textContent:body,contentMimeType:'application/json',disableConversionToGoogleType:true};if(folder)inp.parentId=folder;
-    await m.callTool(DRV,'create_file',inp);
-    shMsg('✓ GUARDADO EN DRIVE\n'+(folder?'MUSICA GROOVEBOX / ':'(raíz de Drive) ')+title+note);
+/* ---------------- DRIVE (en claude.ai, con el conector): carpeta elegida, GUARDAR, ÚLTIMAS 5 y AUTOGUARDADO ----------------
+   · GUARDAR escribe NOMBRE.json en la carpeta y manda la versión anterior a la papelera (queda uno por sesión).
+   · AUTOGUARDADO: cada 5 min, si hubo cambios, NOMBRE_AS_YYYYMMDDHHMM.json en la subcarpeta AUTOSAVE; quedan las 10 más nuevas.
+   · Las tomas LIVE van a la subcarpeta TOMAS. En claude.ai no se guarda nada de esto en el teléfono. */
+const AS_MIN=5,AS_KEEP=10,FOLDM='application/vnd.google-apps.folder',ASRX=/_AS_\d{12}\.json$/i;
+const DV={f:null,rec:[],last:0,lastT:'',lastBody:'',busy:false,err:''};
+try{DV.f=JSON.parse(localStorage.getItem('musica_gb_drv')||'null');}catch(e){}
+if(!DV.f){try{const id=localStorage.getItem('musica_gb_drive_folder');if(id)DV.f={id,name:'MUSICA GROOVEBOX'};}catch(e){}}
+try{DV.rec=JSON.parse(localStorage.getItem('musica_gb_drv_rec')||'[]')||[];}catch(e){DV.rec=[];}
+const drvMode=()=>!!(window.claude&&window.claude.use);
+const qs=v=>String(v).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+const escH=v=>String(v).replace(/[<&>"]/g,c=>({'<':'&lt;','&':'&amp;','>':'&gt;','"':'&quot;'}[c]));
+const sesBase=()=>((S.name||'').trim().replace(/[\/\\:*?"<>|]+/g,'-').slice(0,40))||'SIN NOMBRE';
+const stamp=()=>{const d=new Date();return d.getFullYear()+pad2(d.getMonth()+1)+pad2(d.getDate())+pad2(d.getHours())+pad2(d.getMinutes());};
+const hhmm=ms=>{const d=new Date(ms);return pad2(d.getHours())+':'+pad2(d.getMinutes());};
+const fmod=f=>Date.parse(f.modifiedTime||f.modified_time||f.modifiedDate||f.updated||'')||0;
+function drvSetF(f){DV.f=f;DV.sub={};DV.rec=[];try{localStorage.setItem('musica_gb_drv',JSON.stringify(f));localStorage.setItem('musica_gb_drv_rec','[]');}catch(e){}drvUi();}
+async function drvSearch(m,q,n,order){const r=await m.callTool(DRV,'search_files',Object.assign({query:q+' and trashed = false',pageSize:n||20,excludeContentSnippets:true},order?{orderBy:order}:{}));return (jarr(r.payload)||[]).filter(fid);}
+async function drvSub(m,name,look){   // subcarpeta (AUTOSAVE / TOMAS) dentro de la carpeta elegida; look = solo buscar, no crear
+  DV.sub=DV.sub||{};const k=DV.f.id+'/'+name;if(DV.sub[k])return DV.sub[k];
+  const a=await drvSearch(m,"mimeType = '"+FOLDM+"' and title = '"+name+"' and parentId = '"+DV.f.id+"'",3);
+  let id=a.length?fid(a[0]):null;if(!id&&look)return null;if(!id){const c=await m.callTool(DRV,'create_file',{title:name,contentMimeType:FOLDM,parentId:DV.f.id});id=fid(c.payload)||fid(c.payload&&c.payload.file);}
+  if(id)DV.sub[k]=id;return id;}
+function sesBody(){let snap=snapshot(true),body=JSON.stringify(snap),note='';if(body.length>900000){delete snap.smp.pcm;delete snap.smp.pads;body=JSON.stringify(snap);note='\n(los samples eran muy pesados y no se incluyeron)';}
+  const cmp=JSON.stringify(Object.assign({},snap,{saved:0,name:''}));return {body,note,cmp};}   // cmp: para saber si cambió algo de verdad
+async function drvPut(m,title,body,parent){const c=await m.callTool(DRV,'create_file',{title,textContent:body,contentMimeType:'application/json',disableConversionToGoogleType:true,parentId:parent});return fid(c.payload)||fid(c.payload&&c.payload.file);}
+async function drvTrash(m,id){try{await m.callTool(DRV,'trash_file',{fileId:id});return true;}catch(e){return false;}}
+function chgUi(){const b=$('#bSes'),d=drvMode()&&!!DV.f;b.classList.toggle('chg',d&&CHG.on);b.classList.toggle('ok',d&&!CHG.on&&!!DV.last);}
+CHG.cb=()=>{chgUi();asUi();};
+function asUi(){const e=$('#shAs');if(!e)return;
+  e.innerHTML='AUTOGUARDADO CADA '+AS_MIN+' MIN → '+escH(DV.f?DV.f.name:'…')+' / AUTOSAVE'+(DV.last?'\nÚLTIMO '+hhmm(DV.last)+' · '+escH(DV.lastT.replace(/\.json$/i,'')):'')+'\n'+(CHG.on?'<em>HAY CAMBIOS SIN GUARDAR</em>':'<b>TODO GUARDADO</b>')+(DV.err?'\n<em>'+escH(DV.err)+'</em>':'');}
+function drvUi(){const b=$('#shFold');$('#shFoldN').textContent=DV.f?DV.f.name:'ELEGÍ UNA CARPETA';b.classList.toggle('need',!DV.f);asUi();chgUi();}
+/* elegir carpeta: buscar por nombre, pegar el link, o crear una */
+function foldOpen(on){$('#shFoldP').hidden=!on;if(on){$('#shFoldQ').value='';foldSearch('');}}
+let foldT=null;
+async function foldSearch(q){const box=$('#shFoldL'),m=await mcpGet();box.innerHTML='';if(!m){box.dataset.empty=mcpWhy();return;}
+  q=(q||'').trim();const lk=q.match(/folders\/([\w-]{10,})/)||q.match(/[?&]id=([\w-]{10,})/)||(/^[\w-]{25,}$/.test(q)?[0,q]:null);
+  if(lk){box.appendChild(lrow('USAR LA CARPETA DEL LINK',lk[1].slice(0,18)+'…',()=>{drvSetF({id:lk[1],name:'CARPETA DEL LINK'});foldOpen(false);shMsg('✓ Carpeta elegida (por link).');drvRecent();},[]));return;}
+  box.dataset.empty='Buscando carpetas…';
+  try{const a=await drvSearch(m,"mimeType = '"+FOLDM+"'"+(q?" and title contains '"+qs(q)+"'":''),20,'modifiedTime desc');
+    box.dataset.empty=q?'No encontré carpetas con ese nombre. Podés crearla con ＋ CREAR CARPETA.':'No encontré carpetas.';
+    a.filter(x=>!/^(AUTOSAVE|TOMAS)$/.test(ftitle(x)||'')).forEach(x=>box.appendChild(lrow(ftitle(x),x.id===(DV.f&&DV.f.id)?'LA ACTUAL':'',()=>{drvSetF({id:fid(x),name:ftitle(x)});foldOpen(false);shMsg('✓ Carpeta: '+ftitle(x));drvRecent();drvLive();},[])));}
+  catch(e){box.dataset.empty='';shMsg(mcpErr(e));}}
+$('#shFold').onclick=()=>foldOpen($('#shFoldP').hidden);
+$('#shFoldX').onclick=()=>foldOpen(false);
+$('#shFoldQ').oninput=e=>{clearTimeout(foldT);foldT=setTimeout(()=>foldSearch(e.target.value),400);};
+$('#shFoldNew').onclick=async()=>{const nm=($('#shFoldQ').value.trim()||'MUSICA GROOVEBOX').slice(0,60),m=await mcpGet();if(!m){shMsg(mcpWhy());return;}
+  try{const c=await m.callTool(DRV,'create_file',{title:nm,contentMimeType:FOLDM}),id=fid(c.payload)||fid(c.payload&&c.payload.file);if(!id)throw {message:'Drive no devolvió la carpeta'};
+    drvSetF({id,name:nm});foldOpen(false);shMsg('✓ Carpeta creada en tu Drive: '+nm+'\n(la podés mover a donde quieras desde Drive)');drvRecent();}catch(e){shMsg(mcpErr(e));}};
+/* GUARDAR: un solo archivo por sesión en la carpeta (el anterior va a la papelera de Drive) */
+async function drvSaveOrig(){
+  const m=await mcpGet();if(!m){shMsg(mcpWhy());return false;}
+  if(!DV.f){shMsg('Primero elegí la carpeta de Drive.');foldOpen(true);return false;}
+  S.name=(($('#shName').value||S.name||'').trim()).slice(0,40)||('SESIÓN '+fmtD(Date.now()).replace(/\//g,'-').replace(':','.'));$('#shName').value=S.name;
+  const b=$('#shLoc');b.disabled=true;shMsg('Guardando en Drive…');let ok=false;
+  try{const t=sesBase()+'.json',{body,note,cmp}=sesBody();
+    const old=await drvSearch(m,"title = '"+qs(t)+"' and parentId = '"+DV.f.id+"'",10);
+    const id=await drvPut(m,t,body,DV.f.id);let kept=0;for(const x of old)if(fid(x)!==id&&!(await drvTrash(m,fid(x))))kept++;
+    CHG.on=false;DV.lastBody=cmp;DV.err='';drvRecAdd({id,title:t,t:Date.now()});
+    shMsg('✓ GUARDADA EN DRIVE\n'+DV.f.name+' / '+t+(old.length&&!kept?'\n(reemplazó a la anterior)':'')+(kept?'\n(la anterior quedó: no pude mandarla a la papelera)':'')+note);ok=true;
   }catch(e){shMsg(mcpErr(e));}
-  b.disabled=false;
-}
-async function drvList(){
-  const m=await mcpGet();if(!m){shMsg(mcpWhy()+'\nPara cargar una sesión de Drive: CARGAR .JSON y elegí el archivo en el selector del teléfono (ahí aparece Drive).');return;}
-  shMsg('Buscando sesiones…');const box=$('#shLst');box.innerHTML='';
-  try{
-    let folder=null;try{folder=await drvFolder(m);}catch(e){}
-    const q="title contains 'GB-' and trashed = false"+(folder?" and parentId = '"+folder+"'":'');
-    const r=await m.callTool(DRV,'search_files',{query:q,orderBy:'modifiedTime desc',pageSize:15,excludeContentSnippets:true});
-    const a=(jarr(r.payload)||[]).filter(f=>fid(f)&&/\.json$/i.test(ftitle(f)||''));
-    if(!a.length){shMsg('No encontré sesiones guardadas todavía.');return;}
-    shMsg('Tocá una para cargarla (reemplaza lo que tenés ahora):');
-    a.forEach(f=>{const bt=document.createElement('button');bt.textContent=ftitle(f);bt.onclick=()=>drvLoad(fid(f),ftitle(f));box.appendChild(bt);});
-  }catch(e){shMsg(mcpErr(e));}
-}
+  b.disabled=false;drvUi();drvRecPaint();return ok;}
+/* ÚLTIMAS 5 (o todas): las sesiones de la carpeta, sin los autoguardados */
+function drvRecAdd(r){DV.rec=[r,...(DV.rec||[]).filter(x=>x.title!==r.title)].slice(0,5);try{localStorage.setItem('musica_gb_drv_rec',JSON.stringify(DV.rec));}catch(e){}}
+function drvRecPaint(list){const box=$('#shRecL');box.innerHTML='';box.dataset.empty=DV.f?'Todavía no hay sesiones en '+DV.f.name+'.':'Elegí la carpeta de Drive.';(list||DV.rec||[]).forEach(r=>{const nm=r.title.replace(/\.json$/i,'');
+  box.appendChild(lrow(nm,r.t?fmtD(r.t):'',mb=>armTap(mb,'<span>¿ABRIR '+escH(nm)+'?</span><small>REEMPLAZA LO ACTUAL · TOCÁ DE NUEVO</small>',()=>drvLoad(r.id,r.title)),[]));});}
+async function drvRecent(all){
+  $('#shRecH').textContent=all?'TODAS LAS SESIONES':'ÚLTIMAS 5';$('#shAll').textContent=all?'ÚLTIMAS 5':'VER TODAS';$('#shAll').dataset.all=all?'1':'';
+  if(!all)drvRecPaint();const m=await mcpGet();if(!m||!DV.f)return;
+  try{const a=(await drvSearch(m,"parentId = '"+DV.f.id+"' and title contains '.json'",all?80:30,'modifiedTime desc')).filter(x=>/\.json$/i.test(ftitle(x)||'')&&!ASRX.test(ftitle(x)||''));
+    const L=a.map(x=>({id:fid(x),title:ftitle(x),t:fmod(x)}));
+    if(all)drvRecPaint(L);else{DV.rec=L.slice(0,5);try{localStorage.setItem('musica_gb_drv_rec',JSON.stringify(DV.rec));}catch(e){}drvRecPaint();}}
+  catch(e){shMsg(mcpErr(e));}}
+$('#shAll').onclick=()=>drvRecent(!$('#shAll').dataset.all);
+/* AUTOGUARDADO: versión nueva del original cada 5 min si hubo cambios; quedan las 10 más nuevas de esa sesión */
+async function drvAuto(force){
+  if(DV.busy||!CHG.on||!DV.f||!drvMode())return false;
+  if(!force&&Date.now()-Math.max(DV.last,CHG.t0)<AS_MIN*60000)return false;
+  const m=await mcpGet();if(!m)return false;DV.busy=true;let ok=false;
+  try{const {body,cmp}=sesBody();
+    if(cmp===DV.lastBody){CHG.on=false;}
+    else{const base=sesBase(),t=base+'_AS_'+stamp()+'.json',sub=await drvSub(m,'AUTOSAVE');
+      await drvPut(m,t,body,sub);CHG.on=false;DV.lastBody=cmp;DV.last=Date.now();DV.lastT=t;DV.err='';ok=true;
+      const a=(await drvSearch(m,"parentId = '"+sub+"' and title contains '"+qs(base+'_AS_')+"'",40,'modifiedTime desc')).filter(x=>(ftitle(x)||'').startsWith(base+'_AS_'));
+      a.sort((x,y)=>(ftitle(y)||'').localeCompare(ftitle(x)||''));for(const x of a.slice(AS_KEEP))await drvTrash(m,fid(x));}
+  }catch(e){DV.err='AUTOGUARDADO: '+mcpErr(e);}
+  DV.busy=false;asUi();chgUi();return ok;}
+setInterval(()=>{drvAuto(false);},30000);
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&CHG.on&&Date.now()-DV.last>60000)drvAuto(true);});
+setTimeout(()=>{CHG.on=false;chgUi();},1500);   // lo que quedó del arranque no cuenta como cambio
 function extractText(r){
   const cand=[],p=r&&r.payload;if(typeof p==='string')cand.push(p);else if(p&&typeof p==='object')for(const k of ['content','base64Content','data','base64','text','fileContent'])if(typeof p[k]==='string')cand.push(p[k]);
-  ((r&&r.content)||[]).forEach(b=>{if(b&&b.type==='text'&&typeof b.text==='string')cand.push(b.text);});
+  ((r&&r.content)||[]).forEach(b=>{if(b&&b.type==='text'&&typeof b.text==='string')cand.push(b.text);if(b&&b.resource){if(typeof b.resource.text==='string')cand.push(b.resource.text);if(typeof b.resource.blob==='string')cand.push(b.resource.blob);}});
   for(const c of cand){const t=c.trim();if(t[0]==='{')return t;
     try{const bin=atob(t.replace(/\s/g,'')),by=Uint8Array.from(bin,ch=>ch.charCodeAt(0)),s=new TextDecoder().decode(by);if(s.trim()[0]==='{')return s;}catch(e){}}
   return null;
@@ -2216,7 +2288,8 @@ function extractText(r){
 async function drvLoad(id,title){
   const m=await mcpGet();if(!m)return;shMsg('Cargando '+title+'…');
   try{const r=await m.callTool(DRV,'download_file_content',{fileId:id}),txt=extractText(r);if(!txt)throw {code:'parse',message:'no pude leer el archivo'};
-    loadSession(JSON.parse(txt));shMsg('✓ CARGADA: '+title);setTimeout(()=>sheet.classList.remove('on'),700);}
+    loadSession(JSON.parse(txt));S.name=String(title).replace(ASRX,'').replace(/\.json$/i,'').slice(0,40);$('#shName').value=S.name;
+    DV.lastBody=sesBody().cmp;CHG.on=false;if(!ASRX.test(title))drvRecAdd({id,title,t:Date.now()});drvUi();shMsg('✓ CARGADA: '+title);toast('SESIÓN '+S.name);setTimeout(()=>sheet.classList.remove('on'),700);}
   catch(e){shMsg(e&&e.code==='parse'||e instanceof SyntaxError?'Ese archivo no parece una sesión del groovebox.':mcpErr(e));}
 }
 function loadSession(j){
@@ -2232,7 +2305,7 @@ function newSession(){
   if(S.playing)stop();if(CAP)capStop();
   const j=JSON.parse(JSON.stringify(DEF));j.pat.forEach(r=>r.fill(0));j.seqN.forEach(r=>r.fill(0));j.chdSeq.fill(0);j.chdGate.fill(2);j.smpSeq.fill(0);if(j.synG)j.synG.forEach(a=>a.fill(1));j.vinN.forEach(a=>a.fill(0));j.vinG.forEach(a=>a.fill(1));if(j.xyr)j.xyr.forEach(a=>a.fill(null));j.steps=16;j.sw=0;j.parts=null;j.part=0;j.song=false;j.name='';delete j.smp.pcm;
   SMPL.buf=null;SMPL.rbuf=null;SMPL.name='';SMPL.pads.fill(null);SMPL.mode='chop';smpStore();UNDO=null;S.hasUndo=false;try{$('#bUndo').classList.remove('has');}catch(e){}
-  loadSession(j);S.name='';$('#shName').value='';queueSave();
+  loadSession(j);S.name='';$('#shName').value='';queueSave();CHG.on=false;DV.lastBody='';try{chgUi();}catch(e){}
 }
 $('#shNew').onclick=()=>{const b=$('#shNew');
   if(!newT){b.textContent='¿SEGURO? TOCÁ OTRA VEZ';b.classList.add('on');newT=setTimeout(()=>{newT=null;b.textContent='＋ NUEVA';b.classList.remove('on');},3500);return;}
@@ -2245,9 +2318,9 @@ $('#bpmT').addEventListener('pointerdown',e=>{e.preventDefault();initAudio();con
   const b=$('#bpmT');b.classList.add('hit');setTimeout(()=>b.classList.remove('hit'),90);
   if(TAPS.length>=2){let s=0;for(let i=1;i<TAPS.length;i++)s+=TAPS[i]-TAPS[i-1];setBpm(60000/(s/(TAPS.length-1)));}
 });
-$('#shList').onclick=drvList;
 $('#shDl').onclick=dlSes;
-$('#shShare').onclick=async()=>{if(window.claude&&window.claude.use){await drvSave();return;}if(!(await shareSes())){shMsg('Este teléfono no permite compartir archivos desde acá: lo descargo.');await dlSes();}};
+$('#shShare').onclick=async()=>{if(!(await shareSes())){shMsg('Este teléfono no permite compartir archivos desde acá: lo descargo.');await dlSes();}};
+$('#shImp').onchange=e=>$('#shFile').onchange(e);
 $('#shFile').onchange=e=>{const f=e.target.files[0];e.target.value='';if(!f)return;const rd=new FileReader();
   rd.onload=()=>{try{loadSession(JSON.parse(rd.result));shMsg('✓ CARGADA: '+f.name);setTimeout(()=>sheet.classList.remove('on'),700);}catch(x){shMsg('Ese archivo no parece una sesión del groovebox.');}};rd.onerror=()=>shMsg('No pude leer el archivo.');rd.readAsText(f);};
 
@@ -2269,7 +2342,9 @@ function liveStart(){
   LV.chunks=[];LV.rec.ondataavailable=e=>{if(e.data&&e.data.size)LV.chunks.push(e.data);};
   LV.rec.onstop=()=>{LV.blob=new Blob(LV.chunks,{type:LV.mime||'audio/webm'});LV.chunks=[];LV.id='L'+Date.now();LV.name=lvName('x').slice(0,-2);LV.saved=Date.now();
     liveSheetOpen();IDB.put('live',{id:LV.id,name:LV.name,dur:LV.dur,mime:LV.mime,blob:LV.blob,saved:LV.saved})
-      .then(()=>{$('#lvMsg').textContent='✓ Quedó guardada en el teléfono (SESIONES → GRABACIONES LIVE).';libLive();})
+      .then(()=>{if(drvMode()&&DV.f){const r={id:LV.id,name:LV.name,mime:LV.mime,blob:LV.blob};$('#lvMsg').textContent='Subiendo a Drive…';
+          liveUp(r).then(t=>{if(t){LV.id=null;LV.did=DV.lastLive;$('#lvMsg').textContent='✓ EN DRIVE: '+DV.f.name+' / TOMAS / '+t;}else $('#lvMsg').textContent='No pude subirla a Drive'+(DV.lerr?' ('+DV.lerr+')':'')+'.\nQuedó en el teléfono: subila desde SESIONES → GRABACIONES LIVE (↑).';libLive();});}
+        else{$('#lvMsg').textContent='✓ Quedó guardada en el teléfono (SESIONES → GRABACIONES LIVE).';libLive();}})
       .catch(()=>{LV.id=null;$('#lvMsg').textContent='No se pudo guardar en el teléfono: bajala con GUARDAR WAV.';});};
   LV.rec.start(1000);LV.t0=performance.now();
   $('#bLive').classList.add('rec');clearInterval(LV.tm);LV.tm=setInterval(()=>{$('#bLive').textContent='● '+fmtT((performance.now()-LV.t0)/1000);},500);
@@ -2283,7 +2358,7 @@ function liveStop(silent){
 window.liveStop=liveStop;
 function liveSheetOpen(){
   if(LV.url)URL.revokeObjectURL(LV.url);LV.url=URL.createObjectURL(LV.blob);$('#lvAudio').src=LV.url;
-  $('#lvInfo').innerHTML=fmtT(LV.dur)+' de grabación<small>'+(LV.name||'')+' · '+(LV.blob.size/1048576).toFixed(1)+' MB · '+lvExt(LV.mime).toUpperCase()+'</small>';$('#lvMsg').textContent='';const b=$('#lvDel');clearTimeout(b._arm);b._arm=null;b.classList.remove('arm');b.textContent='BORRAR TOMA';
+  $('#lvInfo').innerHTML=(LV.dur?fmtT(LV.dur)+' de grabación':'TOMA')+'<small>'+(LV.name||'')+' · '+(LV.blob.size/1048576).toFixed(1)+' MB · '+lvExt(LV.mime).toUpperCase()+'</small>';$('#lvMsg').textContent='';const b=$('#lvDel');clearTimeout(b._arm);b._arm=null;b.classList.remove('arm');b.textContent='BORRAR TOMA';
   $('#liveSheet').classList.add('on');
 }
 async function lvSave(blob,fn){
@@ -2316,7 +2391,7 @@ $('#lvShare').onclick=async()=>{if(!LV.blob)return;
 $('#lvDel').onclick=()=>{const b=$('#lvDel');
   if(!b._arm){b.classList.add('arm');b.textContent='¿BORRAR? TOCÁ DE NUEVO';b._arm=setTimeout(()=>{b._arm=null;b.classList.remove('arm');b.textContent='BORRAR TOMA';},2600);return;}
   clearTimeout(b._arm);b._arm=null;b.classList.remove('arm');b.textContent='BORRAR TOMA';
-  if(LV.id)IDB.del('live',LV.id).then(libLive).catch(()=>{});LV.id=null;LV.blob=null;if(LV.url)URL.revokeObjectURL(LV.url);LV.url=null;$('#lvAudio').removeAttribute('src');$('#liveSheet').classList.remove('on');toast('TOMA BORRADA');};
+  if(LV.id)IDB.del('live',LV.id).then(libLive).catch(()=>{});else if(LV.did)mcpGet().then(m=>m&&drvTrash(m,LV.did)).then(()=>libLive());LV.id=null;LV.did=null;LV.blob=null;if(LV.url)URL.revokeObjectURL(LV.url);LV.url=null;$('#lvAudio').removeAttribute('src');$('#liveSheet').classList.remove('on');toast('TOMA BORRADA');};
 const lvFn=ext=>(LV.name||lvName('x').slice(0,-2))+'.'+ext;
 
 /* ---------------- biblioteca en el teléfono (IndexedDB) ----------------
@@ -2379,7 +2454,31 @@ async function libList(){
   a.forEach(r=>box.appendChild(lrow(r.name,fmtD(r.saved)+(r.pads&&r.pads.some(Boolean)?' · CON PADS':r.smp?' · CON SAMPLE':''),m=>armTap(m,'<span>¿ABRIR '+r.name.replace(/</g,'')+'?</span><small>REEMPLAZA LO ACTUAL · TOCÁ DE NUEVO</small>',()=>libOpen(r.id)),
     [['↗','Enviar a Drive',()=>libShare(r.id)],['✕','Borrar',b=>armTap(b,'?',()=>IDB.del('ses',r.id).then(libList).then(()=>shMsg('Sesión borrada: '+r.name)).catch(()=>{}))]])));
   useEst();}
+const blobB64=b=>new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(',')[1]||'');fr.onerror=()=>rej(fr.error);fr.readAsDataURL(b);});
+async function liveUp(r){const m=await mcpGet();if(!m||!DV.f){DV.lerr=m?'sin carpeta':mcpWhy();return false;}
+  try{const sub=await drvSub(m,'TOMAS'),t=r.name+'.'+lvExt(r.mime||r.blob.type||''),b64=await blobB64(r.blob);
+    const c=await m.callTool(DRV,'create_file',{title:t,base64Content:b64,contentMimeType:String(r.mime||r.blob.type||'audio/webm').split(';')[0],disableConversionToGoogleType:true,parentId:sub});
+    DV.lastLive=fid(c.payload)||fid(c.payload&&c.payload.file)||null;await IDB.del('live',r.id).catch(()=>{});DV.lerr='';return t;}
+  catch(e){DV.lerr=mcpErr(e);return false;}}
+function b64Of(r){const p=r&&r.payload,c=[];if(typeof p==='string')c.push(p);else if(p&&typeof p==='object')for(const k of ['content','base64Content','data','base64','fileContent'])if(typeof p[k]==='string')c.push(p[k]);
+  ((r&&r.content)||[]).forEach(b=>{if(b&&b.type==='text'&&typeof b.text==='string')c.push(b.text);if(b&&b.type==='resource'&&b.resource&&b.resource.blob)c.push(b.resource.blob);});
+  for(const x of c){const t=x.replace(/\s/g,'');if(/^[A-Za-z0-9+/=]{16,}$/.test(t))return t;}return null;}
+async function drvLiveOpen(id,title){const m=await mcpGet();if(!m)return;shMsg('Bajando '+title+'…');
+  try{const r=await m.callTool(DRV,'download_file_content',{fileId:id}),b=b64Of(r);if(!b)throw {message:'no pude leer el audio'};
+    const by=Uint8Array.from(atob(b),ch=>ch.charCodeAt(0)),ext=(title.match(/\.(\w+)$/)||[0,'webm'])[1].toLowerCase(),mime=ext==='m4a'?'audio/mp4':ext==='ogg'?'audio/ogg':ext==='wav'?'audio/wav':'audio/webm';
+    LV.blob=new Blob([by],{type:mime});LV.mime=mime;LV.dur=0;LV.id=null;LV.did=id;LV.name=title.replace(/\.\w+$/,'');shMsg('');liveSheetOpen();$('#lvMsg').textContent='En Drive: '+DV.f.name+' / TOMAS';}
+  catch(e){shMsg(mcpErr(e));}}
+async function drvLive(){const box=$('#shLiveL');let loc=[];try{loc=await IDB.all('live');}catch(e){}
+  loc.sort((x,y)=>y.saved-x.saved);box.innerHTML='';box.dataset.empty='Las tomas de ● LIVE se suben a '+(DV.f?DV.f.name:'tu carpeta')+' / TOMAS.';
+  loc.forEach(r=>box.appendChild(lrow(r.name.replace(/^GB-LIVE-/,'LIVE '),'SIN SUBIR · '+fmtT(r.dur||0)+' · '+((r.blob&&r.blob.size||0)/1048576).toFixed(1)+' MB',
+    ()=>{LV.blob=r.blob;LV.dur=r.dur||0;LV.mime=r.mime||r.blob.type;LV.id=r.id;LV.did=null;LV.name=r.name;LV.saved=r.saved;liveSheetOpen();$('#lvMsg').textContent='Esta toma todavía está en el teléfono.';},
+    [['↑','Subir a Drive',b=>{b.disabled=true;shMsg('Subiendo '+r.name+'…');liveUp(r).then(t=>{shMsg(t?'✓ Subida: '+DV.f.name+' / TOMAS / '+t:'No pude subirla'+(DV.lerr?' ('+DV.lerr+')':''));drvLive();});}]])));
+  const m=await mcpGet();if(!m||!DV.f)return;
+  try{const sub=await drvSub(m,'TOMAS',true);if(!sub)return;const a=await drvSearch(m,"parentId = '"+sub+"'",30,'modifiedTime desc');
+    a.forEach(x=>box.appendChild(lrow((ftitle(x)||'').replace(/^GB-LIVE-/,'LIVE ').replace(/\.\w+$/,''),'EN DRIVE'+(fmod(x)?' · '+fmtD(fmod(x)):''),()=>drvLiveOpen(fid(x),ftitle(x)),[])));}
+  catch(e){}}
 async function libLive(){
+  if(drvMode()&&DV.f)return drvLive();
   const box=$('#shLiveL');let a=[];try{a=await IDB.all('live');}catch(e){box.innerHTML='';return;}
   a.sort((x,y)=>y.saved-x.saved);box.innerHTML='';
   a.forEach(r=>box.appendChild(lrow(r.name.replace(/^GB-LIVE-/,'LIVE '),fmtT(r.dur||0)+' · '+((r.blob&&r.blob.size||0)/1048576).toFixed(1)+' MB · '+fmtD(r.saved),
@@ -2387,7 +2486,7 @@ async function libLive(){
     [['✕','Borrar',b=>armTap(b,'?',()=>IDB.del('live',r.id).then(libLive).catch(()=>{}))]])));
   useEst();}
 function useEst(){try{if(navigator.storage&&navigator.storage.estimate)navigator.storage.estimate().then(e=>{$('#shUse').textContent='USADO '+((e.usage||0)/1048576).toFixed(1)+' MB';}).catch(()=>{});}catch(e){}}
-$('#shLoc').onclick=libSave;
+$('#shLoc').onclick=()=>drvMode()?drvSaveOrig():libSave();
 
 /* ---------------- rendimiento ---------------- */
 const LATN={low:'BAJA',mid:'MEDIA',high:'ALTA'};
@@ -2803,7 +2902,7 @@ document.addEventListener('keydown',e=>{if(e.code==='Space'&&!e.repeat&&e.target
 document.addEventListener('visibilitychange',()=>{if(document.hidden){sirHolds.clear();if(sirV)sirStop();$$('#pads .pad').forEach(el=>{if(el._v){try{(Array.isArray(el._v)?el._v:[el._v]).forEach(v=>v.stop());}catch(e){}el._v=null;el.classList.remove('dn');}});}});
 window.addEventListener('resize',()=>{if(S.tab==='smp')drawWave();});
 renderPalette();renderKeys();fxUi();sync();refreshSeq();smpUi();partUi();ringUi();frame();
-window.GB={smpMode,smpCopy,smpSrc,SCP:()=>SCP,padsPack,IDB,libSave,libOpen,libList,libLive,smpPack,smpUnpack,SMPR,drumRe,dkE,renderDrum,KH:()=>KH,LV,wavEncode,xyApply,LIVE,drawSiren:()=>drawSiren(),TILT,partCopy,LEN,RM,RS,ringSel,rowTool,viz:{drawScope:()=>drawScope(),drawVoice:()=>drawVoice(),drawXY:()=>drawXY(),drawBus:()=>drawBus(),drawRing:()=>drawRing()},newSession,KB:()=>KB,SYNP,sdSend:(i,v)=>{CH[i].dst=v;applyCh(i);},anM:()=>anM,shareSes,PARTS,partGo,partSwitch,partBar,drumPreset,KITS,DPRE,trig,sd,PERF,S,CH,FXP,SMPL,pat,smpSeq,chdGate,snapshot,applySnapshot,loadSession,smpDemo,chopPlay,smpSet,smpEncode,smpDecode,get ctx(){return ctx;},get lim(){return lim;},get CAP(){return CAP;},recWrite,takeUndo,doUndo,bus,extractText,setSteps,get STEPS(){return STEPS;},vinPlay,vinVoice,VINP,vinN,vinG,vinRec,vinGate,VL,vinMig,XYR,xyRec,xyAuto,xyPlay,XYQ,synG,synGate,chordPlay,vinFx,latOut,vNow,calCalc,SCH,seqN,chdSeq,LIVE_:()=>LIVE,setBpm,pageUi,noteOpen,renderPalette,ROWS,R_VIN,swOff,get gT(){return gT;},orgWave,DHIT,lesToggle};
+window.GB={smpMode,smpCopy,smpSrc,SCP:()=>SCP,padsPack,IDB,libSave,libOpen,libList,libLive,smpPack,smpUnpack,SMPR,drumRe,dkE,renderDrum,KH:()=>KH,LV,wavEncode,xyApply,LIVE,drawSiren:()=>drawSiren(),TILT,partCopy,LEN,RM,RS,ringSel,rowTool,viz:{drawScope:()=>drawScope(),drawVoice:()=>drawVoice(),drawXY:()=>drawXY(),drawBus:()=>drawBus(),drawRing:()=>drawRing()},newSession,KB:()=>KB,SYNP,sdSend:(i,v)=>{CH[i].dst=v;applyCh(i);},anM:()=>anM,shareSes,PARTS,partGo,partSwitch,partBar,drumPreset,KITS,DPRE,trig,sd,PERF,S,CH,FXP,SMPL,pat,smpSeq,chdGate,snapshot,applySnapshot,loadSession,smpDemo,chopPlay,smpSet,smpEncode,smpDecode,get ctx(){return ctx;},get lim(){return lim;},get CAP(){return CAP;},recWrite,takeUndo,doUndo,bus,extractText,setSteps,get STEPS(){return STEPS;},vinPlay,vinVoice,VINP,vinN,vinG,vinRec,vinGate,VL,vinMig,XYR,xyRec,xyAuto,xyPlay,XYQ,synG,synGate,chordPlay,DV,CHG,queueSave,drvAuto,drvSaveOrig,drvRecent,drvSetF,foldSearch,liveUp,drvMode,drvLive,sesBase,vinFx,latOut,vNow,calCalc,SCH,seqN,chdSeq,LIVE_:()=>LIVE,setBpm,pageUi,noteOpen,renderPalette,ROWS,R_VIN,swOff,get gT(){return gT;},orgWave,DHIT,lesToggle};
 </script>
 <script>
 /* app instalable: guarda la app en el teléfono para abrir sin internet y se actualiza sola */
