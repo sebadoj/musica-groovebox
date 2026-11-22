@@ -1,7 +1,7 @@
 <script>
 'use strict';
 /* =====================================================================
-   MUSICA GROOVEBOX — versión celular v13.16 (20261122)
+   MUSICA GROOVEBOX — versión celular v13.17 (20261122)
    Un solo archivo, sin librerías, Web Audio.
    16/32 pasos · 2 synths · VINTAGE (órgano, piano eléctrico, analógico, clavinet, cuerdas) · acordes (4 presets + GATE) · 8 drums · SAMPLER (chop en 4 teclas)
    · mixer 6 canales + master (pan, 3 envíos, medidores) · buses FX (delay/reverb/mod/master)
@@ -18,26 +18,27 @@ const ROMAN=['I','II','III','IV','V','VI','VII'];
 /* ---------------- estado ---------------- */
 const MAXS=32;let STEPS=16;   // STEPS = largo del patrón (16 o 32); los arrays siempre tienen 32
 const fitA=(a,d)=>{const o=Array.isArray(a)?a.slice(0,MAXS):[];for(let i=0;i<MAXS;i++)if(o[i]==null)o[i]=d;return o;};
-const CH=[{n:'DRUMS',s:'DRUMS',c:'#ff6a4d'},{n:'SYN 1',s:'SYN1',c:'#4df0c4'},{n:'SYN 2',s:'SYN2',c:'#7dff9a'},{n:'CHORDS',s:'CHORD',c:'#c9a6ff'},{n:'SIRENA',s:'SIREN',c:'#ff5a8a'},{n:'SAMPLER',s:'SMPL',c:'#ffd27a'},{n:'VINTAGE',s:'VINT',c:'#7ab8ff'}]
-  .map((c,i)=>Object.assign(c,{vol:[.85,.8,.7,.6,.7,.8,.72][i],dly:[.1,.2,.3,.3,.55,.15,.12][i],rev:[.05,.1,.15,.25,.35,.1,.2][i],mod:0,dst:0,pan:0,mute:false,solo:false,thr:false}));
+const CH=[{n:'DRUMS',s:'DRUMS',c:'#ff6a4d'},{n:'SYN 1',s:'SYN1',c:'#4df0c4'},{n:'SYN 2',s:'SYN2',c:'#7dff9a'},{n:'CHORDS',s:'CHORD',c:'#c9a6ff'},{n:'SIRENA',s:'SIREN',c:'#ff5a8a'},{n:'SAMPLER',s:'SMPL',c:'#ffd27a'},{n:'VINTAGE',s:'VINT',c:'#7ab8ff'},{n:'SAMPLER 2',s:'SMP2',c:'#ffab6e'}]
+  .map((c,i)=>Object.assign(c,{vol:[.85,.8,.7,.6,.7,.8,.72,.8][i],dly:[.1,.2,.3,.3,.55,.15,.12,.15][i],rev:[.05,.1,.15,.25,.35,.1,.2,.1][i],mod:0,dst:0,pan:0,mute:false,solo:false,thr:false}));
 const DR=[
  {n:'KICK',c:'#ff6a4d'},{n:'SNARE',c:'#ffb347'},{n:'C.HAT',c:'#4df0c4'},{n:'O.HAT',c:'#7dff9a'},
  {n:'CLAP',c:'#c9ffee'},{n:'TOM',c:'#ff8a5c'},{n:'RIM',c:'#f5e08a'},{n:'COW',c:'#ffd27a'}];
-const ROWS=DR.map((d,i)=>({n:d.n,c:d.c,t:'drum'})).concat([{n:'SYN 1',c:CH[1].c,t:'syn',k:0},{n:'SYN 2',c:CH[2].c,t:'syn',k:1},{n:'ACORD',c:CH[3].c,t:'chd'},{n:'SMPL',c:CH[5].c,t:'smp'},...['#7ab8ff','#94c6ff','#b0d6ff','#6aa2ec','#5b8fd8'].map((c,k)=>({n:'VIN '+(k+1),c,t:'vin',k}))]);
+const ROWS=DR.map((d,i)=>({n:d.n,c:d.c,t:'drum'})).concat([{n:'SYN 1',c:CH[1].c,t:'syn',k:0},{n:'SYN 2',c:CH[2].c,t:'syn',k:1},{n:'ACORD',c:CH[3].c,t:'chd'},{n:'SMPL',c:CH[5].c,t:'smp'},...['#7ab8ff','#94c6ff','#b0d6ff','#6aa2ec','#5b8fd8'].map((c,k)=>({n:'VIN '+(k+1),c,t:'vin',k})),{n:'SMP 2',c:CH[7].c,t:'smp',k:1}]);
 const NR=ROWS.length;
-const R_SYN=8,R_CHD=10,R_SMP=11,R_VIN=12;
+const R_SYN=8,R_CHD=10,R_SMP=11,R_VIN=12,R_SMP2=17;
 /* MOVIMIENTO grabado por paso: lo que hiciste con el dedo sobre la tecla, XYQ muestras por paso, x/y en −100…100 */
 const XYQ=4,XYR=ROWS.map(()=>Array(MAXS).fill(null));
 const LEN=Array(NR).fill(16),RM=Array(NR).fill(false),RS=Array(NR).fill(false);   // largo (polirritmo), mute y solo por pista
 const pat=ROWS.map(()=>Array(MAXS).fill(0));
-const seqN=[Array(MAXS).fill(0),Array(MAXS).fill(0)],chdSeq=Array(MAXS).fill(0),chdGate=Array(MAXS).fill(2),smpSeq=Array(MAXS).fill(0);
+const seqN=[Array(MAXS).fill(0),Array(MAXS).fill(0)],chdSeq=Array(MAXS).fill(0),chdGate=Array(MAXS).fill(2),smpSeq=Array(MAXS).fill(0),smpSeq2=Array(MAXS).fill(0);
+const sSeq=R=>R&&R.k?smpSeq2:smpSeq;   // secuencia del renglón SMPL o SMP 2
 const synG=[Array(MAXS).fill(1),Array(MAXS).fill(1)];   // SYN 1 / SYN 2: GATE por paso (1 = como antes)
 const VL=5;   // VINTAGE: 5 carriles (anillos); cada paso de cada carril tiene su nota (grado) y su GATE en pasos (1…32)
 const vinN=[...Array(VL)].map(()=>Array(MAXS).fill(0)),vinG=[...Array(VL)].map(()=>Array(MAXS).fill(1));
 const GATES=[1,2,4,8];
 const BASEOCT=[2,4],VBASE=3;
 const S={tab:'seq',bpm:90,key:9,scale:1,playing:false,rec:false,page:0,cur:-1,sel:{r:0,s:0},po:0,name:'',
-  kmode:'syn0',ko:[0,0],seventh:false,pre:[0,2],chdPre:0,cut:[0,0],mfx:'DLY',hold:false,master:.85,fxMode:'PAD',hasUndo:false,xy:{syn0:{x:'pitch',y:'cut',pr:2},syn1:{x:'pitch',y:'cut',pr:2},chd:{x:'pitch',y:'cut',pr:2}},kit:0,part:0,next:null,song:false,rep:[1,1,1,1],sw:0,vinPre:0,vko:0,vch:false};
+  kmode:'syn0',ko:[0,0],seventh:false,pre:[0,2],chdPre:0,cut:[0,0],mfx:'DLY',hold:false,master:.85,fxMode:'PAD',hasUndo:false,xy:{syn0:{x:'pitch',y:'cut',pr:2},syn1:{x:'pitch',y:'cut',pr:2},chd:{x:'pitch',y:'cut',pr:2}},kit:0,part:0,next:null,song:false,rep:[1,1,1,1],smp2:false,sw:0,vinPre:0,vko:0,vch:false};
 S.xy.vin={x:'pitch',y:'cut',pr:2};
 const XY={x:.5,y:.7,on:false};
 
@@ -546,7 +547,8 @@ function mfxOff(type){
 /* ---------------- SAMPLER: motor ---------------- */
 /* dos modos: CHOP = un sample cortado en 4 · PADS = cada uno de los 4 botones tiene su propio sample (con su recorte ps..pe) */
 const SMPL={buf:null,rbuf:null,name:'',sel:0,mode:'chop',pads:[null,null,null,null],voice:[null,null,null,null],
-  chops:[0,1,2,3].map(i=>({s:i/4,e:(i+1)/4,ps:0,pe:1,pitch:0,filt:.5,crush:0,gain:1,rev:false,mode:'one',sync:'off',q:0,qa:true,spd:1}))};
+  chops:[0,1,2,3].map(i=>({s:i/4,e:(i+1)/4,ps:0,pe:1,pitch:0,filt:.5,crush:0,gain:1,rev:false,mode:'one',sync:'off',q:0,qa:true,spd:1,out:0}))};
+const smpOut=i=>S.smp2&&SMPL.chops[i]&&SMPL.chops[i].out?7:5;   // canal del mixer: SAMPLER o SAMPLER 2
 const smpSrc=i=>SMPL.mode==='pads'?SMPL.pads[i]:(SMPL.buf?{buf:SMPL.buf,rbuf:SMPL.rbuf,name:SMPL.name}:null);
 const smpHas=()=>SMPL.mode==='pads'?SMPL.pads.some(Boolean):!!SMPL.buf;
 const smpReg=(C)=>SMPL.mode==='pads'?[C.ps??0,C.pe??1]:[C.s,C.e];
@@ -582,7 +584,7 @@ function chopPlay(i,t,vel,dur){
   else{f.type='lowpass';f.frequency.value=22000;}
   src.connect(f);let last=f;
   if(C.crush>.02){const w=ctx.createWaveShaper();w.curve=crushCurve(Math.round(16-C.crush*13));f.connect(w);last=w;}
-  last.connect(g);g.connect(bus[5].inp);
+  last.connect(g);g.connect(bus[smpOut(i)].inp);
   const len=(e-s)/rate,pk=vel*C.gain;
   g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(pk,t+.003);
   let end=null;
@@ -635,6 +637,21 @@ function stWork(chans,n,sr){
 function smpPrep(){for(let i=0;i<4;i++){const C=SMPL.chops[i],P=smpSrc(i);if(!P||!C||C.sync!=='tempo')continue;
   const N=P.buf.duration,R=smpReg(C);let s=R[0]*N,e=R[1]*N;if(C.rev){const ss=N-e;e=N-s;s=ss;}const L=e-s;if(L<.005)continue;
   smpStretch(C,C.rev?P.rbuf:P.buf,s,e,smpQ(C,L)*60/S.bpm/(C.spd||1)*Math.pow(2,C.pitch/12));}}
+
+/* AUTO CUE: el inicio del corte/pad va al primer golpe (un poquito antes, en un cruce por cero) y el final corta el silencio */
+function smpCue(i){
+  const P=smpSrc(i),C=SMPL.chops[i];if(!P||!C)return null;const PM=SMPL.mode==='pads',d=P.buf.getChannelData(0),sr=P.buf.sampleRate,N=d.length;
+  const a=Math.floor((PM?(C.ps??0):C.s)*N),b=Math.min(N,Math.floor((PM?(C.pe??1):C.e)*N));if(b-a<sr*.02)return null;
+  const w=Math.max(32,Math.floor(sr*.004)),nb=Math.floor((b-a)/w),env=new Float32Array(nb);let pk=0;
+  for(let k=0;k<nb;k++){let m=0;for(let j=a+k*w,e=j+w;j<e;j++){const v=Math.abs(d[j]);if(v>m)m=v;}env[k]=m;if(m>pk)pk=m;}
+  if(pk<1e-4)return null;const th=pk*.12;
+  let k0=0;while(k0<nb&&env[k0]<th)k0++;let k1=nb-1;while(k1>k0&&env[k1]<th*.25)k1--;
+  let s=Math.max(a,a+k0*w-Math.floor(sr*.002));
+  for(let j=s,lim=Math.max(a+1,s-Math.floor(sr*.003));j>=lim;j--){if((d[j-1]<=0&&d[j]>0)||(d[j-1]>=0&&d[j]<0)){s=j;break;}}
+  const e=Math.min(b,a+(k1+1)*w+Math.floor(sr*.012));
+  if(PM){C.ps=s/N;C.pe=Math.max(C.ps+.005,e/N);}else{C.s=s/N;C.e=Math.max(C.s+.005,e/N);}
+  if(C.sync&&C.sync!=='off'&&C.qa)C.q=smpAutoQ((e-s)/sr);smpPrep();
+  return {ds:(s-a)/sr,de:(b-e)/sr};}
 
 /* captura: micrófono, resampleo del master (graba lo que suena) */
 let CAP=null,micStream=null;
@@ -730,10 +747,11 @@ function trig(r,s,t){
   if(R.t==='drum')drumPlay(r,t,1);
   else if(R.t==='syn')xyPlay(r,s,[mkVoice(curP(R.k),mtof(scaleNote(seqN[R.k][s],BASEOCT[R.k])),t,.9,bus[1+R.k].inp,sd()*((synG[R.k][s]||1)-.1))],'syn'+R.k,t);
   else if(R.t==='chd')xyPlay(r,s,chordPlay(chdSeq[s],false,t,bus[3].inp,sd()*chdGate[s]*.95),'chd',t);
-  else if(R.t==='smp'&&smpSeq[s])chopPlay(smpSeq[s]-1,t,.9,sd()*.98);
+  else if(R.t==='smp'&&sSeq(R)[s])chopPlay(sSeq(R)[s]-1,t,.9,sd()*.98);
   else if(R.t==='vin')xyPlay(r,s,[vinPlay(vinN[R.k][s],false,t,sd()*(vinG[R.k][s]||1)*.97)],'vin',t);
 }
-const rowAud=r=>!RM[r]&&(!RS.some(Boolean)||RS[r]);
+const rowOn=r=>r!==R_SMP2||S.smp2;   // SMP 2 solo existe si está prendido
+const rowAud=r=>rowOn(r)&&!RM[r]&&(!RS.some(Boolean)||RS[r]);
 function tick(){while(nextT<ctx.currentTime+.2){if(stepI===0&&barN>=0&&nextT>0&&started)partBar();started=true;if(S.rec&&stepI%4===0)click(nextT,stepI===0);const so=swOff();for(let r=0;r<NR;r++)if(rowAud(r))trig(r,LEN[r]>=STEPS?stepI:gT%LEN[r],r<8?nextT+so:nextT);const e={s:stepI,t:nextT,g:gT};qq.push(e);SCH.push(e);if(SCH.length>96)SCH.shift();stepI=(stepI+1)%STEPS;gT++;nextT+=sd();}}
 function play(){initAudio();if(!ctx||S.playing)return;stepI=0;gT=0;started=false;barN=0;loopN=0;nextT=ctx.currentTime+.06;qq=[];SCH.length=0;sched=setInterval(tick,40);S.playing=true;sync();}
 function stop(){clearInterval(sched);S.playing=false;S.next=null;try{partUi();}catch(e){}qq=[];S.cur=-1;dirty=true;sync();}
@@ -752,7 +770,7 @@ function vinMig(j){
   if(Array.isArray(j.len)){const L=j.len[R_VIN]||16;for(let k=1;k<VL;k++)j.len[R_VIN+k]=L;}
   delete j.vinC;return j;}
 function partApply(j){vinMig(j);for(let i=0;i<NR;i++){LEN[i]=Math.min((j.len&&j.len[i])||STEPS,MAXS);pat[i]=fitA(j.pat&&j.pat[i],0);XYR[i]=fitA(j.xyr&&j.xyr[i],null);}(j.seqN||[]).forEach((r,i)=>{if(i<2)seqN[i]=fitA(r,0);});
-  [[chdSeq,j.chdSeq,0],[chdGate,j.chdGate,2],[smpSeq,j.smpSeq,0],].forEach(([A,B,d])=>fitA(B,d).forEach((v,i)=>A[i]=v));vinLoad(j);}
+  [[chdSeq,j.chdSeq,0],[chdGate,j.chdGate,2],[smpSeq,j.smpSeq,0],[smpSeq2,j.smpSeq2,0]].forEach(([A,B,d])=>fitA(B,d).forEach((v,i)=>A[i]=v));vinLoad(j);}
 function vinLoad(j){for(let k=0;k<2;k++)fitA(j.synG&&j.synG[k],1).forEach((v,i)=>synG[k][i]=v);for(let k=0;k<VL;k++){fitA(j.vinN&&j.vinN[k],0).forEach((v,i)=>vinN[k][i]=v);fitA(j.vinG&&j.vinG[k],1).forEach((v,i)=>vinG[k][i]=v);}}
 const partOrder=()=>[0,1,2,3].filter(i=>PARTS[i]||i===S.part);
 function partSwitch(i){
@@ -781,7 +799,7 @@ function partCopy(src,dst){
   else{UNDO=null;UNDOP={i:dst,prev:PARTS[dst]?JSON.parse(JSON.stringify(PARTS[dst])):null,rep:S.rep[dst]};PARTS[dst]=JSON.parse(JSON.stringify(data));S.hasUndo=true;try{$('#bUndo').classList.add('has');}catch(e){}}
   S.rep[dst]=S.rep[src];dirty=true;queueSave();return true;
 }
-const snapSeq=()=>JSON.stringify({pat,seqN,synG,chdSeq,chdGate,smpSeq,vinN,vinG,xyr:XYR,len:LEN,steps:STEPS});
+const snapSeq=()=>JSON.stringify({pat,seqN,synG,chdSeq,chdGate,smpSeq,smpSeq2,vinN,vinG,xyr:XYR,len:LEN,steps:STEPS});
 function takeUndo(){UNDOP=null;UNDO=snapSeq();S.hasUndo=true;$('#bUndo').classList.add('has');}
 function doUndo(){if(UNDOP){PARTS[UNDOP.i]=UNDOP.prev;S.rep[UNDOP.i]=UNDOP.rep;const n=PN[UNDOP.i];UNDOP=null;S.hasUndo=false;$('#bUndo').classList.remove('has');try{partUi();}catch(e){}queueSave();toast('COPIA EN '+n+' DESHECHA');return;}
   if(!UNDO)return;const j=JSON.parse(UNDO);partApply(j);if(j.steps)STEPS=j.steps;try{pageUi();}catch(e){}UNDO=null;S.hasUndo=false;$('#bUndo').classList.remove('has');dirty=true;renderPalette();queueSave();toast('GRABACIÓN DESHECHA');}
@@ -794,7 +812,7 @@ function recPos(row){
 }
 function recWrite(row,val){
   const st=recPos(row);if(st<0)return -1;
-  pat[row][st]=1;if(row===R_SYN||row===R_SYN+1){seqN[row-R_SYN][st]=val;synG[row-R_SYN][st]=1;}else if(row===R_CHD){chdSeq[st]=val;chdGate[st]=2;}else if(row===R_SMP)smpSeq[st]=val;
+  pat[row][st]=1;if(row===R_SYN||row===R_SYN+1){seqN[row-R_SYN][st]=val;synG[row-R_SYN][st]=1;}else if(row===R_CHD){chdSeq[st]=val;chdGate[st]=2;}else if(row===R_SMP)smpSeq[st]=val;else if(row===R_SMP2)smpSeq2[st]=val;
   dirty=true;queueSave();return st;
 }
 function recGate(st,heldSec){if(st<0)return;const n=heldSec/sd();chdGate[st]=GATES.reduce((a,g)=>Math.abs(g-n)<Math.abs(a-n)?g:a,GATES[0]);dirty=true;queueSave();}
@@ -812,7 +830,7 @@ function synGate(k,st,heldSec){if(st<0)return;synG[k][st]=clamp(Math.round(heldS
 function vinGate(o,heldSec){vinG[o.k][o.st]=clamp(Math.round(heldSec/sd()),1,STEPS);dirty=true;queueSave();}
 /* 16 ↔ 32 pasos: al pasar a 32 se duplica lo que había (suena igual); al volver a 16 se acorta */
 function setSteps(n){n=n===32?32:16;if(n===STEPS)return false;takeUndo();
-  if(n===32){for(let r=0;r<NR;r++)if(LEN[r]===16){LEN[r]=32;const R=ROWS[r],A=[pat[r],XYR[r]];if(R.t==='syn')A.push(seqN[R.k],synG[R.k]);else if(R.t==='chd')A.push(chdSeq,chdGate);else if(R.t==='smp')A.push(smpSeq);else if(R.t==='vin')A.push(vinN[R.k],vinG[R.k]);
+  if(n===32){for(let r=0;r<NR;r++)if(LEN[r]===16){LEN[r]=32;const R=ROWS[r],A=[pat[r],XYR[r]];if(R.t==='syn')A.push(seqN[R.k],synG[R.k]);else if(R.t==='chd')A.push(chdSeq,chdGate);else if(R.t==='smp')A.push(sSeq(R));else if(R.t==='vin')A.push(vinN[R.k],vinG[R.k]);
       A.forEach(a=>{for(let s=0;s<16;s++)a[s+16]=a[s];});}}
   else for(let r=0;r<NR;r++)LEN[r]=Math.min(LEN[r],16);
   STEPS=n;if(S.sel.s>=LEN[S.sel.r])S.sel={r:S.sel.r,s:LEN[S.sel.r]-1};dirty=true;queueSave();return true;}
@@ -820,7 +838,7 @@ function setSteps(n){n=n===32?32:16;if(n===STEPS)return false;takeUndo();
 /* ---------------- guardado: local + sesiones ---------------- */
 const KEY='musica_gb_mobile_v1';let saveT=null;
 function snapshot(withSample){
-  const o={v:9,name:S.name,saved:Date.now(),bpm:S.bpm,key:S.key,scale:S.scale,pat,seqN,chdSeq,chdGate,smpSeq,synG,vinN,vinG,xyr:XYR,steps:STEPS,sw:S.sw,vinPre:S.vinPre,vinPar:S.vinPar,vko:S.vko,vch:S.vch,pre:S.pre,par:S.par,chdPar:S.chdPar,chdPre:S.chdPre,ko:S.ko,master:S.master,
+  const o={v:9,name:S.name,saved:Date.now(),bpm:S.bpm,key:S.key,scale:S.scale,pat,seqN,chdSeq,chdGate,smpSeq,smpSeq2,smp2:S.smp2,synG,vinN,vinG,xyr:XYR,steps:STEPS,sw:S.sw,vinPre:S.vinPre,vinPar:S.vinPar,vko:S.vko,vch:S.vch,pre:S.pre,par:S.par,chdPar:S.chdPar,chdPre:S.chdPre,ko:S.ko,master:S.master,
     ch:CH.map(c=>[c.vol,c.dly,c.rev,c.mod,c.pan,c.dst]),fx:FXP,smp:{chops:SMPL.chops,mode:SMPL.mode},kit:S.kit,part:S.part,song:S.song,rep:S.rep,parts:PARTS,len:LEN,rm:RM,rs:RS,xy:S.xy,dk:S.dk};
   if(withSample){const e=smpEncode();if(e)o.smp.pcm=e;if(SMPL.pads.some(Boolean))o.smp.pads=SMPL.pads.map(p=>p?smpEncode(p.buf,p.name):null);}
   return o;
@@ -834,7 +852,7 @@ function applySnapshot(j){
   if(j.pat)for(let i=0;i<NR;i++)pat[i]=fitA(j.pat[i],0);
   for(let i=0;i<NR;i++)XYR[i]=fitA(j.xyr&&j.xyr[i],null);
   if(j.seqN)j.seqN.forEach((r,i)=>{if(i<2)seqN[i]=fitA(r,0);});
-  [[chdSeq,j.chdSeq,0],[chdGate,j.chdGate,2],[smpSeq,j.smpSeq,0],].forEach(([A,B,d])=>fitA(B,d).forEach((v,i)=>A[i]=v));vinLoad(j);
+  [[chdSeq,j.chdSeq,0],[chdGate,j.chdGate,2],[smpSeq,j.smpSeq,0],[smpSeq2,j.smpSeq2,0]].forEach(([A,B,d])=>fitA(B,d).forEach((v,i)=>A[i]=v));vinLoad(j);S.smp2=!!j.smp2;
   STEPS=j.steps===32?32:16;S.sw=clamp(+j.sw||0,0,1);S.vko=clamp(+j.vko||0,-1,2);S.vch=!!j.vch;
   S.vinPre=clamp(+j.vinPre||0,0,VINP.length-1);S.vinPar=(j.vinPar&&j.vinPar.e)?Object.assign(vinFresh(S.vinPre),j.vinPar):vinFresh(S.vinPre);
   (j.ch||[]).forEach((a,i)=>{if(!CH[i])return;CH[i].vol=a[0];CH[i].dly=a[1];CH[i].rev=a[2];CH[i].mod=a[3]||0;CH[i].pan=a[4]||0;CH[i].dst=a[5]||0;});
@@ -844,7 +862,7 @@ function applySnapshot(j){
   S.dk=DR.map((_,i)=>Object.assign({},DKD,(Array.isArray(j.dk)&&j.dk[i])||{}));
   for(let i=0;i<NR;i++){LEN[i]=Math.min((j.len&&j.len[i])||STEPS,MAXS);RM[i]=!!(j.rm&&j.rm[i]);RS[i]=!!(j.rs&&j.rs[i]);}
   if(j.fx){const b=FXD();['dly','rev','mod','mst','dst'].forEach(k=>Object.assign(FXP[k],b[k],j.fx[k]||{}));}
-  if(j.smp&&j.smp.chops)j.smp.chops.forEach((C,i)=>{if(SMPL.chops[i])Object.assign(SMPL.chops[i],{ps:0,pe:1,sync:'off',q:0,qa:true,spd:1},C);});
+  if(j.smp&&j.smp.chops)j.smp.chops.forEach((C,i)=>{if(SMPL.chops[i])Object.assign(SMPL.chops[i],{ps:0,pe:1,sync:'off',q:0,qa:true,spd:1,out:0},C);});
   SMPL.mode=j.smp&&j.smp.mode==='pads'?'pads':'chop';
 }
 const CHG={on:false,t0:0,cb:null};   // hay cambios desde el último guardado en Drive

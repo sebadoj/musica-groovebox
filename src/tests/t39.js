@@ -126,11 +126,11 @@ await tab('seq');await p.evaluate(()=>{GB.pat.forEach(r=>r.fill(0));GB.pat[12][0
 await p.tap('#bPlay');await W(300);
 const sq=await p.evaluate(()=>{const a=GB.bus[6].an,buf=new Uint8Array(a.fftSize);a.getByteTimeDomainData(buf);let pk=0;for(const x of buf)pk=Math.max(pk,Math.abs(x-128)/128);return pk;});
 await p.tap('#bPlay');ok(sq>.02,'la pista VINT suena en el secuenciador ('+sq.toFixed(3)+')');
-ok(await p.evaluate(()=>{const r=document.querySelectorAll('#grid .row');return r.length===17&&[12,13,14,15,16].every((i,k)=>r[i].querySelector('.rl').textContent==='VIN '+(k+1));}),'5 carriles VIN 1…5 en la grilla');
+ok(await p.evaluate(()=>{const r=document.querySelectorAll('#grid .row');return [...r].filter(x=>!x.hidden).length===17&&[12,13,14,15,16].every((i,k)=>r[i].querySelector('.rl').textContent==='VIN '+(k+1));}),'5 carriles VIN 1…5 en la grilla');
 await p.evaluate(()=>{GB.S.sel={r:12,s:0};GB.renderPalette();});
 ok(await p.evaluate(()=>{const t=document.querySelector('#palette').textContent;return t.includes('GATE 4')&&document.querySelectorAll('#palette .pal.vg .cap').length===7;}),'paleta VINT: notas y GATE − n + 1 4 8 16');
 // mixer
-await tab('mix');await W(120);ok(await p.$$eval('#strips .strip',a=>a.length===8&&a[6].querySelector('.nm').textContent==='VINT'),'mixer: canal VINT');
+await tab('mix');await W(120);ok(await p.$$eval('#strips .strip',a=>a.filter(x=>!x.hidden).length===8&&a[6].querySelector('.nm').textContent==='VINT'),'mixer: canal VINT');
 if(SH)await p.screenshot({path:SH+'/h-mix.png'});
 await tab('seq');
 /* ---- guardado ---- */

@@ -358,6 +358,13 @@ select option{background:#2a2926}
 .pgrid.one{grid-template-columns:1fr}
 #sheet:not(.drv) .donly,#sheet.drv .ponly,#sheet:not(.loc) .lonly{display:none!important}#sheet.loc #shFoldL{display:none}
 #sheet .sbox>*{flex-shrink:0}
+#grid .row[hidden],#strips .strip[hidden],#rPickBox .cap[hidden]{display:none}
+/* 9 canales (SAMPLER 2 prendido): perillas y rótulos más chicos para que entren en el celular */
+#strips.n9 .strip .mini{font-size:6.5px;letter-spacing:.02em;gap:1px}
+#strips.n9 .strip .mini .sl.h.knob{width:20px;height:20px!important}
+#strips.n9 .strip .sends .mini:first-child .sl.h.knob{width:30px;height:30px!important}
+#strips.n9 .strip .cap,#strips.n9 .strip .lamp{width:26px;height:26px;min-width:26px}
+#strips.n9 .strip .nm{font-size:10px;letter-spacing:0}
 .pad.cap.seqlit:not(.dn){background:color-mix(in srgb,var(--c) 32%,#2a2926);box-shadow:inset 0 0 0 1.5px var(--c),0 0 22px -6px var(--c);color:#fff}
 .qrow{display:flex;align-items:center;gap:6px;margin:2px 0 10px}.qrow .cap.sm{flex:none;min-width:40px;padding:0 10px}.qbpm{display:block;width:100%;margin:0 0 10px}
 .qlbl{flex:1;min-width:0;text-align:center;line-height:1.2}.qlbl b{display:block;font:400 13px var(--ui);letter-spacing:.06em;color:var(--ink)}.qlbl small{font:400 9px var(--ui);letter-spacing:.06em;color:var(--dim)}#shMig[hidden]{display:none}#shMig{height:auto!important;min-height:40px;padding:8px 12px!important;white-space:normal;line-height:1.3}
@@ -617,6 +624,7 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
       <button id="sTr" class="cap dark sm" aria-label="Cortar por transientes">AUTO</button>
       <button id="sCopy" class="cap dark sm">⧉ COPIAR</button>
     </div>
+    <div class="smprow"><button id="sCue" class="cap dark sm" aria-label="Llevar el inicio al primer golpe y cortar el silencio">AUTO CUE</button><button id="s2ch" class="cap dark sm" aria-label="Segundo canal del sampler en el mixer y el secuenciador">2 CANALES</button></div>
     <div id="sPads"></div>
     <div id="sPar"></div>
   </section>
