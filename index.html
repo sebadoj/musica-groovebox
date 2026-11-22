@@ -357,7 +357,10 @@ select option{background:#2a2926}
 #calSheet.on{display:flex}
 .pgrid.one{grid-template-columns:1fr}
 #sheet:not(.drv) .donly,#sheet.drv .ponly,#sheet:not(.loc) .lonly{display:none!important}#sheet.loc #shFoldL{display:none}
-#sheet .sbox>*{flex-shrink:0}#shMig[hidden]{display:none}#shMig{height:auto!important;min-height:40px;padding:8px 12px!important;white-space:normal;line-height:1.3}
+#sheet .sbox>*{flex-shrink:0}
+.pad.cap.seqlit:not(.dn){background:color-mix(in srgb,var(--c) 32%,#2a2926);box-shadow:inset 0 0 0 1.5px var(--c),0 0 22px -6px var(--c);color:#fff}
+.qrow{display:flex;align-items:center;gap:6px;margin:2px 0 10px}.qrow .cap.sm{flex:none;min-width:40px;padding:0 10px}.qbpm{display:block;width:100%;margin:0 0 10px}
+.qlbl{flex:1;min-width:0;text-align:center;line-height:1.2}.qlbl b{display:block;font:400 13px var(--ui);letter-spacing:.06em;color:var(--ink)}.qlbl small{font:400 9px var(--ui);letter-spacing:.06em;color:var(--dim)}#shMig[hidden]{display:none}#shMig{height:auto!important;min-height:40px;padding:8px 12px!important;white-space:normal;line-height:1.3}
 .phead .ver{font:400 9px var(--ui);letter-spacing:.1em;color:var(--dim);margin-left:6px}
 .fold{display:grid!important;grid-template-columns:1fr auto;grid-template-rows:auto auto;align-items:center;text-align:left;height:auto!important;padding:9px 14px!important;gap:2px 10px;border-radius:14px!important}
 .fold small{grid-column:1;font:400 8px var(--ui);letter-spacing:.16em;color:var(--dim)}.fold b{grid-column:1;font:400 14px var(--ui);letter-spacing:.06em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -691,7 +694,7 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
 <script>
 'use strict';
 /* =====================================================================
-   MUSICA GROOVEBOX — versión celular v13.15 (20261120)
+   MUSICA GROOVEBOX — versión celular v13.16 (20261122)
    Un solo archivo, sin librerías, Web Audio.
    16/32 pasos · 2 synths · VINTAGE (órgano, piano eléctrico, analógico, clavinet, cuerdas) · acordes (4 presets + GATE) · 8 drums · SAMPLER (chop en 4 teclas)
    · mixer 6 canales + master (pan, 3 envíos, medidores) · buses FX (delay/reverb/mod/master)
@@ -1236,7 +1239,7 @@ function mfxOff(type){
 /* ---------------- SAMPLER: motor ---------------- */
 /* dos modos: CHOP = un sample cortado en 4 · PADS = cada uno de los 4 botones tiene su propio sample (con su recorte ps..pe) */
 const SMPL={buf:null,rbuf:null,name:'',sel:0,mode:'chop',pads:[null,null,null,null],voice:[null,null,null,null],
-  chops:[0,1,2,3].map(i=>({s:i/4,e:(i+1)/4,ps:0,pe:1,pitch:0,filt:.5,crush:0,gain:1,rev:false,mode:'one'}))};
+  chops:[0,1,2,3].map(i=>({s:i/4,e:(i+1)/4,ps:0,pe:1,pitch:0,filt:.5,crush:0,gain:1,rev:false,mode:'one',sync:'off',q:0,qa:true,spd:1}))};
 const smpSrc=i=>SMPL.mode==='pads'?SMPL.pads[i]:(SMPL.buf?{buf:SMPL.buf,rbuf:SMPL.rbuf,name:SMPL.name}:null);
 const smpHas=()=>SMPL.mode==='pads'?SMPL.pads.some(Boolean):!!SMPL.buf;
 const smpReg=(C)=>SMPL.mode==='pads'?[C.ps??0,C.pe??1]:[C.s,C.e];
@@ -1260,8 +1263,13 @@ function chopPlay(i,t,vel,dur){
   if(SMPL.voice[i]){try{SMPL.voice[i].stop(t);}catch(e){}}
   const R=smpReg(C);let s=R[0]*N,e=R[1]*N;if(C.rev){const ss=N-e;e=N-s;s=ss;}
   if(e-s<.005)return null;
-  const rate=Math.pow(2,C.pitch/12),src=ctx.createBufferSource(),g=G(0),f=ctx.createBiquadFilter();
-  src.buffer=C.rev?P.rbuf:P.buf;src.playbackRate.value=rate;
+  /* SPEED multiplica la velocidad; SYNC ajusta la región a Q tiempos del tema (REPITCH: velocidad y altura · ESTIRAR: misma altura) */
+  const sp=C.spd||1,L=e-s;let rate=Math.pow(2,C.pitch/12)*sp,buf=C.rev?P.rbuf:P.buf;
+  if(C.sync==='pitch'||C.sync==='tempo'){const T=smpQ(C,L)*60/S.bpm/sp;
+    if(C.sync==='pitch')rate=L/T;
+    else{const pr=Math.pow(2,C.pitch/12),st=smpStretch(C,buf,s,e,T*pr);if(st){buf=st;s=0;e=st.duration;rate=pr;}else rate=L/T;}}
+  const src=ctx.createBufferSource(),g=G(0),f=ctx.createBiquadFilter();
+  src.buffer=buf;src.playbackRate.value=rate;
   if(C.filt<.47){f.type='lowpass';f.frequency.value=200*Math.pow(90,C.filt/.47);}
   else if(C.filt>.53){f.type='highpass';f.frequency.value=20*Math.pow(300,(C.filt-.53)/.47);}
   else{f.type='lowpass';f.frequency.value=22000;}
@@ -1279,6 +1287,47 @@ function chopPlay(i,t,vel,dur){
   else if(dur){v.stop(t+dur);}
   SMPL.voice[i]=v;return v;
 }
+/* ---- SYNC del sampler ----
+   Q = cuántos tiempos dura la región. Se detecta al prender SYNC (el más cercano al BPM actual, en potencias de 2) y se ajusta con − / +.
+   ESTIRAR calcula aparte (WSOLA) una versión de la región con el largo exacto y la misma altura; mientras tanto suena con REPITCH. */
+const SQA=[.25,.5,1,2,4,8,16,32],SQ=[.25,.5,1,2,3,4,6,8,12,16,24,32];
+const smpQ=(C,L)=>C.q||smpAutoQ(L);
+function smpAutoQ(L){const raw=L*S.bpm/60;let b=1,bd=9;SQA.forEach(q=>{const d=Math.abs(Math.log2(raw/q));if(d<bd){bd=d;b=q;}});return b;}
+function smpLen(i){const P=smpSrc(i),C=SMPL.chops[i];if(!P||!C)return 0;const R=smpReg(C);return (R[1]-R[0])*P.buf.duration;}
+function wsola(x,outLen,sr){
+  const N=Math.max(256,Math.round(sr*.03))&~1,Hs=N>>1,tol=Math.round(sr*.008),win=new Float32Array(N),X=x.length;
+  for(let i=0;i<N;i++)win[i]=.5-.5*Math.cos(2*Math.PI*i/N);
+  const y=new Float32Array(outLen+N),w=new Float32Array(outLen+N),ratio=X/outLen;let prev=-1;
+  for(let o=0;o<outLen;o+=Hs){
+    const nom=Math.min(Math.max(0,X-N),Math.round(o*ratio));let best=nom;
+    if(prev>=0&&X>N){const nat=prev+Hs,lo=Math.max(0,nom-tol),hi=Math.min(X-N,nom+tol);let bc=-Infinity;
+      for(let c=lo;c<=hi;c+=2){let a=0;for(let j=0;j<Hs;j+=8){const k=nat+j;a+=x[c+j]*(k<X?x[k]:0);}if(a>bc){bc=a;best=c;}}}
+    for(let j=0;j<N;j++){const xi=best+j,v=xi<X?x[xi]:0;y[o+j]+=v*win[j];w[o+j]+=win[j];}prev=best;}
+  const out=new Float32Array(outLen),fd=Math.min(outLen>>1,Math.round(sr*.004));
+  for(let i=0;i<outLen;i++)out[i]=w[i]>.05?y[i]/w[i]:0;
+  for(let i=0;i<fd;i++){const g=i/fd;out[i]*=g;out[outLen-1-i]*=g;}return out;}
+const STQ=new Map();   // cálculos de ESTIRAR pendientes (uno por buffer+región+largo)
+function smpStretch(C,buf,s,e,T){
+  const sr=buf.sampleRate,key=[s.toFixed(4),e.toFixed(4),T.toFixed(4)].join('|'),st=C._st;
+  if(st&&st.src===buf&&st.key===key)return st.buf;
+  if(STQ.get(C)===key)return null;STQ.set(C,key);
+  const a=Math.floor(s*sr),b=Math.min(buf.length,Math.floor(e*sr)),n=Math.max(64,Math.round(T*sr)),ch=buf.numberOfChannels,chans=[];
+  for(let k=0;k<ch;k++)chans.push(buf.getChannelData(k).slice(a,b));
+  stWork(chans,n,sr).then(outs=>{if(STQ.get(C)!==key)return;STQ.delete(C);const out=new AudioBuffer({length:n,numberOfChannels:ch,sampleRate:sr});outs.forEach((o,k)=>out.copyToChannel(o,k));
+    Object.defineProperty(C,'_st',{value:{src:buf,key,buf:out},writable:true,configurable:true,enumerable:false});dirty=true;}).catch(()=>{if(STQ.get(C)===key)STQ.delete(C);});
+  return null;}
+/* el estirado corre en un hilo aparte (Web Worker) para no frenar el secuenciador; si no hay worker, se calcula acá */
+let STW=null,STN=0;const STP=new Map();
+function stWork(chans,n,sr){
+  if(STW===null){try{const src='const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));'+wsola.toString()+';onmessage=e=>{const d=e.data,o=d.c.map(x=>wsola(x,d.n,d.sr));postMessage({id:d.id,o},o.map(x=>x.buffer));};';
+      STW=new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'})));STW.onmessage=e=>{const r=STP.get(e.data.id);if(r){STP.delete(e.data.id);r(e.data.o);}};STW.onerror=()=>{STW=false;};}catch(x){STW=false;}}
+  if(STW){const id=++STN;return new Promise(res=>{STP.set(id,res);STW.postMessage({id,c:chans,n,sr},chans.map(x=>x.buffer));});}
+  return new Promise(res=>setTimeout(()=>res(chans.map(x=>wsola(x,n,sr))),0));}
+/* dejar listo ESTIRAR para todos los cortes con SYNC (al prenderlo, al cambiar tempo, región o speed) */
+function smpPrep(){for(let i=0;i<4;i++){const C=SMPL.chops[i],P=smpSrc(i);if(!P||!C||C.sync!=='tempo')continue;
+  const N=P.buf.duration,R=smpReg(C);let s=R[0]*N,e=R[1]*N;if(C.rev){const ss=N-e;e=N-s;s=ss;}const L=e-s;if(L<.005)continue;
+  smpStretch(C,C.rev?P.rbuf:P.buf,s,e,smpQ(C,L)*60/S.bpm/(C.spd||1)*Math.pow(2,C.pitch/12));}}
+
 /* captura: micrófono, resampleo del master (graba lo que suena) */
 let CAP=null,micStream=null;
 function capStart(srcNode,label,stream){
@@ -1369,6 +1418,7 @@ const swOff=()=>gT%2?clamp(S.sw||0,0,1)*.5*sd():0;   // SWING (solo batería): a
 const sd=()=>60/S.bpm/4;
 function trig(r,s,t){
   if(!pat[r][s])return;const R=ROWS[r];
+  seqLit(r,s,t,R.t==='syn'?sd()*(synG[R.k][s]||1):R.t==='vin'?sd()*(vinG[R.k][s]||1):R.t==='chd'?sd()*chdGate[s]:.13);   // luz en su módulo
   if(R.t==='drum')drumPlay(r,t,1);
   else if(R.t==='syn')xyPlay(r,s,[mkVoice(curP(R.k),mtof(scaleNote(seqN[R.k][s],BASEOCT[R.k])),t,.9,bus[1+R.k].inp,sd()*((synG[R.k][s]||1)-.1))],'syn'+R.k,t);
   else if(R.t==='chd')xyPlay(r,s,chordPlay(chdSeq[s],false,t,bus[3].inp,sd()*chdGate[s]*.95),'chd',t);
@@ -1486,7 +1536,7 @@ function applySnapshot(j){
   S.dk=DR.map((_,i)=>Object.assign({},DKD,(Array.isArray(j.dk)&&j.dk[i])||{}));
   for(let i=0;i<NR;i++){LEN[i]=Math.min((j.len&&j.len[i])||STEPS,MAXS);RM[i]=!!(j.rm&&j.rm[i]);RS[i]=!!(j.rs&&j.rs[i]);}
   if(j.fx){const b=FXD();['dly','rev','mod','mst','dst'].forEach(k=>Object.assign(FXP[k],b[k],j.fx[k]||{}));}
-  if(j.smp&&j.smp.chops)j.smp.chops.forEach((C,i)=>{if(SMPL.chops[i])Object.assign(SMPL.chops[i],{ps:0,pe:1},C);});
+  if(j.smp&&j.smp.chops)j.smp.chops.forEach((C,i)=>{if(SMPL.chops[i])Object.assign(SMPL.chops[i],{ps:0,pe:1,sync:'off',q:0,qa:true,spd:1},C);});
   SMPL.mode=j.smp&&j.smp.mode==='pads'?'pads':'chop';
 }
 const CHG={on:false,t0:0,cb:null};   // hay cambios desde el último guardado en Drive
@@ -1600,7 +1650,7 @@ const cells=[];
   const end=()=>{paintVal=null;};g.addEventListener('pointerup',end);g.addEventListener('pointercancel',end);
 })();
 function preview(r,st){
-  if(!ctx)return;const R=ROWS[r],t=ctx.currentTime+.005;
+  if(!ctx)return;const R=ROWS[r],t=ctx.currentTime+.005;seqLit(r,st,t,.3);
   if(R.t==='syn')mkVoice(curP(R.k),mtof(scaleNote(seqN[R.k][st],BASEOCT[R.k])),t,.9,bus[1+R.k].inp,.3);
   else if(R.t==='chd')chordPlay(chdSeq[st],false,t,bus[3].inp,.5);
   else if(R.t==='smp'&&smpSeq[st])chopPlay(smpSeq[st]-1,t,.9,.5);
@@ -1748,7 +1798,7 @@ function renderKeysBase(){
     label.textContent=SYNP[S.pre[k]].n;label.classList.toggle('tight',SYNP[S.pre[k]].n.length>7);
     pads.style.gridTemplateColumns='repeat(7,1fr)';pads.style.gridTemplateRows='1fr 1fr';
     for(let r=1;r>=0;r--)for(let i=0;i<7;i++){
-      const idx=r*7+i,d=idx+7*S.ko[k],el=document.createElement('div'),col=CH[1+k].c;
+      const idx=r*7+i,d=idx+7*S.ko[k],el=document.createElement('div'),col=CH[1+k].c;el.dataset.d=d;
       el.className='pad cap'+(r?'':' dark');el.style.setProperty('--c',col);
       el.innerHTML=noteName(scaleNote(d,BASEOCT[k]))+'<small>'+(i+1)+'</small>';
       bindPad(el,()=>{if(!ctx)return;el._v=mkVoice(curP(k),mtof(scaleNote(d,BASEOCT[k])),ctx.currentTime+.003,.9,bus[1+k].inp);const st=recWrite(R_SYN+k,d);el._sst=st;xyRecStart(el,st>=0?[{r:R_SYN+k,st}]:null);},()=>{if(el._sst>=0&&ctx)synGate(k,el._sst,ctx.currentTime-el._x0);el._sst=-1;xyRecEnd(el);if(el._v){el._v.stop(ctx.currentTime);el._v=null;}});xyBind(el,m,()=>el._v?[el._v]:null);
@@ -1762,7 +1812,7 @@ function renderKeysBase(){
     label.textContent=CHDPRE[S.chdPre].n+' · '+NN[S.key]+' '+SCALES[S.scale][0];
     pads.style.gridTemplateColumns='repeat(4,1fr)';pads.style.gridTemplateRows='1fr 1fr';
     for(let i=0;i<7;i++){
-      const c=chordName(i,S.seventh),el=document.createElement('div');
+      const c=chordName(i,S.seventh),el=document.createElement('div');el.dataset.c=i;
       el.className='pad cap'+(i<4?'':' dark');el.style.setProperty('--c',CH[3].c);
       el.innerHTML='<span class="rn">'+c.roman+'</span><small>'+c.name+'</small>';
       bindPad(el,()=>{if(!ctx)return;el._v=chordPlay(i,S.seventh,ctx.currentTime+.003,bus[3].inp);el._st=recWrite(R_CHD,i);el._t0=ctx.currentTime;xyRecStart(el,el._st>=0?[{r:R_CHD,st:el._st}]:null);},()=>{xyRecEnd(el);if(el._v){el._v.forEach(v=>v.stop(ctx.currentTime));el._v=null;if(el._st>=0)recGate(el._st,ctx.currentTime-el._t0);el._st=-1;}});xyBind(el,'chd',()=>el._v||null);
@@ -1776,7 +1826,7 @@ function renderKeysBase(){
     label.textContent=P.n;label.classList.toggle('tight',P.n.length>9);
     pads.style.gridTemplateColumns='repeat(7,1fr)';pads.style.gridTemplateRows='1fr 1fr';
     for(let r=1;r>=0;r--)for(let i=0;i<7;i++){
-      const idx=r*7+i,d=idx+7*S.vko,el=document.createElement('div');
+      const idx=r*7+i,d=idx+7*S.vko,el=document.createElement('div');el.dataset.d=d;
       el.className='pad cap'+(r?'':' dark');el.style.setProperty('--c',CH[6].c);
       el.innerHTML=vinLbl(d,S.vch)+'<small>'+(i+1)+'</small>';
       bindPad(el,()=>{if(!ctx)return;el._v=vinPlay(d,S.vch,ctx.currentTime+.003,0,.9);el._st=vinRec(S.vch?[d,d+2,d+4]:[d]);el._t0=ctx.currentTime;xyRecStart(el,el._st.map(o=>({r:R_VIN+o.k,st:o.st})));},
@@ -1833,6 +1883,23 @@ function buildParPanel(){
   mkSeg(pn,'TEMPO',[['LIBRE',0],['1/2',.5],['1/4',1],['1/8',2],['1/8T',3],['1/16',4]],o=>(P.sync||0)===o[1],o=>{P.sync=o[1];liveSet(P,'sync');rateDim();queueSave();});
   pn.insertBefore(pn.lastChild,rg);rateDim();
 }
+
+/* ---- LUCES: lo que toca el secuenciador (o lo que previsualizás al programar) se ilumina en su módulo,
+   TECLAS o SMP, al ritmo de lo que se escucha (con la compensación de latencia) ---- */
+const LQ=[],LIT=new Set();let SPB=0,SPT=null;
+function seqLit(r,s,t,dur){LQ.push({r,s,t,end:t+Math.max(.09,Math.min(dur||.13,4))});if(LQ.length>256)LQ.splice(0,LQ.length-256);}
+function litEls(r,s){const R=ROWS[r];
+  if(S.tab==='smp')return R.t==='smp'&&smpSeq[s]?[sPads.children[smpSeq[s]-1]]:[];
+  if(S.tab!=='keys')return [];const m=S.kmode,pads=$('#pads');
+  if(R.t==='drum')return m==='drum'?[pads.children[r]]:[];
+  if(R.t==='syn')return m==='syn'+R.k?[...pads.querySelectorAll('[data-d="'+seqN[R.k][s]+'"]')]:[];
+  if(R.t==='chd')return m==='chd'?[pads.querySelector('[data-c="'+chdSeq[s]+'"]')]:[];
+  if(R.t==='vin')return m==='vin'?[...pads.querySelectorAll('[data-d="'+vinN[R.k][s]+'"]')]:[];
+  return [];}
+function litTick(){if(!ctx)return;const now=vNow();
+  for(let i=LQ.length-1;i>=0;i--){const e=LQ[i];if(e.t>now)continue;LQ.splice(i,1);if(e.end<now)continue;
+    litEls(e.r,e.s).forEach(el=>{if(!el)return;el.classList.add('seqlit');el._le=Math.max(el._le||0,e.end);LIT.add(el);});}
+  LIT.forEach(el=>{if(el._le<=now||!el.isConnected){el.classList.remove('seqlit');LIT.delete(el);}});}
 
 /* ---- VINTAGE: AJUSTES (drawbars del órgano, motor, rotor) ---- */
 const VDEF={atk:PDEF.atk,dec:{n:'DECAIMIENTO',min:.05,max:4,exp:1,f:tfmt},sus:PDEF.sus,rel:PDEF.rel,res:PDEF.res,
@@ -2066,6 +2133,7 @@ function fxUi(){
 }
 
 /* ---------------- vista SMP: sampler (grabar · chop en 4 teclas · efectos) ---------------- */
+const qName=q=>(q===.25?'¼ TIEMPO':q===.5?'½ TIEMPO':q===1?'1 TIEMPO':q+' TIEMPOS')+(q>=4&&q%4===0?' · '+(q/4)+' COMPÁS'+(q>4?'ES':''):'');
 const SMPDEF={
   pitch:{n:'PITCH',min:-12,max:12,f:v=>(v>=0?'+':'')+v.toFixed(1)+' st'},
   filt:{n:'FILTRO',min:0,max:1,f:v=>v<.47?'LP '+HZ(200*Math.pow(90,v/.47)):v>.53?'HP '+HZ(20*Math.pow(300,(v-.53)/.47)):'OFF'},
@@ -2084,6 +2152,8 @@ function drawWave(){
   c.strokeStyle=CH[5].c;c.lineWidth=1;c.beginPath();
   for(let x=0;x<W;x++){const i0=Math.floor(x/W*N),i1=Math.max(i0+1,Math.floor((x+1)/W*N)),st=Math.max(1,Math.floor((i1-i0)/48));let mn=1,mx=-1;for(let i=i0;i<i1;i+=st){const v=d[i];if(v<mn)mn=v;if(v>mx)mx=v;}c.moveTo(x+.5,mid-mx*mid*.92);c.lineTo(x+.5,mid-mn*mid*.92);}
   c.stroke();
+  {const C=SMPL.chops[SMPL.sel];if(C&&(C.sync==='pitch'||C.sync==='tempo')){const a=PM?(C.ps??0):C.s,b=PM?(C.pe??1):C.e,q=smpQ(C,smpLen(SMPL.sel)),n=Math.round(q),st=n>=1?1:q;   // grilla de tiempos
+    if(n>=1&&n<=64){c.fillStyle='rgba(255,210,122,.5)';for(let k=1;k<n;k++){const x=Math.round((a+(b-a)*k/n)*W);c.fillRect(x,k%4===0?0:H*.3,Math.max(1,dpr),k%4===0?H:H*.4);}}}}
   if(PM){const C=SMPL.chops[SMPL.sel];c.fillStyle='#ffd27a';c.fillRect(Math.round((C.ps??0)*W),0,3*dpr,H);c.fillRect(Math.round((C.pe??1)*W)-3*dpr,0,3*dpr,H);
     c.font='700 '+(13*dpr)+'px sans-serif';c.textAlign='left';c.fillText('PAD '+(SMPL.sel+1),(C.ps??0)*W+6*dpr,15*dpr);return;}
   SMPL.chops.forEach((C,i)=>{const sel=i===SMPL.sel;c.fillStyle=sel?'#ffd27a':'#c9ffee';c.globalAlpha=sel?1:.55;c.fillRect(Math.round(C.s*W),0,sel?3*dpr:1.5*dpr,H);c.fillRect(Math.round(C.e*W)-(sel?3*dpr:1.5*dpr),0,sel?3*dpr:1.5*dpr,H);
@@ -2101,7 +2171,7 @@ function drawWave(){
     smpUi();});
   wave.addEventListener('pointermove',e=>{if(!drag)return;const C=SMPL.chops[drag.i],x=fr(e);
     if(drag.k==='s')C.s=clamp(x,0,C.e-.01);else if(drag.k==='e')C.e=clamp(x,C.s+.01,1);else if(drag.k==='ps')C.ps=clamp(x,0,(C.pe??1)-.01);else C.pe=clamp(x,(C.ps??0)+.01,1);drawWave();});
-  const end=()=>{if(drag){drag=null;queueSave();smpUi();}};wave.addEventListener('pointerup',end);wave.addEventListener('pointercancel',end);
+  const end=()=>{if(drag){const C=SMPL.chops[drag.i];if(C&&C.sync&&C.sync!=='off'&&C.qa)C.q=smpAutoQ(smpLen(drag.i));drag=null;smpPrep();queueSave();smpUi();}};wave.addEventListener('pointerup',end);wave.addEventListener('pointercancel',end);
 })();
 const sPads=$('#sPads');
 (function buildSPads(){
@@ -2121,7 +2191,7 @@ function smpUi(light){
   [...sPads.children].forEach((el,i)=>{const C=SMPL.chops[i],P=smpSrc(i),R=smpReg(C);el.style.outline=(i===SMPL.sel)?'2px solid #ffd27a':'none';el.style.outlineOffset='2px';
     el.classList.toggle('cpdst',SCP.on&&i!==SMPL.sel);el.classList.toggle('cpsrc',SCP.on&&i===SMPL.sel);
     el.querySelector('.rn').textContent=PM?'P'+(i+1):String(i+1);
-    el.querySelector('small').textContent=P?((R[1]-R[0])*P.buf.duration).toFixed(2)+'s · '+MD(C):'vacío';});
+    const sy=C.sync==='pitch'||C.sync==='tempo';el.querySelector('small').textContent=P?(sy?qName(smpQ(C,(R[1]-R[0])*P.buf.duration)).split(' ·')[0].replace(' TIEMPOS','T').replace(' TIEMPO','T'):((R[1]-R[0])*P.buf.duration).toFixed(2)+'s')+' · '+MD(C)+((C.spd||1)!==1?' · ×'+C.spd:''):'vacío';});
   $$('#sModeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.m===SMPL.mode));
   $('#sEq').textContent=PM?'ENTERO':'IGUALES';$('#sTr').style.display=PM?'none':'';
   $('#sCopy').classList.toggle('on',SCP.on);$('#sCopy').textContent=SCP.on?'ELEGÍ DESTINO ✕':'⧉ COPIAR';
@@ -2133,8 +2203,19 @@ function smpUi(light){
   const pn=$('#sPar');pn.innerHTML='';const show=PM?!!P:has;pn.style.display=show?'block':'none';
   if(show){const C=SMPL.chops[SMPL.sel];
     mkSeg(pn,(PM?'PAD ':'CHOP ')+(SMPL.sel+1),[['1-SHOT','one'],['GATE','gate'],['LOOP','loop']],o=>C.mode===o[1],o=>{C.mode=o[1];smpUi(true);queueSave();});
-    mkSeg(pn,'REVERSA',[['NO',false],['SÍ',true]],o=>C.rev===o[1],o=>{C.rev=o[1];queueSave();});
-    mkGrid(pn,C,['pitch','filt','crush','gain'],SMPDEF,()=>queueSave());}
+    mkSeg(pn,'REVERSA',[['NO',false],['SÍ',true]],o=>C.rev===o[1],o=>{C.rev=o[1];smpPrep();queueSave();});
+    const i=SMPL.sel,L=smpLen(i);
+    mkSeg(pn,'SYNC AL TEMPO',[['NO','off'],['REPITCH','pitch'],['ESTIRAR','tempo']],o=>(C.sync||'off')===o[1],o=>{C.sync=o[1];if(o[1]!=='off'&&(!C.q||C.qa)){C.q=smpAutoQ(L);C.qa=true;}smpPrep();smpUi();queueSave();});
+    if(C.sync==='pitch'||C.sync==='tempo'){const q=smpQ(C,L),row=document.createElement('div');row.className='qrow';
+      const mb=(t,fn,al)=>{const b=document.createElement('button');b.className='cap dark sm';b.textContent=t;if(al)b.setAttribute('aria-label',al);b.onclick=fn;row.appendChild(b);return b;};
+      const step=d=>{const k=SQ.indexOf(q);C.q=SQ[clamp((k<0?SQ.indexOf(smpAutoQ(L)):k)+d,0,SQ.length-1)];C.qa=false;smpPrep();smpUi();queueSave();};
+      mb('−',()=>step(-1),'Menos tiempos');
+      const lb=document.createElement('div');lb.className='qlbl';lb.innerHTML='<b>'+qName(q)+'</b><small>'+(L>0?'el sample está a ≈ '+Math.round(q*60/L)+' BPM':'')+'</small>';row.appendChild(lb);
+      mb('+',()=>step(1),'Más tiempos');pn.appendChild(row);
+      const bb=document.createElement('button');bb.className='cap dark sm qbpm';bb.textContent='TEMA AL TEMPO DEL SAMPLE ('+(L>0?Math.round(q*60/L):'—')+' BPM)';bb.setAttribute('aria-label','Poner el tempo del tema igual al del sample');
+      bb.onclick=()=>{if(L>0){setBpm(q*60/L);toast('TEMPO '+S.bpm+' BPM (EL DEL SAMPLE)');smpUi();}};pn.appendChild(bb);}
+    mkSeg(pn,'SPEED',[['½',.5],['¾',.75],['1',1],['1½',1.5],['2',2]],o=>(C.spd||1)===o[1],o=>{C.spd=o[1];smpPrep();smpUi(true);queueSave();});
+    mkGrid(pn,C,['pitch','filt','crush','gain'],SMPDEF,k=>{if(k==='pitch')smpPrep();queueSave();});}
   drawWave();
 }
 $('#sMic').onclick=micToggle;$('#sRes').onclick=resToggle;
@@ -2200,7 +2281,7 @@ const pad2=n=>String(n).padStart(2,'0');
    · Las tomas LIVE van a la subcarpeta TOMAS.
    Navegadores sin carpetas (iPhone, Firefox): queda la biblioteca del teléfono de antes. */
 const AS_MIN=5,AS_KEEP=10,FOLDM='application/vnd.google-apps.folder',ASRX=/_AS_\d{12}\.json$/i;
-const APPV='13.15',APPD='20261120';
+const APPV='13.16',APPD='20261122';
 const DV={f:null,h:null,need:false,rec:[],last:0,lastT:'',lastBody:'',busy:false,err:'',sub:{}};
 const drvMode=()=>!!(window.claude&&window.claude.use);
 const FS_OK=typeof window.showDirectoryPicker==='function';
@@ -2966,7 +3047,7 @@ function viz(){const now=performance.now();if(document.hidden||now-vizT<(PERF.li
 
 /* ---------------- loop de dibujo ---------------- */
 function frame(){try{bmFlush();}catch(e){}
-  updateCur();try{cntUi();}catch(e){}
+  updateCur();try{litTick();}catch(e){}if(S.bpm!==SPB){SPB=S.bpm;clearTimeout(SPT);SPT=setTimeout(smpPrep,300);}try{cntUi();}catch(e){}
   if(dirty){dirty=false;if(S.tab==='seq')refreshSeq();}
   try{drawMeters();}catch(e){}
   viz();
@@ -2978,7 +3059,7 @@ document.addEventListener('keydown',e=>{if(e.code==='Space'&&!e.repeat&&e.target
 document.addEventListener('visibilitychange',()=>{if(document.hidden){sirHolds.clear();if(sirV)sirStop();$$('#pads .pad').forEach(el=>{if(el._v){try{(Array.isArray(el._v)?el._v:[el._v]).forEach(v=>v.stop());}catch(e){}el._v=null;el.classList.remove('dn');}});}});
 window.addEventListener('resize',()=>{if(S.tab==='smp')drawWave();});
 renderPalette();renderKeys();fxUi();sync();refreshSeq();smpUi();partUi();ringUi();frame();
-window.GB={smpMode,smpCopy,smpSrc,SCP:()=>SCP,padsPack,IDB,libSave,libOpen,libList,libLive,smpPack,smpUnpack,SMPR,drumRe,dkE,renderDrum,KH:()=>KH,LV,wavEncode,xyApply,LIVE,drawSiren:()=>drawSiren(),TILT,partCopy,LEN,RM,RS,ringSel,rowTool,viz:{drawScope:()=>drawScope(),drawVoice:()=>drawVoice(),drawXY:()=>drawXY(),drawBus:()=>drawBus(),drawRing:()=>drawRing()},newSession,KB:()=>KB,SYNP,sdSend:(i,v)=>{CH[i].dst=v;applyCh(i);},anM:()=>anM,shareSes,PARTS,partGo,partSwitch,partBar,drumPreset,KITS,DPRE,trig,sd,PERF,S,CH,FXP,SMPL,pat,smpSeq,chdGate,snapshot,applySnapshot,loadSession,smpDemo,chopPlay,smpSet,smpEncode,smpDecode,get ctx(){return ctx;},get lim(){return lim;},get CAP(){return CAP;},recWrite,takeUndo,doUndo,bus,extractText,setSteps,get STEPS(){return STEPS;},vinPlay,vinVoice,VINP,vinN,vinG,vinRec,vinGate,VL,vinMig,XYR,xyRec,xyAuto,xyPlay,XYQ,synG,synGate,chordPlay,DV,CHG,queueSave,drvAuto,drvSaveOrig,drvRecent,drvSetF,foldSearch,liveUp,drvMode,drvLive,sesBase,fMode,BK,lbSet,lbPerm,sesSave,sesRecent,sesLoad,migUi,APPV,LBR,libJson,vinFx,latOut,vNow,calCalc,SCH,seqN,chdSeq,LIVE_:()=>LIVE,setBpm,pageUi,noteOpen,renderPalette,ROWS,R_VIN,swOff,get gT(){return gT;},orgWave,DHIT,lesToggle};
+window.GB={smpMode,smpCopy,smpSrc,SCP:()=>SCP,padsPack,IDB,libSave,libOpen,libList,libLive,smpPack,smpUnpack,SMPR,drumRe,dkE,renderDrum,KH:()=>KH,LV,wavEncode,xyApply,LIVE,drawSiren:()=>drawSiren(),TILT,partCopy,LEN,RM,RS,ringSel,rowTool,viz:{drawScope:()=>drawScope(),drawVoice:()=>drawVoice(),drawXY:()=>drawXY(),drawBus:()=>drawBus(),drawRing:()=>drawRing()},newSession,KB:()=>KB,SYNP,sdSend:(i,v)=>{CH[i].dst=v;applyCh(i);},anM:()=>anM,shareSes,PARTS,partGo,partSwitch,partBar,drumPreset,KITS,DPRE,trig,sd,PERF,S,CH,FXP,SMPL,pat,smpSeq,chdGate,snapshot,applySnapshot,loadSession,smpDemo,chopPlay,smpSet,smpEncode,smpDecode,get ctx(){return ctx;},get lim(){return lim;},get CAP(){return CAP;},recWrite,takeUndo,doUndo,bus,extractText,setSteps,get STEPS(){return STEPS;},vinPlay,vinVoice,VINP,vinN,vinG,vinRec,vinGate,VL,vinMig,XYR,xyRec,xyAuto,xyPlay,XYQ,synG,synGate,chordPlay,DV,CHG,queueSave,drvAuto,drvSaveOrig,drvRecent,drvSetF,foldSearch,liveUp,drvMode,drvLive,sesBase,fMode,BK,lbSet,lbPerm,sesSave,sesRecent,sesLoad,migUi,APPV,LBR,libJson,smpQ,smpAutoQ,smpStretch,smpPrep,wsola,smpLen,SQ,seqLit,LIT,vinFx,latOut,vNow,calCalc,SCH,seqN,chdSeq,LIVE_:()=>LIVE,setBpm,pageUi,noteOpen,renderPalette,ROWS,R_VIN,swOff,get gT(){return gT;},orgWave,DHIT,lesToggle};
 </script>
 <script>
 /* app instalable: guarda la app en el teléfono para abrir sin internet y se actualiza sola */
