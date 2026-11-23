@@ -1,7 +1,7 @@
 <script>
 'use strict';
 /* =====================================================================
-   MUSICA GROOVEBOX — versión celular v13.18 (20261123)
+   MUSICA GROOVEBOX — versión celular v13.19 (20261123)
    Un solo archivo, sin librerías, Web Audio.
    16/32 pasos · 2 synths · VINTAGE (órgano, piano eléctrico, analógico, clavinet, cuerdas) · acordes (4 presets + GATE) · 8 drums · SAMPLER (chop en 4 teclas)
    · mixer 6 canales + master (pan, 3 envíos, medidores) · buses FX (delay/reverb/mod/master)
@@ -759,44 +759,52 @@ function stop(){clearInterval(sched);sched=null;scrCancel();S.playing=false;S.ne
 const togglePlay=()=>S.playing?stop():play();
 
 /* ===== SCRATCH (bailarín del medidor) =====
-   Un AudioWorklet al final del master guarda los últimos 10 s de lo que suena.
+   Un AudioWorklet al principio de cada canal (entre la entrada y el fader) guarda los últimos 10 s de cada canal:
+   lo scratcheado pasa por fader, paneo, envíos (DLY/REV/MOD/DST) y master; las colas de los efectos siguen al frenar.
    Apretar = mano sobre el vinilo: frena y el secuenciador queda en pausa. Arrastrar arriba/abajo = adelanta/atrasa la púa.
    Soltar = vuelve a velocidad normal, reproduce lo que atrasaste y, al llegar al punto donde frenaste, el secuenciador sigue desde ahí. */
 const SCR_SRC=`class GbScratch extends AudioWorkletProcessor{
-  constructor(){super();const sr=sampleRate;this.sr=sr;this.N=Math.floor(sr*10);this.L=new Float32Array(this.N);this.R=new Float32Array(this.N);
-    this.W=0;this.fill=0;this.mode=0;this.ph=0;this.v=0;this.tg=0;this.gp=0;this.endF=0;this.brake=false;this.sent=false;this.FX=Math.floor(sr*.006);
-    this.kB=Math.exp(-1/(sr*.03));this.hl=0;this.hr=0;this.xl=0;this.xr=0;this.g=1;this.kH=Math.exp(-2*Math.PI*25/sr);this.kG=1-Math.exp(-1/(sr*.004));this.kV=1-Math.exp(-1/(sr*.006));this.kU=1-Math.exp(-1/(sr*.03));
+  constructor(o){super();const sr=sampleRate,NB=(o&&o.numberOfInputs)||1;this.sr=sr;this.NB=NB;this.N=Math.floor(sr*10);
+    this.B=[];for(let c=0;c<NB*2;c++)this.B.push(new Int16Array(this.N));   // 16 bits (±4 de rango): 8 canales estéreo × 10 s ≈ 15 MB
+    this.hx=new Float32Array(NB*2);this.hy=new Float32Array(NB*2);this.P=new Float64Array(128);this.Gk=new Float32Array(128);this.A=new Float32Array(128);
+    this.W=0;this.fill=0;this.mode=0;this.ph=0;this.v=0;this.tg=0;this.gp=0;this.endF=0;this.brake=false;this.sent=false;this.FX=Math.floor(sr*.006);this.g=1;
+    this.kB=Math.exp(-1/(sr*.03));this.kV=1-Math.exp(-1/(sr*.006));this.kU=1-Math.exp(-1/(sr*.03));this.kH=Math.exp(-2*Math.PI*25/sr);this.kG=1-Math.exp(-1/(sr*.004));
     this.port.onmessage=e=>{const m=e.data,sr=this.sr;
-      if(m.t==='down'){if(this.mode===0){if(this.fill<sr*.1)return;this.endF=this.W;this.ph=this.W-sr*.045;this.xl=this.rd(this.L,this.ph);this.xr=this.rd(this.R,this.ph);this.hl=this.hr=0;this.g=1;this.v=1;this.brake=true;this.port.postMessage({t:'held',T:currentTime});}
+      if(m.t==='down'){if(this.mode===0){if(this.fill<sr*.1)return;this.endF=this.W;this.ph=this.W-sr*.045;for(let c=0;c<this.NB*2;c++){this.hx[c]=this.rd(this.B[c],this.ph);this.hy[c]=0;}this.g=1;this.v=1;this.brake=true;this.port.postMessage({t:'held',T:currentTime});}
         else{this.brake=false;}this.mode=1;this.sent=false;this.gp=this.ph;this.tg=this.ph;}
       else if(m.t==='mv'&&this.mode===1){this.brake=false;this.tg=Math.min(this.endF,Math.max(this.W-this.fill+256,this.gp+m.d*sr));}
       else if(m.t==='up'&&this.mode===1){this.mode=2;this.brake=false;}
-      else if(m.t==='q')this.port.postMessage({t:'st',mode:this.mode,ph:this.ph,W:this.W,endF:this.endF,v:this.v,sr});};}
-  rd(B,p){const N=this.N,i=Math.floor(p),f=p-i,a=((i%N)+N)%N,b=(a+1)%N;return B[a]+(B[b]-B[a])*f;}
-  process(ins,outs){const i=ins[0]||[],o=outs[0],oL=o[0],oR=o[1]||o[0],n=oL.length,iL=i[0],iR=i[1]||i[0];
-    if(this.mode===0){const N=this.N;for(let k=0;k<n;k++){const l=iL?iL[k]:0,r=iR?iR[k]:0,w=this.W%N;this.L[w]=l;this.R[w]=r;this.W++;oL[k]=l;oR[k]=r;}this.fill=Math.min(this.N-256,this.fill+n);return true;}
-    const lo=this.W-this.fill+2;
+      else if(m.t==='q')this.port.postMessage({t:'st',mode:this.mode,ph:this.ph,W:this.W,endF:this.endF,v:this.v,sr,nb:this.NB});};}
+  rd(B,p){const N=this.N,i=Math.floor(p),f=p-i,a=((i%N)+N)%N,b=(a+1)%N;return (B[a]+(B[b]-B[a])*f)/8192;}
+  process(ins,outs){const NB=this.NB,n=outs[0][0].length,N=this.N;
+    if(this.mode===0){const w0=this.W;
+      for(let c=0;c<NB;c++){const I=ins[c]||[],iL=I[0],iR=I[1]||I[0],O=outs[c],oL=O[0],oR=O[1]||O[0],BL=this.B[2*c],BR=this.B[2*c+1];
+        for(let k=0;k<n;k++){const l=iL?iL[k]:0,r=iR?iR[k]:0,w=(w0+k)%N;BL[w]=Math.max(-32768,Math.min(32767,Math.round(l*8192)));BR[w]=Math.max(-32768,Math.min(32767,Math.round(r*8192)));oL[k]=l;oR[k]=r;}}
+      this.W+=n;this.fill=Math.min(N-256,this.fill+n);return true;}
+    /* 1) la púa: posición, volumen y mezcla con lo vivo, muestra por muestra */
+    const lo=this.W-this.fill+2,P=this.P,Gk=this.Gk,A=this.A;let kEnd=n;
     for(let k=0;k<n;k++){
       if(this.mode===1){if(this.brake){this.v*=this.kB;if(this.v<.004){this.v=0;this.brake=false;this.tg=this.ph;this.gp=this.ph;}}
         else{const want=Math.max(-6,Math.min(6,(this.tg-this.ph)/(this.sr*.01)));this.v+=(want-this.v)*this.kV;}}
-      else{this.v+=(1-this.v)*this.kU;
-        if(!this.sent&&this.v>.985){this.sent=true;this.port.postMessage({t:'end',T:currentTime+(k+(this.endF-this.ph)/this.v)/this.sr});}}
+      else{this.v+=(1-this.v)*this.kU;if(!this.sent&&this.v>.985){this.sent=true;this.port.postMessage({t:'end',T:currentTime+(k+(this.endF-this.ph)/this.v)/this.sr});}}
       this.ph+=this.v;if(this.ph>this.endF){this.ph=this.endF;if(this.mode===1)this.v=0;}if(this.ph<lo){this.ph=lo;this.v=0;}
-      let l=this.rd(this.L,this.ph),r=this.rd(this.R,this.ph);
-      {const yl=l-this.xl+this.kH*this.hl,yr=r-this.xr+this.kH*this.hr;this.xl=l;this.xr=r;this.hl=yl;this.hr=yr;   // sin DC: disco quieto = silencio
-       const gt=this.mode===2?1:Math.min(1,Math.abs(this.v)*4);this.g+=(gt-this.g)*this.kG;l=yl*this.g;r=yr*this.g;}
-      if(this.mode===2){const rem=this.endF-this.ph;if(rem<this.FX){const a=rem/this.FX,il=iL?iL[k]:0,ir=iR?iR[k]:0;l=l*a+il*(1-a);r=r*a+ir*(1-a);}
-        if(rem<=0){this.mode=0;if(!this.sent){this.sent=true;this.port.postMessage({t:'end',T:currentTime+k/this.sr});}for(let j=k+1;j<n;j++){oL[j]=iL?iL[j]:0;oR[j]=iR?iR[j]:0;}oL[k]=l;oR[k]=r;break;}}
-      oL[k]=l;oR[k]=r;}
+      const gt=this.mode===2?1:Math.min(1,Math.abs(this.v)*4);this.g+=(gt-this.g)*this.kG;P[k]=this.ph;Gk[k]=this.g;A[k]=1;
+      if(this.mode===2){const rem=this.endF-this.ph;if(rem<this.FX)A[k]=Math.max(0,rem/this.FX);
+        if(rem<=0){this.mode=0;kEnd=k+1;if(!this.sent){this.sent=true;this.port.postMessage({t:'end',T:currentTime+k/this.sr});}break;}}}
+    /* 2) cada canal lee su audio en esa posición (sin DC: disco quieto = silencio) y entra a su canal del mixer → envíos y efectos */
+    for(let c=0;c<NB;c++){const I=ins[c]||[],O=outs[c],oL=O[0],oR=O[1]||O[0];
+      for(let h=0;h<2;h++){const B=this.B[2*c+h],out=h?oR:oL,inn=I[h]||I[0],q=2*c+h;if(h&&oR===oL)break;let x=this.hx[q],y=this.hy[q];
+        for(let k=0;k<kEnd;k++){const s=this.rd(B,P[k]),yy=s-x+this.kH*y;x=s;y=yy;const iv=inn?inn[k]:0;out[k]=yy*Gk[k]*A[k]+iv*(1-A[k]);}
+        this.hx[q]=x;this.hy[q]=y;for(let k=kEnd;k<n;k++)out[k]=inn?inn[k]:0;}}
     return true;}}
 registerProcessor('gb-scratch',GbScratch);`;
 const SCR={node:null,err:null,held:false,landing:false,paused:false,Tf:0,off:0,last:null,st:null};
 function scrInit(){if(SCR.node||SCR._ld||!ctx||!ctx.audioWorklet){if(ctx&&!ctx.audioWorklet)SCR.err='sin AudioWorklet';return;}SCR._ld=true;
   const add=u=>ctx.audioWorklet.addModule(u);   // blob (https) y, si no deja (archivo local), data:
-  add(URL.createObjectURL(new Blob([SCR_SRC],{type:'application/javascript'}))).catch(()=>add('data:text/javascript;charset=utf-8,'+encodeURIComponent(SCR_SRC))).then(()=>{const nd=new AudioWorkletNode(ctx,'gb-scratch',{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[2],channelCount:2,channelCountMode:'explicit'});
+  add(URL.createObjectURL(new Blob([SCR_SRC],{type:'application/javascript'}))).catch(()=>add('data:text/javascript;charset=utf-8,'+encodeURIComponent(SCR_SRC))).then(()=>{const NB=bus.length,nd=new AudioWorkletNode(ctx,'gb-scratch',{numberOfInputs:NB,numberOfOutputs:NB,outputChannelCount:Array(NB).fill(2),channelCount:2,channelCountMode:'explicit'});   // va ANTES de los efectos: entre la entrada de cada canal y su fader
     nd.port.onmessage=e=>{const m=e.data;if(m.t==='held')SCR.Tf=m.T;else if(m.t==='end')scrResume(m.T);else if(m.t==='st'){SCR.st=m;if(SCR._q){SCR._q(m);SCR._q=null;}}};
-    try{clampSh.disconnect(ctx.destination);}catch(e){}clampSh.connect(nd);nd.connect(ctx.destination);SCR.node=nd;}).catch(e=>{SCR.err=String(e&&e.message||e);});}
-const outTap=()=>SCR.node||clampSh;   // lo que sale por el parlante (las tomas LIVE graban también el scratch)
+    bus.forEach((b,i)=>{try{b.inp.disconnect(b.vol);}catch(e){}b.inp.connect(nd,0,i);nd.connect(b.vol,i,0);});SCR.node=nd;}).catch(e=>{SCR.err=String(e&&e.message||e);});}
+const outTap=()=>clampSh;   // lo que sale por el parlante (incluye el scratch y sus efectos)
 const scrQ=()=>new Promise(r=>{if(!SCR.node)return r(null);SCR._q=r;SCR.node.port.postMessage({t:'q'});});
 function scrDown(){if(!SCR.node||SCR.landing)return false;SCR.held=true;SCR.off=0;
   if(!SCR.paused){SCR.Tf=ctx.currentTime;if(S.playing&&sched){clearInterval(sched);sched=null;SCR.paused=true;const tn=ctx.currentTime;qq=qq.filter(e=>e.t<=tn);}}
