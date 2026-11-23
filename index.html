@@ -258,7 +258,7 @@ select{background:transparent;color:var(--ink);border:1.5px solid var(--line2);f
 select option{background:#2a2926}
 .lamp{background:transparent;color:#6a3a34;border:1.5px solid #4a2c28;font:500 9px var(--ui);letter-spacing:.12em;border-radius:6px}
 .lamp.hot{background:var(--red);color:#fff;border-color:var(--red);box-shadow:none}
-#scope{display:block;width:100%;height:46px;background:transparent;border:0}
+#scope{display:block;width:100%;height:46px;background:transparent;border:0;touch-action:none}
 /* textos */
 .lcd{font:400 11px var(--ui);color:var(--acc);letter-spacing:.06em}
 .phead{font:400 10px var(--ui);letter-spacing:.2em;color:var(--dim)}
@@ -702,7 +702,7 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
 <script>
 'use strict';
 /* =====================================================================
-   MUSICA GROOVEBOX — versión celular v13.17 (20261122)
+   MUSICA GROOVEBOX — versión celular v13.18 (20261123)
    Un solo archivo, sin librerías, Web Audio.
    16/32 pasos · 2 synths · VINTAGE (órgano, piano eléctrico, analógico, clavinet, cuerdas) · acordes (4 presets + GATE) · 8 drums · SAMPLER (chop en 4 teclas)
    · mixer 6 canales + master (pan, 3 envíos, medidores) · buses FX (delay/reverb/mod/master)
@@ -863,7 +863,7 @@ function initAudio(){
   {const n=2048,c=new Float32Array(n);for(let i=0;i<n;i++){const x=i*2/(n-1)-1,a=Math.abs(x);c[i]=a<=.9?x:Math.sign(x)*(.9+.1*Math.tanh((a-.9)/.1));}clampSh.curve=c;}
   anM=ctx.createAnalyser();anM.fftSize=1024;
   pre.connect(masterG);masterG.connect(satDry);satSh.connect(satWet);satDry.connect(toneF);satWet.connect(toneF);
-  toneF.connect(mcomp);mcomp.connect(lim);lim.connect(clampSh);lim.connect(anM);clampSh.connect(ctx.destination);
+  toneF.connect(mcomp);mcomp.connect(lim);lim.connect(clampSh);lim.connect(anM);clampSh.connect(ctx.destination);scrInit();
   mixOut=G(1);fltM=ctx.createBiquadFilter();fltM.type='lowpass';fltM.frequency.value=20000;fltM.Q.value=.7;
   shaper=ctx.createWaveShaper();shaper.oversample='2x';setDrive(0);dstDry=G(1);dstWet=G(0);
   mixOut.connect(fltM);fltM.connect(dstDry);shaper.connect(dstWet);dstDry.connect(pre);dstWet.connect(pre);
@@ -1452,10 +1452,62 @@ function trig(r,s,t){
 }
 const rowOn=r=>r!==R_SMP2||S.smp2;   // SMP 2 solo existe si está prendido
 const rowAud=r=>rowOn(r)&&!RM[r]&&(!RS.some(Boolean)||RS[r]);
-function tick(){while(nextT<ctx.currentTime+.2){if(stepI===0&&barN>=0&&nextT>0&&started)partBar();started=true;if(S.rec&&stepI%4===0)click(nextT,stepI===0);const so=swOff();for(let r=0;r<NR;r++)if(rowAud(r))trig(r,LEN[r]>=STEPS?stepI:gT%LEN[r],r<8?nextT+so:nextT);const e={s:stepI,t:nextT,g:gT};qq.push(e);SCH.push(e);if(SCH.length>96)SCH.shift();stepI=(stepI+1)%STEPS;gT++;nextT+=sd();}}
-function play(){initAudio();if(!ctx||S.playing)return;stepI=0;gT=0;started=false;barN=0;loopN=0;nextT=ctx.currentTime+.06;qq=[];SCH.length=0;sched=setInterval(tick,40);S.playing=true;sync();}
-function stop(){clearInterval(sched);S.playing=false;S.next=null;try{partUi();}catch(e){}qq=[];S.cur=-1;dirty=true;sync();}
+let gDone=-1;   // último paso global ya programado (para no repetir el cambio de parte al retomar después de un scratch)
+function tick(){while(nextT<ctx.currentTime+.2){if(stepI===0&&barN>=0&&nextT>0&&started&&gT>gDone)partBar();gDone=Math.max(gDone,gT);started=true;if(S.rec&&stepI%4===0)click(nextT,stepI===0);const so=swOff();for(let r=0;r<NR;r++)if(rowAud(r))trig(r,LEN[r]>=STEPS?stepI:gT%LEN[r],r<8?nextT+so:nextT);const e={s:stepI,t:nextT,g:gT};qq.push(e);SCH.push(e);if(SCH.length>96)SCH.shift();stepI=(stepI+1)%STEPS;gT++;nextT+=sd();}}
+function play(){initAudio();if(!ctx||S.playing)return;scrCancel();stepI=0;gT=0;gDone=-1;started=false;barN=0;loopN=0;nextT=ctx.currentTime+.06;qq=[];SCH.length=0;sched=setInterval(tick,40);S.playing=true;sync();}
+function stop(){clearInterval(sched);sched=null;scrCancel();S.playing=false;S.next=null;try{partUi();}catch(e){}qq=[];S.cur=-1;dirty=true;sync();}
 const togglePlay=()=>S.playing?stop():play();
+
+/* ===== SCRATCH (bailarín del medidor) =====
+   Un AudioWorklet al final del master guarda los últimos 10 s de lo que suena.
+   Apretar = mano sobre el vinilo: frena y el secuenciador queda en pausa. Arrastrar arriba/abajo = adelanta/atrasa la púa.
+   Soltar = vuelve a velocidad normal, reproduce lo que atrasaste y, al llegar al punto donde frenaste, el secuenciador sigue desde ahí. */
+const SCR_SRC=`class GbScratch extends AudioWorkletProcessor{
+  constructor(){super();const sr=sampleRate;this.sr=sr;this.N=Math.floor(sr*10);this.L=new Float32Array(this.N);this.R=new Float32Array(this.N);
+    this.W=0;this.fill=0;this.mode=0;this.ph=0;this.v=0;this.tg=0;this.gp=0;this.endF=0;this.brake=false;this.sent=false;this.FX=Math.floor(sr*.006);
+    this.kB=Math.exp(-1/(sr*.03));this.hl=0;this.hr=0;this.xl=0;this.xr=0;this.g=1;this.kH=Math.exp(-2*Math.PI*25/sr);this.kG=1-Math.exp(-1/(sr*.004));this.kV=1-Math.exp(-1/(sr*.006));this.kU=1-Math.exp(-1/(sr*.03));
+    this.port.onmessage=e=>{const m=e.data,sr=this.sr;
+      if(m.t==='down'){if(this.mode===0){if(this.fill<sr*.1)return;this.endF=this.W;this.ph=this.W-sr*.045;this.xl=this.rd(this.L,this.ph);this.xr=this.rd(this.R,this.ph);this.hl=this.hr=0;this.g=1;this.v=1;this.brake=true;this.port.postMessage({t:'held',T:currentTime});}
+        else{this.brake=false;}this.mode=1;this.sent=false;this.gp=this.ph;this.tg=this.ph;}
+      else if(m.t==='mv'&&this.mode===1){this.brake=false;this.tg=Math.min(this.endF,Math.max(this.W-this.fill+256,this.gp+m.d*sr));}
+      else if(m.t==='up'&&this.mode===1){this.mode=2;this.brake=false;}
+      else if(m.t==='q')this.port.postMessage({t:'st',mode:this.mode,ph:this.ph,W:this.W,endF:this.endF,v:this.v,sr});};}
+  rd(B,p){const N=this.N,i=Math.floor(p),f=p-i,a=((i%N)+N)%N,b=(a+1)%N;return B[a]+(B[b]-B[a])*f;}
+  process(ins,outs){const i=ins[0]||[],o=outs[0],oL=o[0],oR=o[1]||o[0],n=oL.length,iL=i[0],iR=i[1]||i[0];
+    if(this.mode===0){const N=this.N;for(let k=0;k<n;k++){const l=iL?iL[k]:0,r=iR?iR[k]:0,w=this.W%N;this.L[w]=l;this.R[w]=r;this.W++;oL[k]=l;oR[k]=r;}this.fill=Math.min(this.N-256,this.fill+n);return true;}
+    const lo=this.W-this.fill+2;
+    for(let k=0;k<n;k++){
+      if(this.mode===1){if(this.brake){this.v*=this.kB;if(this.v<.004){this.v=0;this.brake=false;this.tg=this.ph;this.gp=this.ph;}}
+        else{const want=Math.max(-6,Math.min(6,(this.tg-this.ph)/(this.sr*.01)));this.v+=(want-this.v)*this.kV;}}
+      else{this.v+=(1-this.v)*this.kU;
+        if(!this.sent&&this.v>.985){this.sent=true;this.port.postMessage({t:'end',T:currentTime+(k+(this.endF-this.ph)/this.v)/this.sr});}}
+      this.ph+=this.v;if(this.ph>this.endF){this.ph=this.endF;if(this.mode===1)this.v=0;}if(this.ph<lo){this.ph=lo;this.v=0;}
+      let l=this.rd(this.L,this.ph),r=this.rd(this.R,this.ph);
+      {const yl=l-this.xl+this.kH*this.hl,yr=r-this.xr+this.kH*this.hr;this.xl=l;this.xr=r;this.hl=yl;this.hr=yr;   // sin DC: disco quieto = silencio
+       const gt=this.mode===2?1:Math.min(1,Math.abs(this.v)*4);this.g+=(gt-this.g)*this.kG;l=yl*this.g;r=yr*this.g;}
+      if(this.mode===2){const rem=this.endF-this.ph;if(rem<this.FX){const a=rem/this.FX,il=iL?iL[k]:0,ir=iR?iR[k]:0;l=l*a+il*(1-a);r=r*a+ir*(1-a);}
+        if(rem<=0){this.mode=0;if(!this.sent){this.sent=true;this.port.postMessage({t:'end',T:currentTime+k/this.sr});}for(let j=k+1;j<n;j++){oL[j]=iL?iL[j]:0;oR[j]=iR?iR[j]:0;}oL[k]=l;oR[k]=r;break;}}
+      oL[k]=l;oR[k]=r;}
+    return true;}}
+registerProcessor('gb-scratch',GbScratch);`;
+const SCR={node:null,err:null,held:false,landing:false,paused:false,Tf:0,off:0,last:null,st:null};
+function scrInit(){if(SCR.node||SCR._ld||!ctx||!ctx.audioWorklet){if(ctx&&!ctx.audioWorklet)SCR.err='sin AudioWorklet';return;}SCR._ld=true;
+  const add=u=>ctx.audioWorklet.addModule(u);   // blob (https) y, si no deja (archivo local), data:
+  add(URL.createObjectURL(new Blob([SCR_SRC],{type:'application/javascript'}))).catch(()=>add('data:text/javascript;charset=utf-8,'+encodeURIComponent(SCR_SRC))).then(()=>{const nd=new AudioWorkletNode(ctx,'gb-scratch',{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[2],channelCount:2,channelCountMode:'explicit'});
+    nd.port.onmessage=e=>{const m=e.data;if(m.t==='held')SCR.Tf=m.T;else if(m.t==='end')scrResume(m.T);else if(m.t==='st'){SCR.st=m;if(SCR._q){SCR._q(m);SCR._q=null;}}};
+    try{clampSh.disconnect(ctx.destination);}catch(e){}clampSh.connect(nd);nd.connect(ctx.destination);SCR.node=nd;}).catch(e=>{SCR.err=String(e&&e.message||e);});}
+const outTap=()=>SCR.node||clampSh;   // lo que sale por el parlante (las tomas LIVE graban también el scratch)
+const scrQ=()=>new Promise(r=>{if(!SCR.node)return r(null);SCR._q=r;SCR.node.port.postMessage({t:'q'});});
+function scrDown(){if(!SCR.node||SCR.landing)return false;SCR.held=true;SCR.off=0;
+  if(!SCR.paused){SCR.Tf=ctx.currentTime;if(S.playing&&sched){clearInterval(sched);sched=null;SCR.paused=true;const tn=ctx.currentTime;qq=qq.filter(e=>e.t<=tn);}}
+  SCR.node.port.postMessage({t:'down'});return true;}
+function scrMove(sec){if(!SCR.held||!SCR.node)return;SCR.off=sec;SCR.node.port.postMessage({t:'mv',d:sec});}
+function scrUp(){if(!SCR.held)return;SCR.held=false;SCR.landing=true;SCR.node.port.postMessage({t:'up'});}
+function scrResume(T){SCR.landing=false;SCR.off=0;if(!SCR.paused)return;SCR.paused=false;if(!S.playing||sched)return;
+  const Tf=SCR.Tf,t0=Math.max(T,ctx.currentTime+.03),k=SCH.findIndex(e=>e.t>=Tf-1e-4);
+  if(k>=0){const e=SCH[k];stepI=e.s;gT=e.g;nextT=t0+(e.t-Tf);SCH.length=k;}else nextT=t0+Math.max(0,nextT-Tf);
+  qq=qq.filter(e=>e.t<Tf);SCR.last={Tf,T,t0,s:stepI,g:gT,nt:nextT};sched=setInterval(tick,40);tick();dirty=true;}
+function scrCancel(){if(SCR.held||SCR.landing){SCR.held=false;SCR.landing=true;try{SCR.node.port.postMessage({t:'up'});}catch(e){}}SCR.paused=false;}
 function updateCur(){if(!ctx)return;const tn=vNow();while(qq.length&&qq[0].t<=tn){if(S.cur!==qq[0].s)dirty=true;S.cur=qq[0].s;S.g=qq[0].g;lastStepT=qq[0].t;qq.shift();}}
 
 /* ---------------- partes (A B C D): cada parte guarda su propio patrón completo ---------------- */
@@ -2332,7 +2384,7 @@ const pad2=n=>String(n).padStart(2,'0');
    · Las tomas LIVE van a la subcarpeta TOMAS.
    Navegadores sin carpetas (iPhone, Firefox): queda la biblioteca del teléfono de antes. */
 const AS_MIN=5,AS_KEEP=10,FOLDM='application/vnd.google-apps.folder',ASRX=/_AS_\d{12}\.json$/i;
-const APPV='13.17',APPD='20261122';
+const APPV='13.18',APPD='20261123';
 const DV={f:null,h:null,need:false,rec:[],last:0,lastT:'',lastBody:'',busy:false,err:'',sub:{}};
 const drvMode=()=>!!(window.claude&&window.claude.use);
 const FS_OK=typeof window.showDirectoryPicker==='function';
@@ -2545,7 +2597,7 @@ const lvName=ext=>{const d=new Date();return 'GB-LIVE-'+d.getFullYear()+pad2(d.g
 function liveStart(){
   initAudio();if(!ctx)return;
   if(typeof MediaRecorder==='undefined'||!ctx.createMediaStreamDestination){toast('ESTE NAVEGADOR NO PUEDE GRABAR');return;}
-  try{LV.dest=ctx.createMediaStreamDestination();LV.dest.channelCount=2;clampSh.connect(LV.dest);
+  try{LV.dest=ctx.createMediaStreamDestination();LV.dest.channelCount=2;LV.src=outTap();LV.src.connect(LV.dest);
     LV.mime=lvMime();LV.rec=new MediaRecorder(LV.dest.stream,LV.mime?{mimeType:LV.mime,audioBitsPerSecond:256000}:{audioBitsPerSecond:256000});LV.mime=LV.rec.mimeType||LV.mime;
   }catch(e){toast('NO SE PUDO GRABAR: '+(e.name||e));return;}
   LV.chunks=[];LV.rec.ondataavailable=e=>{if(e.data&&e.data.size)LV.chunks.push(e.data);};
@@ -2561,7 +2613,7 @@ function liveStart(){
 }
 function liveStop(silent){
   if(!LV.rec)return;clearInterval(LV.tm);LV.dur=(performance.now()-LV.t0)/1000;
-  try{LV.rec.stop();}catch(e){}LV.rec=null;try{clampSh.disconnect(LV.dest);}catch(e){}LV.dest=null;
+  try{LV.rec.stop();}catch(e){}LV.rec=null;try{(LV.src||clampSh).disconnect(LV.dest);}catch(e){}LV.dest=null;
   $('#bLive').classList.remove('rec');$('#bLive').textContent='● LIVE';if(silent)toast('GRABACIÓN CORTADA');
 }
 window.liveStop=liveStop;
@@ -2755,6 +2807,15 @@ function dotGlow(c,x,y,r,col){c.fillStyle=hexA(col,.16);c.beginPath();c.arc(x,y,
 const nowA=()=>ctx?ctx.currentTime:performance.now()/1000;
 
 const scopeCv=$('#scope'),fbuf=new Float32Array(512),SPC=new Float32Array(300);
+/* SCRATCH: apretar el bailarín frena el tema; arriba/abajo adelanta/atrasa; al soltar vuelve a la velocidad normal */
+const SCR_PX=.005;   // segundos de audio por píxel de arrastre
+(function scratchTouch(){let y0=0,id=null;
+  scopeCv.addEventListener('pointerdown',e=>{const r=scopeCv.getBoundingClientRect();if(e.clientX-r.left>62)return;e.preventDefault();initAudio();
+    if(!ctx)return;if(!SCR.node){toast(SCR.err?'SCRATCH NO DISPONIBLE ('+SCR.err+')':'SCRATCH: preparando el audio, probá de nuevo');return;}
+    if(!scrDown())return;id=e.pointerId;y0=e.clientY;try{scopeCv.setPointerCapture(id);}catch(x){}});
+  scopeCv.addEventListener('pointermove',e=>{if(e.pointerId!==id)return;scrMove((y0-e.clientY)*SCR_PX);});
+  const up=e=>{if(e.pointerId!==id)return;id=null;scrUp();};
+  scopeCv.addEventListener('pointerup',up);scopeCv.addEventListener('pointercancel',up);})();
 
 /* --- isotipo MUSICA GROOVEBOX: baila al pulso en el medidor de arriba --- */
 const ISO=new Path2D('M254 774C232 771 231 771 229 769C224 764 223 752 226 734C228 725 227 722 224 726C223 727 221 730 219 733C217 736 214 739 214 741C212 745 208 748 203 750C192 754 165 760 156 760C153 760 148 761 146 761C143 763 138 763 118 762C85 761 81 760 78 756C75 752 75 752 68 757C59 762 54 756 58 744C58 741 59 735 59 731C59 723 60 721 66 721C72 721 78 727 78 734C78 739 78 739 97 739C122 739 148 737 156 736C199 728 208 723 218 702C221 696 223 694 226 692C231 689 232 685 232 677C231 673 231 670 232 668C234 665 234 664 233 659C230 651 231 650 234 646C241 638 241 637 241 616C242 594 242 594 248 594C252 594 253 595 255 600C258 606 260 608 264 611C272 615 270 622 261 622C256 622 256 622 256 626C256 632 258 634 263 634C270 634 277 639 279 646C281 655 268 665 260 660C256 657 255 658 253 684C253 691 252 699 251 702C250 705 250 713 249 720C248 728 247 736 247 739C246 744 246 744 248 746C250 748 263 750 267 749C268 748 276 748 284 747C306 745 336 739 342 736C345 733 345 729 342 669C342 659 341 641 340 628C339 600 337 584 334 565C329 540 328 532 327 520C326 504 327 505 305 503C296 502 285 501 280 500C274 500 269 499 268 499C266 500 267 506 270 513C278 528 269 541 257 534C255 533 252 532 250 532C249 532 246 531 245 530C242 528 243 517 247 513C250 511 248 509 244 510C239 511 237 508 237 504C237 501 238 500 242 500C248 500 251 497 249 493C248 491 247 491 241 491L234 492 L233 483C233 476 233 475 235 474C239 472 239 469 236 464C234 460 233 457 235 454C236 453 236 450 234 445C233 440 233 435 233 425C233 406 236 407 204 407C189 406 175 406 172 405C160 403 106 404 101 406C96 408 81 408 70 406C62 405 44 406 41 408C40 409 40 414 40 427C39 451 37 469 35 475C31 483 33 484 45 485C55 486 59 484 56 479C52 473 55 467 60 468C63 469 65 472 66 479C66 483 67 485 75 491C78 494 78 500 75 506C68 517 70 516 40 516C12 516 10 516 7 509C5 503 7 483 12 468C13 464 14 456 15 451C16 446 16 441 16 441C17 441 18 432 19 422C21 413 22 402 23 399C24 396 24 394 24 393C24 391 37 379 41 377C48 374 70 374 77 376C81 378 82 378 85 377C91 375 100 375 104 377C107 379 109 379 135 380C150 380 168 380 175 381C182 381 194 382 203 383C212 383 220 384 222 384C232 385 233 384 233 362C235 313 237 303 246 296C254 290 257 290 285 289C299 289 311 289 312 289C314 289 315 282 315 264C317 227 318 212 324 184C327 166 339 130 350 102C360 75 402 32 428 22C451 12 485 6 505 7C513 7 520 8 521 8C521 9 526 10 532 10C544 13 562 18 568 22C594 39 610 55 618 71C619 72 621 75 623 77C626 82 629 93 634 123C635 130 636 131 638 134C642 137 642 138 638 142C636 145 635 146 635 156C635 168 634 178 631 187C629 191 629 194 629 198C630 201 629 204 626 214C624 221 621 233 619 240C616 248 614 256 613 259C612 264 612 270 614 273C617 279 614 287 608 291C604 293 604 294 604 299C604 301 603 305 602 307C598 313 598 314 601 320C606 329 603 348 596 355C594 357 594 358 594 362C595 365 595 369 595 370C595 384 595 388 596 391C597 392 598 396 598 398C598 401 599 403 601 405C603 407 604 411 605 413C606 417 608 417 617 415C621 415 631 414 639 413C649 413 655 413 658 411C662 410 667 410 696 410C730 411 734 410 754 408C781 405 781 405 789 400C795 396 820 391 824 394C825 395 835 416 835 418C835 418 836 421 837 423C839 425 841 430 841 433C842 437 844 441 845 443C848 450 847 455 842 454C839 453 832 441 827 430C825 425 824 423 822 422C819 422 809 424 802 426C788 432 760 436 738 436C733 436 711 436 689 436C658 436 646 436 634 437C625 438 615 439 612 439C606 438 606 438 606 442C606 447 610 470 613 484C614 489 616 496 616 499C618 507 619 508 624 506C631 503 633 504 638 507C641 510 644 511 650 513C654 513 661 515 666 517C671 518 677 519 680 519C682 519 685 520 687 520C690 522 702 524 726 527C738 529 750 527 764 523C770 522 776 520 778 520C779 520 787 518 796 516C805 514 816 512 820 512C836 510 840 508 847 498C849 495 853 494 855 496C858 499 856 514 853 519C851 521 850 523 849 525C849 526 849 528 848 530C847 537 842 540 835 537C830 535 822 536 808 539C804 540 797 541 794 542C792 542 788 543 787 544C786 544 782 545 779 545C773 546 763 549 758 551C752 553 733 553 716 550C708 548 694 546 685 545C675 544 667 542 662 540C658 538 652 537 648 537C644 536 639 535 636 533C628 530 625 530 624 535C624 539 626 540 634 543C648 548 647 556 632 555C625 554 625 556 629 563C632 568 632 569 630 576C628 580 630 585 635 590C639 594 639 596 634 600C631 601 630 603 630 604C630 609 632 623 634 630C635 634 636 639 636 641C636 648 636 648 665 648C680 648 692 648 693 649C695 650 697 650 700 648C703 647 706 646 708 646C709 646 712 646 714 645C717 644 726 643 738 641C744 640 750 638 749 636C749 635 723 635 713 637C708 637 700 638 690 637C681 637 672 636 669 637C661 638 656 634 657 626C658 624 658 624 672 623C681 623 691 623 696 622C706 621 731 621 736 622C739 623 751 623 764 624C804 625 819 627 826 633C829 636 829 636 835 635C844 635 847 635 849 639C853 647 846 653 836 650C831 648 830 648 826 650C820 652 820 653 824 658C833 671 828 681 814 676C809 674 806 674 804 678C804 680 802 682 800 683C799 683 797 685 797 687C796 689 795 690 787 690C780 690 778 691 776 692C775 693 771 695 768 696C765 697 761 699 760 700C757 702 753 704 749 704C747 704 742 706 737 708C732 710 724 713 719 715C710 718 691 728 689 730C686 735 675 738 662 738C653 739 648 739 643 741C639 742 632 744 626 744C620 745 613 746 610 746C607 747 601 747 597 747C593 747 585 748 580 748C575 749 568 750 564 751C550 753 547 754 533 761C518 768 516 768 512 761C511 758 509 754 506 752C500 745 498 731 502 724C504 722 504 720 503 714C499 684 497 667 494 630C493 606 492 598 487 576C485 570 484 563 484 561C482 554 476 528 475 524C473 520 470 520 430 515C425 514 418 513 414 513C388 510 344 507 343 508C342 509 345 538 351 572C354 593 356 606 358 646C359 655 360 675 361 688C363 724 363 751 361 756C358 762 356 763 330 768C307 773 273 776 254 774ZM536 733C543 730 546 729 560 727C587 723 599 720 599 717C599 713 593 705 589 703C578 695 577 668 587 663C590 661 609 655 614 654C618 653 619 651 618 646C618 643 616 637 616 632C615 628 613 620 612 616C612 612 610 605 610 600C609 594 609 590 607 587C605 585 605 583 605 580C606 577 605 572 605 568C604 565 603 560 603 558C602 551 600 548 597 547C593 545 581 543 574 543C569 543 567 543 565 541C560 537 550 535 526 531C522 530 514 528 510 527C497 524 494 524 494 528C494 531 498 550 501 559C503 565 504 570 508 593C509 599 511 606 511 610C513 618 515 637 516 664C516 674 517 685 518 688C519 695 521 712 521 718C521 724 525 737 528 737C528 737 532 735 536 733ZM619 717C623 717 629 715 631 714C633 714 638 713 641 712C650 710 652 708 649 704C648 703 645 698 643 694C637 685 632 679 629 679C626 679 605 683 603 684C599 685 599 693 603 699C606 703 607 708 604 712C602 716 603 717 606 718C611 719 610 719 619 717ZM77 714C73 709 72 705 75 698C75 695 76 689 77 684C77 674 79 666 84 649C87 640 88 638 93 635C95 634 97 633 97 632C97 631 89 631 85 632C70 637 67 636 65 628C65 626 65 623 66 622C67 620 90 617 96 619C101 620 109 619 140 615C154 613 183 614 184 616C184 619 183 620 175 621C160 623 155 626 166 627C172 628 176 630 176 634C176 635 177 637 178 639C183 646 179 648 161 648C147 648 137 649 120 652C103 655 102 656 99 673C98 680 96 688 95 690C93 695 91 702 91 707C91 717 83 721 77 714ZM692 699C700 695 708 691 710 690C713 689 718 687 721 685C731 681 748 674 759 671C764 670 770 668 774 667C777 666 784 665 788 664C802 663 807 660 797 659C780 657 763 659 742 666C728 671 696 675 671 675C650 675 650 675 663 692C671 702 675 706 676 706C676 706 684 703 692 699ZM578 518C582 516 587 515 588 515C592 514 594 511 594 509C592 506 586 473 585 464C583 444 582 444 570 446C560 449 557 447 557 439C557 434 560 431 567 428C577 425 578 423 575 418C574 415 573 413 573 411C573 410 572 406 570 403C565 392 564 377 567 372C571 368 571 366 568 362C565 358 566 355 569 351C572 347 572 348 571 337C567 316 563 314 556 328C551 337 547 341 543 341C539 341 538 339 538 327C538 315 540 317 517 315C501 314 501 314 497 316C491 320 487 320 484 317C481 315 481 315 476 320C470 328 464 326 464 317L464 312 L457 311C449 311 449 311 448 316C446 322 436 321 424 313C420 311 419 311 408 310C387 308 387 308 385 313C382 322 371 320 364 308C362 305 361 304 358 303C355 302 352 301 351 301C344 299 338 301 338 305C338 316 320 319 312 309C309 307 308 306 302 305C295 305 268 308 266 309C265 310 264 318 263 337C263 351 261 367 260 373C258 386 258 386 265 388C277 393 275 407 263 407C259 407 259 408 260 426C261 435 261 448 262 456C262 467 262 469 265 471C266 473 267 475 266 476C263 483 266 485 274 485C278 484 284 485 289 485C308 487 322 488 345 489C358 490 374 490 378 491C383 491 393 492 400 493C414 494 439 498 451 500C464 502 467 501 467 495C467 484 480 488 485 500C487 505 490 506 503 507C507 508 515 509 522 511C530 513 540 515 546 516C551 516 558 518 561 519C569 520 570 520 578 518ZM581 302C583 300 584 293 581 291C580 289 578 289 573 289C566 290 566 290 566 295C566 300 567 302 573 303C579 304 579 304 581 302ZM544 299C548 297 551 288 549 284C546 280 519 269 517 272C517 272 515 277 513 283C510 297 510 297 524 298C529 299 533 299 534 299C536 300 542 300 544 299ZM487 294C489 293 491 291 492 289C495 284 499 266 498 264C497 260 478 257 474 260C470 263 468 284 471 289C474 294 481 296 487 294ZM453 293C455 292 455 262 453 260C453 259 449 259 444 260L436 260 L435 276C434 290 434 292 436 293C438 294 450 294 453 293ZM414 290C415 290 416 289 416 289C418 279 419 264 418 263C416 261 393 261 392 263C391 265 385 286 385 287C385 290 390 292 404 292C411 292 413 292 414 290ZM364 280C368 279 374 262 376 246C377 242 378 238 378 236C383 227 399 227 404 236C407 240 409 241 418 240C449 236 491 235 497 238C501 240 504 239 506 235C508 233 509 232 512 232C518 232 519 234 523 244C524 248 523 247 536 254C544 257 548 258 555 259C560 260 564 261 565 261C566 262 570 263 574 263C586 264 587 263 591 248C592 243 594 236 596 232C597 228 599 222 600 218C600 214 603 207 604 200C614 170 619 122 615 116C613 113 612 114 610 122C609 129 608 131 602 141C597 147 573 165 568 165C564 165 560 163 557 160C556 159 553 156 550 154C543 148 542 145 544 142C545 139 545 139 544 137C541 134 541 133 543 130C545 129 547 125 548 121C559 94 589 83 607 99C613 106 614 104 609 90C598 58 569 34 539 32C535 31 529 30 526 29C515 25 480 27 460 34C433 43 428 46 401 73C377 97 370 108 365 130C363 135 360 146 358 154C356 162 354 170 354 172C354 173 353 180 352 186C351 192 349 202 348 207C348 212 347 218 346 220C345 223 344 232 344 242C343 251 343 262 342 267C342 277 343 279 351 279C354 279 358 280 359 280C362 281 363 281 364 280ZM392 167C390 165 389 162 389 159C388 154 386 151 380 144C376 140 377 132 382 127C385 123 385 123 384 120C381 114 393 95 403 89C405 88 410 85 413 82C423 74 429 72 435 76C437 78 440 79 442 80C453 85 456 98 447 111C438 123 418 144 407 151C404 154 402 156 401 163C399 171 396 172 392 167Z'),ISOW=862,ISOH=781;
@@ -2762,7 +2823,8 @@ function drawIso(c,cx,by,h,rot,sx,sy,col){c.save();c.translate(cx,by);c.rotate(r
 function drawDancer(c,x0,W,H,d){
   const t=performance.now()/1000,lvl=clamp(((MH.pk>-89?MH.pk:-60)+42)/40,0,1);
   let rot,sx=1,sy=1,yo=0,col='#e8e5de';
-  if(S.playing&&S.cur>=0&&ctx){
+  if(SCR.held||SCR.landing){rot=clamp(SCR.off,-2,2)*2.2;col='#ff9440';sy=1+Math.max(-.2,Math.min(.15,SCR.off*.3));yo=-clamp(SCR.off,-1.5,1.5)*H*.06;}
+  else if(S.playing&&S.cur>=0&&ctx){
     const pos=S.cur+clamp((vNow()-lastStepT)/sd(),0,.999),bp=(pos/4)%1,bi=Math.floor(pos/4),hop=Math.sin(Math.PI*bp);
     yo=-hop*H*(.07+.1*lvl);rot=(bi%2?1:-1)*hop*(.14+.18*lvl);
     const land=Math.pow(1-hop,6);sy=1-.16*land*(.4+lvl);sx=1+.12*land*(.4+lvl);
@@ -3110,7 +3172,7 @@ document.addEventListener('keydown',e=>{if(e.code==='Space'&&!e.repeat&&e.target
 document.addEventListener('visibilitychange',()=>{if(document.hidden){sirHolds.clear();if(sirV)sirStop();$$('#pads .pad').forEach(el=>{if(el._v){try{(Array.isArray(el._v)?el._v:[el._v]).forEach(v=>v.stop());}catch(e){}el._v=null;el.classList.remove('dn');}});}});
 window.addEventListener('resize',()=>{if(S.tab==='smp')drawWave();});
 renderPalette();renderKeys();fxUi();sync();refreshSeq();smpUi();partUi();ringUi();smp2Ui();frame();
-window.GB={smpMode,smpCopy,smpSrc,SCP:()=>SCP,padsPack,IDB,libSave,libOpen,libList,libLive,smpPack,smpUnpack,SMPR,drumRe,dkE,renderDrum,KH:()=>KH,LV,wavEncode,xyApply,LIVE,drawSiren:()=>drawSiren(),TILT,partCopy,LEN,RM,RS,ringSel,rowTool,viz:{drawScope:()=>drawScope(),drawVoice:()=>drawVoice(),drawXY:()=>drawXY(),drawBus:()=>drawBus(),drawRing:()=>drawRing()},newSession,KB:()=>KB,SYNP,sdSend:(i,v)=>{CH[i].dst=v;applyCh(i);},anM:()=>anM,shareSes,PARTS,partGo,partSwitch,partBar,drumPreset,KITS,DPRE,trig,sd,PERF,S,CH,FXP,SMPL,pat,smpSeq,chdGate,snapshot,applySnapshot,loadSession,smpDemo,chopPlay,smpSet,smpEncode,smpDecode,get ctx(){return ctx;},get lim(){return lim;},get CAP(){return CAP;},recWrite,takeUndo,doUndo,bus,extractText,setSteps,get STEPS(){return STEPS;},vinPlay,vinVoice,VINP,vinN,vinG,vinRec,vinGate,VL,vinMig,XYR,xyRec,xyAuto,xyPlay,XYQ,synG,synGate,chordPlay,DV,CHG,queueSave,drvAuto,drvSaveOrig,drvRecent,drvSetF,foldSearch,liveUp,drvMode,drvLive,sesBase,fMode,BK,lbSet,lbPerm,sesSave,sesRecent,sesLoad,migUi,APPV,LBR,libJson,smpQ,smpAutoQ,smpStretch,smpPrep,wsola,smpLen,SQ,seqLit,LIT,smpCue,smpOut,rowAud,smpSeq2,sSeq,R_SMP2,smp2Ui,WV,wvSet,drawWave,rowOn,vinFx,latOut,vNow,calCalc,SCH,seqN,chdSeq,LIVE_:()=>LIVE,setBpm,pageUi,noteOpen,renderPalette,ROWS,R_VIN,swOff,get gT(){return gT;},orgWave,DHIT,lesToggle};
+window.GB={smpMode,smpCopy,smpSrc,SCP:()=>SCP,padsPack,IDB,libSave,libOpen,libList,libLive,smpPack,smpUnpack,SMPR,drumRe,dkE,renderDrum,KH:()=>KH,LV,wavEncode,xyApply,LIVE,drawSiren:()=>drawSiren(),TILT,partCopy,LEN,RM,RS,ringSel,rowTool,viz:{drawScope:()=>drawScope(),drawVoice:()=>drawVoice(),drawXY:()=>drawXY(),drawBus:()=>drawBus(),drawRing:()=>drawRing()},newSession,KB:()=>KB,SYNP,sdSend:(i,v)=>{CH[i].dst=v;applyCh(i);},anM:()=>anM,shareSes,PARTS,partGo,partSwitch,partBar,drumPreset,KITS,DPRE,trig,sd,PERF,S,CH,FXP,SMPL,pat,smpSeq,chdGate,snapshot,applySnapshot,loadSession,smpDemo,chopPlay,smpSet,smpEncode,smpDecode,get ctx(){return ctx;},get lim(){return lim;},get CAP(){return CAP;},recWrite,takeUndo,doUndo,bus,extractText,setSteps,get STEPS(){return STEPS;},vinPlay,vinVoice,VINP,vinN,vinG,vinRec,vinGate,VL,vinMig,XYR,xyRec,xyAuto,xyPlay,XYQ,synG,synGate,chordPlay,DV,CHG,queueSave,drvAuto,drvSaveOrig,drvRecent,drvSetF,foldSearch,liveUp,drvMode,drvLive,sesBase,fMode,BK,lbSet,lbPerm,sesSave,sesRecent,sesLoad,migUi,APPV,LBR,libJson,smpQ,smpAutoQ,smpStretch,smpPrep,wsola,smpLen,SQ,seqLit,LIT,SCR,scrDown,scrMove,scrUp,scrQ,outTap,LV,smpCue,smpOut,rowAud,smpSeq2,sSeq,R_SMP2,smp2Ui,WV,wvSet,drawWave,rowOn,vinFx,latOut,vNow,calCalc,SCH,seqN,chdSeq,LIVE_:()=>LIVE,setBpm,pageUi,noteOpen,renderPalette,ROWS,R_VIN,swOff,get gT(){return gT;},orgWave,DHIT,lesToggle};
 </script>
 <script>
 /* app instalable: guarda la app en el teléfono para abrir sin internet y se actualiza sola */

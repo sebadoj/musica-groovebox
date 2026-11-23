@@ -1,7 +1,7 @@
 <script>
 'use strict';
 /* =====================================================================
-   MUSICA GROOVEBOX — versión celular v13.17 (20261122)
+   MUSICA GROOVEBOX — versión celular v13.18 (20261123)
    Un solo archivo, sin librerías, Web Audio.
    16/32 pasos · 2 synths · VINTAGE (órgano, piano eléctrico, analógico, clavinet, cuerdas) · acordes (4 presets + GATE) · 8 drums · SAMPLER (chop en 4 teclas)
    · mixer 6 canales + master (pan, 3 envíos, medidores) · buses FX (delay/reverb/mod/master)
@@ -162,7 +162,7 @@ function initAudio(){
   {const n=2048,c=new Float32Array(n);for(let i=0;i<n;i++){const x=i*2/(n-1)-1,a=Math.abs(x);c[i]=a<=.9?x:Math.sign(x)*(.9+.1*Math.tanh((a-.9)/.1));}clampSh.curve=c;}
   anM=ctx.createAnalyser();anM.fftSize=1024;
   pre.connect(masterG);masterG.connect(satDry);satSh.connect(satWet);satDry.connect(toneF);satWet.connect(toneF);
-  toneF.connect(mcomp);mcomp.connect(lim);lim.connect(clampSh);lim.connect(anM);clampSh.connect(ctx.destination);
+  toneF.connect(mcomp);mcomp.connect(lim);lim.connect(clampSh);lim.connect(anM);clampSh.connect(ctx.destination);scrInit();
   mixOut=G(1);fltM=ctx.createBiquadFilter();fltM.type='lowpass';fltM.frequency.value=20000;fltM.Q.value=.7;
   shaper=ctx.createWaveShaper();shaper.oversample='2x';setDrive(0);dstDry=G(1);dstWet=G(0);
   mixOut.connect(fltM);fltM.connect(dstDry);shaper.connect(dstWet);dstDry.connect(pre);dstWet.connect(pre);
@@ -752,10 +752,62 @@ function trig(r,s,t){
 }
 const rowOn=r=>r!==R_SMP2||S.smp2;   // SMP 2 solo existe si está prendido
 const rowAud=r=>rowOn(r)&&!RM[r]&&(!RS.some(Boolean)||RS[r]);
-function tick(){while(nextT<ctx.currentTime+.2){if(stepI===0&&barN>=0&&nextT>0&&started)partBar();started=true;if(S.rec&&stepI%4===0)click(nextT,stepI===0);const so=swOff();for(let r=0;r<NR;r++)if(rowAud(r))trig(r,LEN[r]>=STEPS?stepI:gT%LEN[r],r<8?nextT+so:nextT);const e={s:stepI,t:nextT,g:gT};qq.push(e);SCH.push(e);if(SCH.length>96)SCH.shift();stepI=(stepI+1)%STEPS;gT++;nextT+=sd();}}
-function play(){initAudio();if(!ctx||S.playing)return;stepI=0;gT=0;started=false;barN=0;loopN=0;nextT=ctx.currentTime+.06;qq=[];SCH.length=0;sched=setInterval(tick,40);S.playing=true;sync();}
-function stop(){clearInterval(sched);S.playing=false;S.next=null;try{partUi();}catch(e){}qq=[];S.cur=-1;dirty=true;sync();}
+let gDone=-1;   // último paso global ya programado (para no repetir el cambio de parte al retomar después de un scratch)
+function tick(){while(nextT<ctx.currentTime+.2){if(stepI===0&&barN>=0&&nextT>0&&started&&gT>gDone)partBar();gDone=Math.max(gDone,gT);started=true;if(S.rec&&stepI%4===0)click(nextT,stepI===0);const so=swOff();for(let r=0;r<NR;r++)if(rowAud(r))trig(r,LEN[r]>=STEPS?stepI:gT%LEN[r],r<8?nextT+so:nextT);const e={s:stepI,t:nextT,g:gT};qq.push(e);SCH.push(e);if(SCH.length>96)SCH.shift();stepI=(stepI+1)%STEPS;gT++;nextT+=sd();}}
+function play(){initAudio();if(!ctx||S.playing)return;scrCancel();stepI=0;gT=0;gDone=-1;started=false;barN=0;loopN=0;nextT=ctx.currentTime+.06;qq=[];SCH.length=0;sched=setInterval(tick,40);S.playing=true;sync();}
+function stop(){clearInterval(sched);sched=null;scrCancel();S.playing=false;S.next=null;try{partUi();}catch(e){}qq=[];S.cur=-1;dirty=true;sync();}
 const togglePlay=()=>S.playing?stop():play();
+
+/* ===== SCRATCH (bailarín del medidor) =====
+   Un AudioWorklet al final del master guarda los últimos 10 s de lo que suena.
+   Apretar = mano sobre el vinilo: frena y el secuenciador queda en pausa. Arrastrar arriba/abajo = adelanta/atrasa la púa.
+   Soltar = vuelve a velocidad normal, reproduce lo que atrasaste y, al llegar al punto donde frenaste, el secuenciador sigue desde ahí. */
+const SCR_SRC=`class GbScratch extends AudioWorkletProcessor{
+  constructor(){super();const sr=sampleRate;this.sr=sr;this.N=Math.floor(sr*10);this.L=new Float32Array(this.N);this.R=new Float32Array(this.N);
+    this.W=0;this.fill=0;this.mode=0;this.ph=0;this.v=0;this.tg=0;this.gp=0;this.endF=0;this.brake=false;this.sent=false;this.FX=Math.floor(sr*.006);
+    this.kB=Math.exp(-1/(sr*.03));this.hl=0;this.hr=0;this.xl=0;this.xr=0;this.g=1;this.kH=Math.exp(-2*Math.PI*25/sr);this.kG=1-Math.exp(-1/(sr*.004));this.kV=1-Math.exp(-1/(sr*.006));this.kU=1-Math.exp(-1/(sr*.03));
+    this.port.onmessage=e=>{const m=e.data,sr=this.sr;
+      if(m.t==='down'){if(this.mode===0){if(this.fill<sr*.1)return;this.endF=this.W;this.ph=this.W-sr*.045;this.xl=this.rd(this.L,this.ph);this.xr=this.rd(this.R,this.ph);this.hl=this.hr=0;this.g=1;this.v=1;this.brake=true;this.port.postMessage({t:'held',T:currentTime});}
+        else{this.brake=false;}this.mode=1;this.sent=false;this.gp=this.ph;this.tg=this.ph;}
+      else if(m.t==='mv'&&this.mode===1){this.brake=false;this.tg=Math.min(this.endF,Math.max(this.W-this.fill+256,this.gp+m.d*sr));}
+      else if(m.t==='up'&&this.mode===1){this.mode=2;this.brake=false;}
+      else if(m.t==='q')this.port.postMessage({t:'st',mode:this.mode,ph:this.ph,W:this.W,endF:this.endF,v:this.v,sr});};}
+  rd(B,p){const N=this.N,i=Math.floor(p),f=p-i,a=((i%N)+N)%N,b=(a+1)%N;return B[a]+(B[b]-B[a])*f;}
+  process(ins,outs){const i=ins[0]||[],o=outs[0],oL=o[0],oR=o[1]||o[0],n=oL.length,iL=i[0],iR=i[1]||i[0];
+    if(this.mode===0){const N=this.N;for(let k=0;k<n;k++){const l=iL?iL[k]:0,r=iR?iR[k]:0,w=this.W%N;this.L[w]=l;this.R[w]=r;this.W++;oL[k]=l;oR[k]=r;}this.fill=Math.min(this.N-256,this.fill+n);return true;}
+    const lo=this.W-this.fill+2;
+    for(let k=0;k<n;k++){
+      if(this.mode===1){if(this.brake){this.v*=this.kB;if(this.v<.004){this.v=0;this.brake=false;this.tg=this.ph;this.gp=this.ph;}}
+        else{const want=Math.max(-6,Math.min(6,(this.tg-this.ph)/(this.sr*.01)));this.v+=(want-this.v)*this.kV;}}
+      else{this.v+=(1-this.v)*this.kU;
+        if(!this.sent&&this.v>.985){this.sent=true;this.port.postMessage({t:'end',T:currentTime+(k+(this.endF-this.ph)/this.v)/this.sr});}}
+      this.ph+=this.v;if(this.ph>this.endF){this.ph=this.endF;if(this.mode===1)this.v=0;}if(this.ph<lo){this.ph=lo;this.v=0;}
+      let l=this.rd(this.L,this.ph),r=this.rd(this.R,this.ph);
+      {const yl=l-this.xl+this.kH*this.hl,yr=r-this.xr+this.kH*this.hr;this.xl=l;this.xr=r;this.hl=yl;this.hr=yr;   // sin DC: disco quieto = silencio
+       const gt=this.mode===2?1:Math.min(1,Math.abs(this.v)*4);this.g+=(gt-this.g)*this.kG;l=yl*this.g;r=yr*this.g;}
+      if(this.mode===2){const rem=this.endF-this.ph;if(rem<this.FX){const a=rem/this.FX,il=iL?iL[k]:0,ir=iR?iR[k]:0;l=l*a+il*(1-a);r=r*a+ir*(1-a);}
+        if(rem<=0){this.mode=0;if(!this.sent){this.sent=true;this.port.postMessage({t:'end',T:currentTime+k/this.sr});}for(let j=k+1;j<n;j++){oL[j]=iL?iL[j]:0;oR[j]=iR?iR[j]:0;}oL[k]=l;oR[k]=r;break;}}
+      oL[k]=l;oR[k]=r;}
+    return true;}}
+registerProcessor('gb-scratch',GbScratch);`;
+const SCR={node:null,err:null,held:false,landing:false,paused:false,Tf:0,off:0,last:null,st:null};
+function scrInit(){if(SCR.node||SCR._ld||!ctx||!ctx.audioWorklet){if(ctx&&!ctx.audioWorklet)SCR.err='sin AudioWorklet';return;}SCR._ld=true;
+  const add=u=>ctx.audioWorklet.addModule(u);   // blob (https) y, si no deja (archivo local), data:
+  add(URL.createObjectURL(new Blob([SCR_SRC],{type:'application/javascript'}))).catch(()=>add('data:text/javascript;charset=utf-8,'+encodeURIComponent(SCR_SRC))).then(()=>{const nd=new AudioWorkletNode(ctx,'gb-scratch',{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[2],channelCount:2,channelCountMode:'explicit'});
+    nd.port.onmessage=e=>{const m=e.data;if(m.t==='held')SCR.Tf=m.T;else if(m.t==='end')scrResume(m.T);else if(m.t==='st'){SCR.st=m;if(SCR._q){SCR._q(m);SCR._q=null;}}};
+    try{clampSh.disconnect(ctx.destination);}catch(e){}clampSh.connect(nd);nd.connect(ctx.destination);SCR.node=nd;}).catch(e=>{SCR.err=String(e&&e.message||e);});}
+const outTap=()=>SCR.node||clampSh;   // lo que sale por el parlante (las tomas LIVE graban también el scratch)
+const scrQ=()=>new Promise(r=>{if(!SCR.node)return r(null);SCR._q=r;SCR.node.port.postMessage({t:'q'});});
+function scrDown(){if(!SCR.node||SCR.landing)return false;SCR.held=true;SCR.off=0;
+  if(!SCR.paused){SCR.Tf=ctx.currentTime;if(S.playing&&sched){clearInterval(sched);sched=null;SCR.paused=true;const tn=ctx.currentTime;qq=qq.filter(e=>e.t<=tn);}}
+  SCR.node.port.postMessage({t:'down'});return true;}
+function scrMove(sec){if(!SCR.held||!SCR.node)return;SCR.off=sec;SCR.node.port.postMessage({t:'mv',d:sec});}
+function scrUp(){if(!SCR.held)return;SCR.held=false;SCR.landing=true;SCR.node.port.postMessage({t:'up'});}
+function scrResume(T){SCR.landing=false;SCR.off=0;if(!SCR.paused)return;SCR.paused=false;if(!S.playing||sched)return;
+  const Tf=SCR.Tf,t0=Math.max(T,ctx.currentTime+.03),k=SCH.findIndex(e=>e.t>=Tf-1e-4);
+  if(k>=0){const e=SCH[k];stepI=e.s;gT=e.g;nextT=t0+(e.t-Tf);SCH.length=k;}else nextT=t0+Math.max(0,nextT-Tf);
+  qq=qq.filter(e=>e.t<Tf);SCR.last={Tf,T,t0,s:stepI,g:gT,nt:nextT};sched=setInterval(tick,40);tick();dirty=true;}
+function scrCancel(){if(SCR.held||SCR.landing){SCR.held=false;SCR.landing=true;try{SCR.node.port.postMessage({t:'up'});}catch(e){}}SCR.paused=false;}
 function updateCur(){if(!ctx)return;const tn=vNow();while(qq.length&&qq[0].t<=tn){if(S.cur!==qq[0].s)dirty=true;S.cur=qq[0].s;S.g=qq[0].g;lastStepT=qq[0].t;qq.shift();}}
 
 /* ---------------- partes (A B C D): cada parte guarda su propio patrón completo ---------------- */
