@@ -1,7 +1,7 @@
 <script>
 'use strict';
 /* =====================================================================
-   MUSICA GROOVEBOX — versión celular v13.19 (20261123)
+   MUSICA GROOVEBOX — versión celular v13.20 (20261123)
    Un solo archivo, sin librerías, Web Audio.
    16/32 pasos · 2 synths · VINTAGE (órgano, piano eléctrico, analógico, clavinet, cuerdas) · acordes (4 presets + GATE) · 8 drums · SAMPLER (chop en 4 teclas)
    · mixer 6 canales + master (pan, 3 envíos, medidores) · buses FX (delay/reverb/mod/master)
@@ -798,12 +798,13 @@ const SCR_SRC=`class GbScratch extends AudioWorkletProcessor{
         this.hx[q]=x;this.hy[q]=y;for(let k=kEnd;k<n;k++)out[k]=inn?inn[k]:0;}}
     return true;}}
 registerProcessor('gb-scratch',GbScratch);`;
-const SCR={node:null,err:null,held:false,landing:false,paused:false,Tf:0,off:0,last:null,st:null};
+const scrSkip=i=>CH[i].s==='SIREN';   // la SIRENA no se frena: va derecho a su fader y a los efectos
+const SCR={node:null,ch:[],err:null,held:false,landing:false,paused:false,Tf:0,off:0,last:null,st:null};
 function scrInit(){if(SCR.node||SCR._ld||!ctx||!ctx.audioWorklet){if(ctx&&!ctx.audioWorklet)SCR.err='sin AudioWorklet';return;}SCR._ld=true;
   const add=u=>ctx.audioWorklet.addModule(u);   // blob (https) y, si no deja (archivo local), data:
-  add(URL.createObjectURL(new Blob([SCR_SRC],{type:'application/javascript'}))).catch(()=>add('data:text/javascript;charset=utf-8,'+encodeURIComponent(SCR_SRC))).then(()=>{const NB=bus.length,nd=new AudioWorkletNode(ctx,'gb-scratch',{numberOfInputs:NB,numberOfOutputs:NB,outputChannelCount:Array(NB).fill(2),channelCount:2,channelCountMode:'explicit'});   // va ANTES de los efectos: entre la entrada de cada canal y su fader
+  add(URL.createObjectURL(new Blob([SCR_SRC],{type:'application/javascript'}))).catch(()=>add('data:text/javascript;charset=utf-8,'+encodeURIComponent(SCR_SRC))).then(()=>{const SB=bus.map((b,i)=>i).filter(i=>!scrSkip(i)),NB=SB.length,nd=new AudioWorkletNode(ctx,'gb-scratch',{numberOfInputs:NB,numberOfOutputs:NB,outputChannelCount:Array(NB).fill(2),channelCount:2,channelCountMode:'explicit'});   // va ANTES de los efectos: entre la entrada de cada canal y su fader
     nd.port.onmessage=e=>{const m=e.data;if(m.t==='held')SCR.Tf=m.T;else if(m.t==='end')scrResume(m.T);else if(m.t==='st'){SCR.st=m;if(SCR._q){SCR._q(m);SCR._q=null;}}};
-    bus.forEach((b,i)=>{try{b.inp.disconnect(b.vol);}catch(e){}b.inp.connect(nd,0,i);nd.connect(b.vol,i,0);});SCR.node=nd;}).catch(e=>{SCR.err=String(e&&e.message||e);});}
+    SB.forEach((i,k)=>{const b=bus[i];try{b.inp.disconnect(b.vol);}catch(e){}b.inp.connect(nd,0,k);nd.connect(b.vol,k,0);});SCR.node=nd;SCR.ch=SB;}).catch(e=>{SCR.err=String(e&&e.message||e);});}
 const outTap=()=>clampSh;   // lo que sale por el parlante (incluye el scratch y sus efectos)
 const scrQ=()=>new Promise(r=>{if(!SCR.node)return r(null);SCR._q=r;SCR.node.port.postMessage({t:'q'});});
 function scrDown(){if(!SCR.node||SCR.landing)return false;SCR.held=true;SCR.off=0;

@@ -8,7 +8,7 @@ await p.goto('file://'+require('path').resolve(__dirname,'../build/MUSICA-GROOVE
 const pe=(type,x,y,id=7)=>p.evaluate(([type,x,y,id])=>{const s=document.querySelector('#scope'),R=s.getBoundingClientRect();s.dispatchEvent(new PointerEvent(type,{pointerId:id,clientX:R.left+x,clientY:R.top+y,bubbles:true,cancelable:true,pointerType:'touch',isPrimary:true}));},[type,x,y,id]);
 const st=()=>p.evaluate(()=>GB.scrQ());
 await p.tap('#bPlay');await W(500);
-ok(await p.evaluate(()=>!!GB.SCR.node&&GB.SCR.node.numberOfInputs===GB.bus.length&&GB.SCR.node.numberOfOutputs===GB.bus.length),'worklet de scratch con una entrada/salida por canal ('+(await p.evaluate(()=>GB.SCR.err||'ok'))+')');
+ok(await p.evaluate(()=>!!GB.SCR.node&&GB.SCR.node.numberOfInputs===GB.bus.length-1&&GB.SCR.ch.indexOf(4)<0),'worklet de scratch en todos los canales menos SIRENA ('+(await p.evaluate(()=>GB.SCR.err||'ok'))+')');
 /* analizador después del scratch: medimos lo que sale */
 await p.evaluate(()=>{const A=n=>{const a=GB.ctx.createAnalyser();a.fftSize=2048;n.connect(a);return ()=>{const d=new Float32Array(2048);a.getFloatTimeDomainData(d);let s=0;for(const v of d)s+=v*v;return Math.sqrt(s/d.length);};};const a=GB.ctx.createAnalyser();a.fftSize=2048;GB.SCR.node.connect(a,0);window.__rms=()=>{const d=new Float32Array(2048);a.getFloatTimeDomainData(d);let s=0;for(const v of d)s+=v*v;return Math.sqrt(s/d.length);};
   window.__mst=A(GB.outTap());window.__bus0=A(GB.bus[0].vol);window.__bus1=A(GB.bus[1].vol);GB.CH[0].rev=1;GB.CH[0].dly=.6;GB.applyCh(0);
@@ -27,6 +27,9 @@ let q=await st();ok(q.mode===1&&Math.abs(q.v)<.01,'el vinilo quedó quieto (velo
 const cur1=await p.evaluate(()=>GB.S.cur);await W(400);ok(await p.evaluate(c=>GB.S.cur===c,cur1),'el paso del secuenciador no avanza mientras está apretado');
 let quiet=await p.evaluate(async()=>{let m=0;for(let i=0;i<10;i++){m=Math.max(m,window.__rms());await new Promise(r=>setTimeout(r,25));}return m;});
 ok(quiet<sound*.15,'apretado y quieto: el canal queda en silencio (RMS '+quiet.toFixed(4)+')');
+const sirB=await p.evaluate(async()=>{const a=GB.ctx.createAnalyser();a.fftSize=2048;GB.bus[4].vol.connect(a);GB.sirHold('btn',true);let m=0;for(let i=0;i<12;i++){await new Promise(r=>setTimeout(r,25));const d=new Float32Array(2048);a.getFloatTimeDomainData(d);let s=0;for(const v of d)s+=v*v;m=Math.max(m,Math.sqrt(s/d.length));}GB.sirHold('btn',false);return m;});
+ok(sirB>.01,'la SIRENA suena mientras el scratch está apretado (RMS '+sirB.toFixed(3)+')');
+await W(500);
 const tail=await p.evaluate(()=>window.__mst());ok(tail>.002,'las colas de reverb/delay siguen sonando al frenar (master RMS '+tail.toFixed(4)+')');
 /* arrastrar para abajo: atrasa */
 for(let k=1;k<=10;k++){await pe('pointermove',20,25+10*k);await W(15);}
