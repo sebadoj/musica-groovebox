@@ -444,6 +444,20 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
 #ring{display:block;touch-action:none}
 #rDJ{position:absolute;left:4px;bottom:4px;z-index:3;min-width:42px;height:30px;padding:0 10px;font:700 11px var(--ui);letter-spacing:.16em;border-radius:15px}
 #rDJ.on{background:#ff9440;color:#141414;box-shadow:0 0 0 1px #ff9440,0 0 14px rgba(255,148,64,.45)}
+/* modo DJ: sin selector de instrumentos en el centro; la botonera de programación se cambia por DELAY · FILTER · REVERB */
+#ringWrap.dj #rCenter,#ringWrap.dj #rPicker,#ringWrap.dj #rNote{display:none!important}
+#djFx{display:none}
+#v-seq.djon #ringPanel>:not(#djFx){display:none}
+#v-seq.djon #djFx{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+#ringPanel .cap.djfx{position:relative;height:74px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;overflow:hidden;touch-action:none;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 55%,transparent);color:var(--c)}
+#ringPanel .cap.djfx b{font:700 13px var(--ui);letter-spacing:.16em}
+#ringPanel .cap.djfx small{font:400 8px/1.35 var(--ui);letter-spacing:.08em;color:var(--dim);white-space:nowrap;text-align:center}
+#ringPanel .cap.djfx .dot{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:var(--c);box-shadow:0 0 12px var(--c);display:none;pointer-events:none}
+#ringPanel .cap.djfx.dn{background:color-mix(in srgb,var(--c) 22%,transparent)}
+#ringPanel .cap.djfx.dn .dot{display:block}
+#ringPanel .cap.djfx.dn small{color:var(--ink)}
+#bSir{touch-action:none}
+#bSir.dn{transform:translate(var(--sx,0),var(--sy,0))}
 #rCenter{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:2px;transform-origin:center}
 #rCenter .lbl{font:400 8px var(--ui);letter-spacing:.26em;color:var(--dim)}
 #rCenter .pick{display:flex;align-items:center;gap:2px}

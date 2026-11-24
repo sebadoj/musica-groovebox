@@ -62,7 +62,10 @@ function setBpm(v){const n=clamp(Math.round(v),50,BPMMAX);if(n===S.bpm)return;S.
   el.addEventListener('wheel',e=>{e.preventDefault();setBpm(S.bpm+(e.deltaY<0?1:-1));},{passive:false});})();
 /* contador COMPÁS.TIEMPO (sigue lo que se escucha, con la compensación de latencia) */
 let cntL='';function cntUi(){const on=S.playing&&S.cur>=0,g=on?(S.g||0):0,txt=(Math.floor(g/16)+1)+'.'+(Math.floor((g%16)/4)+1);if(txt!==cntL){cntL=txt;$('#cntV').textContent=txt;}const b=$('#cntBox');if(b.classList.contains('on')!==on)b.classList.toggle('on',on);}
-bindPad($('#bSir'),()=>sirHold('btn',true),()=>sirHold('btn',false));
+{const sb=$('#bSir');let sx=0,sy=0;   // mantener = suena; mover el dedo: ↕ tono · ↔ velocidad del lfo (como el pad de sirena)
+  bindPad(sb,e=>{sx=e.clientX;sy=e.clientY;SIR.pm=1;SIR.rm=1;sirHold('btn',true);},()=>{SIR.pm=1;SIR.rm=1;sirLive();sirHold('btn',false);sb.style.removeProperty('--sx');sb.style.removeProperty('--sy');});
+  sb.addEventListener('pointermove',e=>{if(!sb.classList.contains('dn'))return;const dy=clamp((sy-e.clientY)/60,-1,1),dx=clamp((e.clientX-sx)/110,-1,1);SIR.pm=Math.pow(2,dy);SIR.rm=Math.pow(4,dx);sirLive();
+    sb.style.setProperty('--sx',(dx*14).toFixed(1)+'px');sb.style.setProperty('--sy',(-dy*8).toFixed(1)+'px');});}
 let clrT=null;
 $('#bClr').onclick=()=>{
   const b=$('#bClr');
@@ -1299,10 +1302,23 @@ function rowTool(t){
   ringCv.addEventListener('pointermove',e=>{if(dj&&e.pointerId===dj.id){const g=geo(e);let da=g.a-dj.a;if(da>.5)da-=1;if(da<-.5)da+=1;dj.a=g.a;const T=STEPS*sd();dj.turns=clamp(dj.turns+da,(-9.9-SCR.g0)/T,(.05-SCR.g0)/T);scrMove(dj.turns*T);return;}   // tope: no se empuja más allá del punto donde frenó   // horario = adelanta: una vuelta = todo el secuenciador
     if(!down||pv===null)return;const r=S.sel.r,g=geo(e),st=Math.floor(g.a*LEN[r])%LEN[r];if(st===lastS)return;lastS=st;if(pat[r][st]!==pv){pat[r][st]=pv;S.sel={r,s:st};dirty=true;queueSave();}});
   const end=e=>{if(dj&&e&&e.pointerId===dj.id){dj=null;scrUp();return;}if(down)ringUi();down=false;pv=null;};ringCv.addEventListener('pointerup',end);ringCv.addEventListener('pointercancel',end);
-  $('#rDJ').onclick=()=>{S.dj=!S.dj;try{localStorage.setItem('musica_gb_dj',S.dj?'1':'');}catch(x){}$('#rDJ').classList.toggle('on',S.dj);$('#ringWrap').classList.toggle('dj',S.dj);
+  $('#rDJ').onclick=()=>{S.dj=!S.dj;try{localStorage.setItem('musica_gb_dj',S.dj?'1':'');}catch(x){}$('#rDJ').classList.toggle('on',S.dj);$('#ringWrap').classList.toggle('dj',S.dj);$('#v-seq').classList.toggle('djon',S.dj);djFxOff();
     $('#rNote').classList.remove('on');$('#rPicker').classList.remove('on');dirty=true;toast(S.dj?'DJ · el anillo es el plato: tocá para frenar, girá para scratchear, soltá y sigue':'DJ APAGADO · el anillo vuelve a editar pasos');};
-  try{if(localStorage.getItem('musica_gb_dj')){S.dj=true;$('#rDJ').classList.add('on');$('#ringWrap').classList.add('dj');}}catch(x){}
+  try{if(localStorage.getItem('musica_gb_dj')){S.dj=true;$('#rDJ').classList.add('on');$('#ringWrap').classList.add('dj');$('#v-seq').classList.add('djon');}}catch(x){}
 })();
+/* DJ: DELAY · FILTER · REVERB (los mismos efectos del pad de FX). Mantener = efecto prendido; mover el dedo = pad XY; soltar = apagado */
+const DJFX=[['DLY','DELAY'],['FLT','FILTER'],['REV','REVERB']],DJXY={},DJR=230;   // DJR: px que recorre el pad virtual de punta a punta
+function djFxOff(){Object.keys(DJXY).forEach(t=>{const o=DJXY[t];if(o){mfxOff(t);o.el.classList.remove('dn');}delete DJXY[t];});}
+(function buildDjFx(){const box=document.createElement('div');box.id='djFx';$('#ringPanel').appendChild(box);
+  DJFX.forEach(([t,n])=>{const b=document.createElement('button');b.className='cap djfx';b.dataset.t=t;b.style.setProperty('--c',FXC[t]);
+    const hint=()=>'↔ '+XNAME[t][0]+'<br>↕ '+XNAME[t][1];b.innerHTML='<b>'+n+'</b><small>'+hint()+'</small><i class="dot"></i>';box.appendChild(b);
+    const dot=b.querySelector('.dot'),set=e=>{const o=DJXY[t];if(!o)return;o.x=clamp(.5+(e.clientX-o.cx)/DJR,0,1);o.y=clamp(.5+(o.cy-e.clientY)/DJR,0,1);mfxOn(t,o.x,o.y);
+      dot.style.left=o.x*100+'%';dot.style.top=(1-o.y)*100+'%';b.querySelector('small').innerHTML=XNAME[t][0]+' '+Math.round(o.x*100)+'<br>'+XNAME[t][1]+' '+Math.round(o.y*100);};
+    b.addEventListener('pointerdown',e=>{e.preventDefault();initAudio();if(!ctx)return;try{b.setPointerCapture(e.pointerId);}catch(x){}const r=b.getBoundingClientRect();
+      DJXY[t]={id:e.pointerId,el:b,cx:r.left+r.width/2,cy:r.top+r.height/2,x:.5,y:.5};b.classList.add('dn');set(e);});
+    b.addEventListener('pointermove',e=>{const o=DJXY[t];if(o&&o.id===e.pointerId)set(e);});
+    const up=e=>{const o=DJXY[t];if(!o||o.id!==e.pointerId)return;delete DJXY[t];b.classList.remove('dn');mfxOff(t);b.querySelector('small').innerHTML=hint();};
+    b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('lostpointercapture',up);});})();
 function drawRing(){
   const wrap=$('#ringWrap'),wr=wrap.getBoundingClientRect(),sz=Math.max(60,Math.floor(Math.min(wr.width,wr.height)));
   if(ringCv.style.width!==sz+'px'){ringCv.style.width=sz+'px';ringCv.style.height=sz+'px';}
@@ -1315,13 +1331,13 @@ function drawRing(){
   const {c,W,H,d}=cvFit(ringCv),cx=W/2,cy=H/2,R=W/2-2*d,TAU=Math.PI*2,ang=DJM?(s,L)=>-(s/L)*TAU+djPos/STEPS*TAU-Math.PI/2:(s,L)=>s/L*TAU-Math.PI/2;
   /* ojo de pez */
   const rOut=R*.995,rIn=R*.47,band=rOut-rIn,sel=S.sel.r;
-  for(let i=0;i<NR;i++){const dd=Math.abs(i-sel),tgt=!rowOn(i)?0:dd===0?5.2:dd===1?2:1;RTHK[i]=RTHK[i]==null?tgt:RTHK[i]+(tgt-RTHK[i])*.25;}
+  for(let i=0;i<NR;i++){const dd=Math.abs(i-sel),tgt=!rowOn(i)?0:S.dj?1:dd===0?5.2:dd===1?2:1;RTHK[i]=RTHK[i]==null?tgt:RTHK[i]+(tgt-RTHK[i])*.25;}
   const sum=RTHK.reduce((a,b)=>a+b,0);let rr=rOut;for(let i=0;i<NR;i++){const th=RTHK[i]/sum*band;RRAD[i]=rr-th/2;RTW[i]=th;rr-=th;}
   const anySolo=RS.some(Boolean);c.lineCap='butt';
   for(let r=0;r<NR;r++){if(!rowOn(r))continue;const L=LEN[r],rad=RRAD[r],th=RTW[r],isSel=r===sel,col=ROWS[r].c,dim=RM[r]||(anySolo&&!RS[r]);
     const ps=S.playing&&S.cur>=0?(L>=STEPS?S.cur:(S.g||0)%L):-1,lw=Math.max(1.2*d,th*(isSel?.72:.62)),gap=Math.min(.06,.9/L*.12+.012);
-    for(let s=0;s<L;s++){const on=pat[r][s],A0=ang(s,L),A1=ang(s+1,L),a0=Math.min(A0,A1)+gap,a1=Math.max(A0,A1)-gap;
-      if(on)c.strokeStyle=s===ps&&fl>0?hexA('#ffffff',.55+fl*.45):hexA(col,dim?.22:isSel?1:.8);
+    for(let s=0;s<L;s++){const on=pat[r][s],A0=ang(s,L),A1=ang(s+1,L),a0=Math.min(A0,A1)+gap,a1=Math.max(A0,A1)-gap;if(DJM&&!on)continue;   // DJ: solo los pasos programados
+      if(on)c.strokeStyle=s===ps&&fl>0?hexA('#ffffff',.55+fl*.45):hexA(col,dim?.22:isSel||DJM?1:.8);
       else c.strokeStyle=isSel?'rgba(232,229,222,.2)':(s%4===0&&L===STEPS?'rgba(232,229,222,.09)':'rgba(232,229,222,.05)');
       c.lineWidth=lw;c.beginPath();c.arc(cx,cy,rad,a0,a1);c.stroke();
       if(on&&XYR[r][s]){const am=(a0+a1)/2,rr=rad+lw/2-Math.max(1.6*d,lw*.18);c.fillStyle=dim?'rgba(255,255,255,.3)':'rgba(255,255,255,.9)';c.beginPath();c.arc(cx+Math.cos(am)*rr,cy+Math.sin(am)*rr,Math.max(1,Math.min(1.6*d,lw*.14)),0,7);c.fill();}   // tiene movimiento grabado
@@ -1329,7 +1345,7 @@ function drawRing(){
       if(isSel&&s===S.sel.s&&$('#rNote').classList.contains('on')){c.strokeStyle='#ff9440';c.lineWidth=1.4*d;c.beginPath();c.arc(cx,cy,rad-lw/2-1.6*d,a0,a1);c.stroke();}}
     if(ROWS[r].t==='vin'||ROWS[r].t==='syn'){const GG=ROWS[r].t==='vin'?vinG[ROWS[r].k]:synG[ROWS[r].k];c.strokeStyle=hexA(col,dim?.12:.45);c.lineWidth=Math.max(d,lw*.3);   // GATE: arco mientras la nota sigue sonando
       for(let s=0;s<L;s++)if(pat[r][s]){const g=Math.min(GG[s]||1,L);if(g>1){const u=ang(s+1,L),v=ang(s+g,L);c.beginPath();if(DJM)c.arc(cx,cy,rad,v+gap,u+gap);else c.arc(cx,cy,rad,u-gap,v-gap);c.stroke();}}}
-    if(isSel){c.strokeStyle='rgba(255,148,64,.75)';c.lineWidth=1.2*d;c.beginPath();c.arc(cx,cy,rad+th/2,0,TAU);c.stroke();c.beginPath();c.arc(cx,cy,Math.max(1,rad-th/2),0,TAU);c.stroke();
+    if(isSel&&!DJM){c.strokeStyle='rgba(255,148,64,.75)';c.lineWidth=1.2*d;c.beginPath();c.arc(cx,cy,rad+th/2,0,TAU);c.stroke();c.beginPath();c.arc(cx,cy,Math.max(1,rad-th/2),0,TAU);c.stroke();
       if(th>15*d){const RT=ROWS[r],segW=rad*TAU/L-4*d;c.textAlign='center';c.textBaseline='middle';
         for(let s=0;s<L;s++)if(pat[r][s]){const a=(ang(s,L)+ang(s+1,L))/2;
           let tx=String(s+1);if(RT.t==='syn')tx=noteName(scaleNote(seqN[RT.k][s],BASEOCT[RT.k]));else if(RT.t==='chd')tx=chordName(chdSeq[s],false).name;else if(RT.t==='smp')tx=sSeq(RT)[s]?'CH'+sSeq(RT)[s]:'—';else if(RT.t==='vin')tx=vinLbl(vinN[RT.k][s],0);
