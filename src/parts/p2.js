@@ -1,7 +1,7 @@
 <script>
 'use strict';
 /* =====================================================================
-   MUSICA GROOVEBOX — versión celular v13.23 (20261123)
+   MUSICA GROOVEBOX — versión celular v13.24 (20261123)
    Un solo archivo, sin librerías, Web Audio.
    16/32 pasos · 2 synths · VINTAGE (órgano, piano eléctrico, analógico, clavinet, cuerdas) · acordes (4 presets + GATE) · 8 drums · SAMPLER (chop en 4 teclas)
    · mixer 6 canales + master (pan, 3 envíos, medidores) · buses FX (delay/reverb/mod/master)
@@ -569,16 +569,18 @@ function mfxOff(type){
 }
 
 /* ---------------- SAMPLER: motor ---------------- */
-/* dos modos: CHOP = un sample cortado en 4 · PADS = cada uno de los 4 botones tiene su propio sample (con su recorte ps..pe) */
-const SMPL={buf:null,rbuf:null,name:'',sel:0,mode:'chop',pads:[null,null,null,null],voice:[null,null,null,null],
-  chops:[0,1,2,3].map(i=>({s:i/4,e:(i+1)/4,ps:0,pe:1,pitch:0,filt:.5,crush:0,gain:1,rev:false,mode:'one',sync:'off',q:0,qa:true,spd:1,out:0}))};
+/* dos modos: CHOP = un sample cortado en 8 · PADS = cada uno de los 8 botones tiene su propio sample (con su recorte ps..pe) */
+const NSP=8;   // pads del sampler
+const chopD=i=>({s:i/NSP,e:(i+1)/NSP,ps:0,pe:1,pitch:0,filt:.5,crush:0,gain:1,rev:false,mode:'one',sync:'off',q:0,qa:true,spd:1,out:0});
+const SMPL={buf:null,rbuf:null,name:'',sel:0,mode:'chop',pads:Array(NSP).fill(null),voice:Array(NSP).fill(null),
+  chops:Array.from({length:NSP},(_,i)=>({s:i/NSP,e:(i+1)/NSP,ps:0,pe:1,pitch:0,filt:.5,crush:0,gain:1,rev:false,mode:'one',sync:'off',q:0,qa:true,spd:1,out:0}))};
 const smpOut=i=>S.smp2&&SMPL.chops[i]&&SMPL.chops[i].out?7:5;   // canal del mixer: SAMPLER o SAMPLER 2
 const smpSrc=i=>SMPL.mode==='pads'?SMPL.pads[i]:(SMPL.buf?{buf:SMPL.buf,rbuf:SMPL.rbuf,name:SMPL.name}:null);
 const smpHas=()=>SMPL.mode==='pads'?SMPL.pads.some(Boolean):!!SMPL.buf;
 const smpReg=(C)=>SMPL.mode==='pads'?[C.ps??0,C.pe??1]:[C.s,C.e];
 const CRCACHE={};
 function crushCurve(bits){if(CRCACHE[bits])return CRCACHE[bits];const n=2048,c=new Float32Array(n),L=Math.pow(2,bits)/2;for(let i=0;i<n;i++){const x=i*2/(n-1)-1;c[i]=Math.round(x*L)/L;}return CRCACHE[bits]=c;}
-function smpEqual(){SMPL.chops.forEach((C,i)=>{C.s=i/4;C.e=(i+1)/4;});}
+function smpEqual(){SMPL.chops.forEach((C,i)=>{C.s=i/NSP;C.e=(i+1)/NSP;});}
 function smpSet(data,rate,name,slot){
   if(!data||data.length<64)return false;if(slot===undefined)slot=SMPL.mode==='pads'?SMPL.sel:-1;
   const mkB=(n,r)=>ctx?ctx.createBuffer(1,n,r):new AudioBuffer({length:n,sampleRate:r,numberOfChannels:1});
@@ -658,7 +660,7 @@ function stWork(chans,n,sr){
   if(STW){const id=++STN;return new Promise(res=>{STP.set(id,res);STW.postMessage({id,c:chans,n,sr},chans.map(x=>x.buffer));});}
   return new Promise(res=>setTimeout(()=>res(chans.map(x=>wsola(x,n,sr))),0));}
 /* dejar listo ESTIRAR para todos los cortes con SYNC (al prenderlo, al cambiar tempo, región o speed) */
-function smpPrep(){for(let i=0;i<4;i++){const C=SMPL.chops[i],P=smpSrc(i);if(!P||!C||C.sync!=='tempo')continue;
+function smpPrep(){for(let i=0;i<NSP;i++){const C=SMPL.chops[i],P=smpSrc(i);if(!P||!C||C.sync!=='tempo')continue;
   const N=P.buf.duration,R=smpReg(C);let s=R[0]*N,e=R[1]*N;if(C.rev){const ss=N-e;e=N-s;s=ss;}const L=e-s;if(L<.005)continue;
   smpStretch(C,C.rev?P.rbuf:P.buf,s,e,smpQ(C,L)*60/S.bpm/(C.spd||1)*Math.pow(2,C.pitch/12));}}
 
@@ -718,7 +720,7 @@ function smpDemo(){
   [0,.5,.75,1,1.25,1.75].forEach(t=>add(t,(t_)=>Math.sin(2*Math.PI*(42*t_+118*(1-Math.exp(-t_*22))/22*1))*Math.exp(-t_*9)*.9,.4));
   [.25,.75,1.25,1.75].forEach(t=>add(t,(t_)=>((Math.random()*2-1)*.6+Math.sin(2*Math.PI*190*t_)*.4)*Math.exp(-t_*16)*.8,.22));
   for(let k=0;k<8;k++)add(k*.25+.125,(t_)=>(Math.random()*2-1)*Math.exp(-t_*60)*.35,.06);
-  if(smpSet(d,sr,'DEMO BREAK')){toast(SMPL.mode==='pads'?'DEMO EN PAD '+(SMPL.sel+1):'DEMO: 4 CHOPS · TOCÁ LOS PADS');smpUi();}
+  if(smpSet(d,sr,'DEMO BREAK')){toast(SMPL.mode==='pads'?'DEMO EN PAD '+(SMPL.sel+1):'DEMO: 8 CHOPS · TOCÁ LOS PADS');smpUi();}
 }
 function smpMode(m){
   if(m===SMPL.mode)return;SMPL.voice.forEach(v=>{try{v&&v.stop();}catch(e){}});let conv=false;
@@ -728,7 +730,7 @@ function smpMode(m){
 }
 /* copiar un pad en otro: en PADS copia el sample + recorte + ajustes; en CHOP copia la región y los ajustes */
 function smpCopy(a,b){
-  if(a===b||a<0||b<0||a>3||b>3)return false;const A=SMPL.chops[a],B=SMPL.chops[b];
+  if(a===b||a<0||b<0||a>=NSP||b>=NSP)return false;const A=SMPL.chops[a],B=SMPL.chops[b];
   if(SMPL.mode==='pads'){if(!SMPL.pads[a])return false;SMPL.pads[b]=Object.assign({},SMPL.pads[a]);}
   try{SMPL.voice[b]&&SMPL.voice[b].stop();}catch(e){}
   Object.assign(B,JSON.parse(JSON.stringify(A)));if(typeof smpStore==='function')smpStore();queueSave();return true;
@@ -738,8 +740,8 @@ function smpTransients(){
   for(let b=0;b<nb;b++){let s=0;for(let i=0;i<w;i++){const v=d[b*w+i];s+=v*v;}env[b]=Math.sqrt(s/w);}
   const flux=[];for(let b=2;b<nb;b++){const df=env[b]-env[b-2];flux.push([df,b]);}
   flux.sort((a,b)=>b[0]-a[0]);const picks=[];
-  for(const [df,b] of flux){if(df<=0.002)break;if(b<4)continue;if(picks.every(p=>Math.abs(p-b)>8)){picks.push(b);if(picks.length===3)break;}}
-  if(picks.length<3){smpEqual();toast('POCOS GOLPES · 4 IGUALES');return;}
+  for(const [df,b] of flux){if(df<=0.002)break;if(b<4)continue;if(picks.every(p=>Math.abs(p-b)>8)){picks.push(b);if(picks.length===NSP-1)break;}}
+  if(picks.length<NSP-1){smpEqual();toast('POCOS GOLPES · '+NSP+' IGUALES');return;}
   picks.sort((a,b)=>a-b);const pts=[0,...picks.map(b=>Math.max(0,(b-1)*w/d.length)),1];
   SMPL.chops.forEach((C,i)=>{C.s=pts[i];C.e=pts[i+1];});toast('CORTE POR TRANSIENTES');
 }
@@ -949,7 +951,8 @@ function applySnapshot(j){
   S.dk=DR.map((_,i)=>Object.assign({},DKD,(Array.isArray(j.dk)&&j.dk[i])||{}));
   for(let i=0;i<NR;i++){LEN[i]=Math.min((j.len&&j.len[i])||STEPS,MAXS);RM[i]=!!(j.rm&&j.rm[i]);RS[i]=!!(j.rs&&j.rs[i]);}
   if(j.fx){const b=FXD();['dly','rev','mod','mst','dst'].forEach(k=>Object.assign(FXP[k],b[k],j.fx[k]||{}));FXP.patch=patchClean(j.fx.patch)||b.patch;}
-  if(j.smp&&j.smp.chops)j.smp.chops.forEach((C,i)=>{if(SMPL.chops[i])Object.assign(SMPL.chops[i],{ps:0,pe:1,sync:'off',q:0,qa:true,spd:1,out:0},C);});
+  if(j.smp&&j.smp.chops){SMPL.chops.forEach((C,i)=>{const o=j.smp.chops[i];Object.assign(C,chopD(i),o||{});});   // sesiones viejas de 4: los pads 5–8 arrancan de cero
+    if(j.smp.chops.length<NSP&&j.smp.mode!=='pads'){const n=j.smp.chops.length;for(let i=n;i<NSP;i++){const A=SMPL.chops[i-n];Object.assign(SMPL.chops[i],{s:A.s,e:A.e});}}}
   SMPL.mode=j.smp&&j.smp.mode==='pads'?'pads':'chop';
 }
 const CHG={on:false,t0:0,cb:null};   // hay cambios desde el último guardado en Drive

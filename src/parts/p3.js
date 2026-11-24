@@ -185,7 +185,7 @@ function renderPalette(){
   if(XYR[S.sel.r][st]){const b=mk('〰 MOV ✕',()=>{XYR[S.sel.r][st]=null;dirty=true;queueSave();renderPalette();toast('MOVIMIENTO BORRADO');});b.classList.add('on');b.setAttribute('aria-label','Borrar el movimiento grabado de este paso');head.appendChild(b);}
   p.appendChild(head);
   const row=document.createElement('div');row.className='pal';
-  const n=R.t==='syn'||R.t==='vin'?8:R.t==='chd'?7:4;
+  const n=R.t==='syn'||R.t==='vin'?8:R.t==='chd'?7:NSP;
   for(let i=0;i<n;i++){
     const b=document.createElement('button');b.className='cap';
     if(R.t==='syn'){const d=S.po*7+i;b.innerHTML=noteName(scaleNote(d,BASEOCT[R.k]))+'<small>'+(i===7?'1':i+1)+'</small>';
@@ -720,10 +720,10 @@ function drawWave(){
 })();
 const sPads=$('#sPads');
 (function buildSPads(){
-  for(let i=0;i<4;i++){
-    const el=document.createElement('div');el.className='pad cap'+(i%2?' dark':'');el.style.setProperty('--c',CH[5].c);el.dataset.i=i;
+  for(let i=0;i<NSP;i++){
+    const el=document.createElement('div');el.className='pad cap'+((i+(i>>2))%2?' dark':'');el.style.setProperty('--c',CH[5].c);el.dataset.i=i;
     el.innerHTML='<span class="rn">'+(i+1)+'</span><small></small>';
-    bindPad(el,()=>{if(SCP.on){smpCopyTo(i);return;}const ch=SMPL.sel!==i;SMPL.sel=i;if(ch&&SMPL.mode==='pads')smpUi();if(!ctx)return;if(!smpSrc(i)){toast(SMPL.mode==='pads'?'PAD '+(i+1)+' VACÍO · GRABÁ O CARGÁ ACÁ':'PRIMERO GRABÁ O CARGÁ UN SAMPLE');smpUi(true);return;}el._v=chopPlay(i,ctx.currentTime+.003,1);recWrite(smpOut(i)===7?R_SMP2:R_SMP,i+1);smpUi(true);},
+    bindPad(el,()=>{if(SCP.on){smpCopyTo(i);return;}const ch=SMPL.sel!==i;SMPL.sel=i;if(ch)smpUi();if(!ctx)return;if(!smpSrc(i)){toast(SMPL.mode==='pads'?'PAD '+(i+1)+' VACÍO · GRABÁ O CARGÁ ACÁ':'PRIMERO GRABÁ O CARGÁ UN SAMPLE');smpUi(true);return;}el._v=chopPlay(i,ctx.currentTime+.003,1);recWrite(smpOut(i)===7?R_SMP2:R_SMP,i+1);smpUi(true);},
       ()=>{const C=SMPL.chops[i];if(ctx&&C.mode!=='one'&&SMPL.voice[i])SMPL.voice[i].stop(ctx.currentTime);});
     sPads.appendChild(el);
   }
@@ -731,7 +731,7 @@ const sPads=$('#sPads');
 function smpUi(light){
   const has=!!SMPL.buf,mic=$('#sMic'),res=$('#sRes');
   mic.classList.toggle('on',!!CAP&&CAP.label==='MIC');mic.classList.toggle('smp-rec',!!CAP&&CAP.label==='MIC');mic.textContent=CAP&&CAP.label==='MIC'?'■ PARAR':'● MIC';
-  res.classList.toggle('on',!!CAP&&CAP.label==='RESAMPLE');res.classList.toggle('smp-rec',!!CAP&&CAP.label==='RESAMPLE');res.textContent=CAP&&CAP.label==='RESAMPLE'?'■ PARAR':'● RESAMPLE';
+  res.classList.toggle('on',!!CAP&&CAP.label==='RESAMPLE');res.classList.toggle('smp-rec',!!CAP&&CAP.label==='RESAMPLE');res.textContent=CAP&&CAP.label==='RESAMPLE'?'■ PARAR':'● RESAMP';
   const PM=SMPL.mode==='pads',MD=C=>C.mode==='one'?'ONE':C.mode.toUpperCase();
   [...sPads.children].forEach((el,i)=>{const C=SMPL.chops[i],P=smpSrc(i),R=smpReg(C);el.style.outline=(i===SMPL.sel)?'2px solid #ffd27a':'none';el.style.outlineOffset='2px';
     el.classList.toggle('cpdst',SCP.on&&i!==SMPL.sel);el.classList.toggle('cpsrc',SCP.on&&i===SMPL.sel);
@@ -746,7 +746,9 @@ function smpUi(light){
   $('#sInfo').textContent=CAP?'GRABANDO '+CAP.label+(CAP.slot>=0?' EN PAD '+(CAP.slot+1):'')+'…':
     PM?('PAD '+(SMPL.sel+1)+' · '+(P?P.name+' · '+P.buf.duration.toFixed(2)+' s (arrastrá los bordes para recortar)':'vacío · MIC, ARCHIVO o DEMO graban acá')):
     has?SMPL.name+' · '+SMPL.buf.duration.toFixed(2)+' s · CHOP '+(SMPL.sel+1)+' (arrastrá los bordes)':'Sin sample. Sin micrófono en el visor: GRABADOR abre la app del cel.';
-  const pn=$('#sPar');pn.innerHTML='';const show=PM?!!P:has;pn.style.display=show?'block':'none';
+  const aj=$('#sAj');aj.classList.toggle('on',!!S.smpPar);aj.textContent='AJUSTES '+(S.smpPar?'▴':'▾');$('#v-smp').classList.toggle('paron',!!S.smpPar);
+  const pn=$('#sPar');pn.innerHTML='';const show=!!S.smpPar&&(PM?!!P:has);pn.style.display=show?'block':(S.smpPar?'block':'none');
+  if(S.smpPar&&!show){const n=document.createElement('div');n.className='pnote';n.textContent=PM?'PAD '+(SMPL.sel+1)+' vacío: grabá o cargá un sample para ajustarlo':'Cargá un sample para ajustar los chops';pn.appendChild(n);}
   if(show){const C=SMPL.chops[SMPL.sel];
     mkSeg(pn,(PM?'PAD ':'CHOP ')+(SMPL.sel+1),[['1-SHOT','one'],['GATE','gate'],['LOOP','loop']],o=>C.mode===o[1],o=>{C.mode=o[1];smpUi(true);queueSave();});
     if(S.smp2)mkSeg(pn,'SALIDA',[['SAMPLER 1',0],['SAMPLER 2',1]],o=>(C.out||0)===o[1],o=>{C.out=o[1];try{SMPL.voice[SMPL.sel]&&SMPL.voice[SMPL.sel].stop();}catch(x){}smpUi(true);queueSave();});
@@ -772,9 +774,11 @@ $('#sEq').onclick=()=>{if(SMPL.mode==='pads'){const C=SMPL.chops[SMPL.sel];C.ps=
 /* modo y copia */
 const SCP={on:false};
 $$('#sModeSeg button').forEach(b=>b.onclick=()=>{SCP.on=false;const conv=smpMode(b.dataset.m);smpUi();renderPalette();
-  toast(b.dataset.m==='pads'?(conv?'PADS: LOS 4 CHOPS AHORA SON 4 SAMPLES':'PADS: CADA BOTÓN SU PROPIO SAMPLE'):'CHOP: UN SAMPLE EN 4 PARTES');});
+  toast(b.dataset.m==='pads'?(conv?'PADS: LOS 8 CHOPS AHORA SON 8 SAMPLES':'PADS: CADA BOTÓN SU PROPIO SAMPLE'):'CHOP: UN SAMPLE EN 8 PARTES');});
 $('#sCopy').onclick=()=>{if(!SCP.on&&!smpSrc(SMPL.sel)){toast('ESE PAD ESTÁ VACÍO');return;}SCP.on=!SCP.on;smpUi(true);if(SCP.on)toast('TOCÁ EL PAD DONDE LO QUERÉS COPIAR');};
 function smpCopyTo(i){SCP.on=false;if(i===SMPL.sel){smpUi(true);toast('COPIA CANCELADA');return;}const a=SMPL.sel;if(smpCopy(a,i)){SMPL.sel=i;smpUi();renderPalette();toast((SMPL.mode==='pads'?'PAD ':'CHOP ')+(a+1)+' → '+(i+1));}else smpUi(true);}
+$('#sAj').onclick=()=>{S.smpPar=!S.smpPar;try{localStorage.setItem('musica_gb_smppar',S.smpPar?'1':'');}catch(x){}smpUi();};
+try{S.smpPar=!!localStorage.getItem('musica_gb_smppar');}catch(x){}
 $('#sCue').onclick=()=>{const i=SMPL.sel;const r=smpCue(i);if(!r){toast(smpSrc(i)?'NO ENCONTRÉ UN GOLPE CLARO':'SIN SAMPLE');return;}smpUi();queueSave();
   toast('AUTO CUE '+(SMPL.mode==='pads'?'PAD ':'CHOP ')+(i+1)+' · '+(r.ds>=.001?'−'+Math.round(r.ds*1000)+' ms al inicio':'inicio OK')+(r.de>=.005?' · −'+Math.round(r.de*1000)+' ms al final':''));};
 $('#s2ch').onclick=()=>{S.smp2=!S.smp2;smp2Ui();smpUi();renderPalette();queueSave();toast(S.smp2?'SAMPLER 2 PRENDIDO · canal SMP2 en el MIX y renglón SMP 2 en el SEQ · elegí la SALIDA de cada '+(SMPL.mode==='pads'?'pad':'chop'):'SAMPLER 2 APAGADO · todo sale por SAMPLER');};
@@ -1003,7 +1007,7 @@ function extractText(r){
 function loadSession(j){
   initAudio();applySnapshot(j);
   if(j.smp&&j.smp.pcm)smpDecode(j.smp.pcm);
-  if(j.smp&&Array.isArray(j.smp.pads)){SMPL._rs=true;try{j.smp.pads.forEach((p,i)=>{if(p)smpDecode(p,i);else SMPL.pads[i]=null;});}finally{SMPL._rs=false;}smpStore();}
+  if(j.smp&&Array.isArray(j.smp.pads)){SMPL._rs=true;try{for(let i=0;i<NSP;i++){const p=j.smp.pads[i];if(p)smpDecode(p,i);else SMPL.pads[i]=null;}}finally{SMPL._rs=false;}smpStore();}
   $('#selKey').value=S.key;$('#selScale').value=S.scale;
   renderKeys();renderPalette();paints.forEach(p=>p());applyAll();applyFx();applyPatch();PCH.sel=null;vinFx();sync();dirty=true;smpUi();fxUi();partUi();pageUi();smp2Ui();ensureKit();queueSave();
 }
@@ -1121,7 +1125,7 @@ function smpUnpack(o,chops,slot){
   if(!o||!o.pcm)return false;const q=new Int16Array(o.pcm),f=new Float32Array(q.length);for(let i=0;i<q.length;i++)f[i]=q[i]/32767;
   const keep=JSON.parse(JSON.stringify(chops||SMPL.chops));SMPL._rs=true;let ok=false;try{ok=smpSet(f,o.rate,o.name,slot===undefined?-1:slot);}finally{SMPL._rs=false;}
   if(ok)SMPL.chops.forEach((C,i)=>{if(keep[i])Object.assign(C,keep[i]);});return ok;}
-function padsUnpack(a,chops){for(let i=0;i<4;i++){if(a&&a[i])smpUnpack(a[i],chops,i);else SMPL.pads[i]=null;}}
+function padsUnpack(a,chops){for(let i=0;i<NSP;i++){if(a&&a[i])smpUnpack(a[i],chops,i);else SMPL.pads[i]=null;}}
 var smpT=null;
 function smpStore(){if(SMPL._rs)return;clearTimeout(smpT);smpT=setTimeout(()=>{const o=smpPack();(o?IDB.put('kv',Object.assign(o,{saved:Date.now()}),'smp'):IDB.del('kv','smp')).catch(()=>{});IDB.put('kv',{mode:SMPL.mode,pads:padsPack()},'smpP').catch(()=>{});},350);}
 const SMPR=(async()=>{try{const o=await IDB.get('kv','smp');if(o&&!SMPL.buf&&smpUnpack(o)){smpUi();dirty=true;}
@@ -1330,7 +1334,7 @@ function rowTool(t){
   const r=S.sel.r,L=LEN[r],R=ROWS[r];takeUndo();
   const arrs=[pat[r],XYR[r]];if(t==='rnd'||t==='clr')XYR[r].fill(null);if(R.t==='syn')arrs.push(seqN[R.k],synG[R.k]);else if(R.t==='chd')arrs.push(chdSeq,chdGate);else if(R.t==='smp')arrs.push(sSeq(R));else if(R.t==='vin')arrs.push(vinN[R.k],vinG[R.k]);
   if(t==='rnd'){for(let s=0;s<L;s++){pat[r][s]=Math.random()<RDENS[r]?1:0;if(!pat[r][s])continue;
-      if(R.t==='syn'){seqN[R.k][s]=Math.floor(Math.random()*8);synG[R.k][s]=1;}else if(R.t==='chd'){chdSeq[s]=Math.floor(Math.random()*7);chdGate[s]=2;}else if(R.t==='smp')sSeq(R)[s]=1+Math.floor(Math.random()*4);else if(R.t==='vin'){vinN[R.k][s]=Math.floor(Math.random()*8);vinG[R.k][s]=[1,1,2,4][Math.floor(Math.random()*4)];}}
+      if(R.t==='syn'){seqN[R.k][s]=Math.floor(Math.random()*8);synG[R.k][s]=1;}else if(R.t==='chd'){chdSeq[s]=Math.floor(Math.random()*7);chdGate[s]=2;}else if(R.t==='smp')sSeq(R)[s]=1+Math.floor(Math.random()*NSP);else if(R.t==='vin'){vinN[R.k][s]=Math.floor(Math.random()*8);vinG[R.k][s]=[1,1,2,4][Math.floor(Math.random()*4)];}}
     if(r===0)pat[0][0]=1;}
   else if(t==='all'){for(let s=0;s<L;s++){pat[r][s]=1;if(R.t==='smp'&&!sSeq(R)[s])sSeq(R)[s]=SMPL.sel+1;}}
   else if(t==='clr'){for(let s=0;s<L;s++)pat[r][s]=0;}

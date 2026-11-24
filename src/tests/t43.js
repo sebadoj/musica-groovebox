@@ -1,7 +1,7 @@
 // v13.16: sampler con SYNC al tempo (REPITCH / ESTIRAR) y SPEED; las notas del secuenciador se iluminan en su módulo
 const {chromium}=require('/opt/npm-tools/node_modules/playwright');
 (async()=>{const b=await chromium.launch({executablePath:'/usr/bin/google-chrome',args:['--no-sandbox','--autoplay-policy=no-user-gesture-required']});
-const c=await b.newContext({viewport:{width:390,height:800},deviceScaleFactor:2,hasTouch:true});await c.addInitScript(()=>{delete window.showDirectoryPicker;});
+const c=await b.newContext({viewport:{width:390,height:800},deviceScaleFactor:2,hasTouch:true});await c.addInitScript(()=>{delete window.showDirectoryPicker;try{localStorage.setItem('musica_gb_smppar','1');}catch(e){}});   // v13.24: los parámetros del pad se ven con AJUSTES
 const p=await c.newPage();const e=[];p.on('pageerror',x=>e.push(x.message));
 const ok=(v,m)=>console.log((v?'PASS ':'FAIL ')+m);const W=ms=>p.waitForTimeout(ms);const V=process.env.V||'13.16',SH=process.env.SH;
 await p.goto('file://'+require('path').resolve(__dirname,'../build/MUSICA-GROOVEBOX-MOBILE-v'+V+'.html'));await W(400);

@@ -32,7 +32,7 @@ const srv=http.createServer((q,r)=>{r.setHeader('content-type','text/html');r.en
  ok(await p.evaluate(()=>GB.SMPL.sel===1),'pad select');
  ok(await p.evaluate(()=>{const v=GB.chopPlay(2,GB.ctx.currentTime+.01,1);return !!v;}),'chopPlay voice');
  await p.tap('#sTr');await p.waitForTimeout(100);
- ok(await p.evaluate(()=>GB.SMPL.chops[0].s===0&&GB.SMPL.chops[3].e===1&&GB.SMPL.chops[1].s>0),'transient chops '+JSON.stringify(await p.evaluate(()=>GB.SMPL.chops.map(c=>[+c.s.toFixed(2),+c.e.toFixed(2)]))));
+ ok(await p.evaluate(()=>GB.SMPL.chops[0].s===0&&GB.SMPL.chops[GB.SMPL.chops.length-1].e===1&&GB.SMPL.chops[1].s>0&&GB.SMPL.chops.length===8),'transient chops '+JSON.stringify(await p.evaluate(()=>GB.SMPL.chops.map(c=>[+c.s.toFixed(2),+c.e.toFixed(2)]))));
  await p.screenshot({path:'s_smp2.png'});
  // seq row for sampler + rec
  await p.tap('#tabs [data-t=seq]');await p.waitForTimeout(200);
