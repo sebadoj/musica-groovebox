@@ -58,6 +58,12 @@ button{border:0;cursor:pointer;padding:0}
 select{flex:1;width:0;min-width:0;height:34px;background:#06201a;color:var(--lcd);border:1px solid #14473b;border-radius:8px;padding:0 6px;font:700 14px var(--mono)}
 #bClr,#bUndo,#bSes{flex:none;font-size:13px;padding:0 8px}
 #bClr.arm{color:var(--red);--glow:var(--red)}
+#bKill{flex:none;font:700 12px var(--ui);letter-spacing:.1em;padding:0 9px;color:#fff;background:#b3261e;box-shadow:inset 0 0 0 1px #ff5a4a}
+#bKill:active{background:#ff3b30}
+@media (max-width:420px){   /* v13.29: con KILL la fila se compacta para que Tono y Escala se sigan leyendo */
+  .r2{gap:4px}.r2 select{padding:0 2px 0 8px;font-size:12px;letter-spacing:0}
+  #bClr{font-size:11px;padding:0 7px}#bLive{padding:0 6px}#bKill{font-size:11px;padding:0 7px}#bSes{padding:0 6px}
+  #clipLed{padding:0 4px;font-size:9px}}
 #bUndo{display:none;font-size:16px}#bUndo.has{display:block}
 .lamp{flex:none;height:34px;padding:0 7px;border-radius:8px;background:#1a0d0c;color:#6b2a25;border:1px solid #3a1714;font:700 11px var(--mono);letter-spacing:.04em}
 .lamp.hot{background:var(--red);color:#fff;border-color:#ff8f84;box-shadow:0 0 12px 2px var(--red)}
@@ -607,6 +613,7 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
     <button id="bClr" class="cap dark sm">BORRAR</button>
     <button id="bSes" class="cap dark sm" aria-label="Sesiones y Drive">☰</button>
     <button id="bLive" class="cap dark sm" aria-label="Grabar todo lo que sale por el master">● LIVE</button>
+    <button id="bKill" class="cap sm" aria-label="KILL: apaga todo (para el tema, suelta los efectos y corta las colas)">KILL</button>
     <button id="clipLed" class="lamp" aria-label="Clip del master (tocá para limpiar)">CLIP</button>
   </div>
   <canvas id="scope" aria-hidden="true"></canvas>
@@ -753,7 +760,7 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
 <script>
 'use strict';
 /* =====================================================================
-   MUSICA GROOVEBOX — versión celular v13.28 (20261124)
+   MUSICA GROOVEBOX — versión celular v13.29 (20261124)
    Un solo archivo, sin librerías, Web Audio.
    16/32 pasos · 2 synths · VINTAGE (órgano, piano eléctrico, analógico, clavinet, cuerdas) · acordes (4 presets + GATE) · 8 drums · SAMPLER (chop en 4 teclas)
    · mixer 6 canales + master (pan, 3 envíos, medidores) · buses FX (delay/reverb/mod/master)
@@ -2608,7 +2615,7 @@ const pad2=n=>String(n).padStart(2,'0');
    · Las tomas LIVE van a la subcarpeta TOMAS.
    Navegadores sin carpetas (iPhone, Firefox): queda la biblioteca del teléfono de antes. */
 const AS_MIN=5,AS_KEEP=10,FOLDM='application/vnd.google-apps.folder',ASRX=/_AS_\d{12}\.json$/i;
-const APPV='13.28',APPD='20261124';
+const APPV='13.29',APPD='20261124';
 const DV={f:null,h:null,need:false,rec:[],last:0,lastT:'',lastBody:'',busy:false,err:'',sub:{}};
 const drvMode=()=>!!(window.claude&&window.claude.use);
 const FS_OK=typeof window.showDirectoryPicker==='function';
@@ -3152,6 +3159,18 @@ function rowTool(t){
 })();
 /* DJ: DELAY · FILTER · REVERB (los mismos efectos del pad de FX). Mantener = efecto prendido; mover el dedo = pad XY; soltar = apagado */
 const DJFX=[['DLY','DELAY'],['FLT','FILTER'],['REV','REVERB']],DJXY={},DJR=230;   // DJR: px que recorre el pad virtual de punta a punta
+/* KILL: apaga todo — para el tema, suelta todo lo trabado (pad, DJ, sirena, scratch, sampler) y reinicia el audio para cortar las colas */
+function killAll(){
+  try{if(S.playing)stop();}catch(e){}
+  for(const t in XYH){const H=XYH[t];if(H.on){try{mfxOff(t);}catch(e){}H.on=false;}}XY.on=false;S.hold=false;
+  try{$('#bHold').classList.remove('on');if(window.heldUi)heldUi();if(window.paintXY)paintXY();}catch(e){}
+  try{djFxOff();}catch(e){}
+  try{SMPL.voice.forEach(v=>{try{v&&v.stop();}catch(e){}});}catch(e){}
+  try{if(ctx)restartAudio();}catch(e){}
+  try{['#bSir','#bLatch','#sirPad'].forEach(s=>{const el=$(s);if(el)el.classList.remove('on','dn');});}catch(e){}
+  try{$('#clipLed').classList.remove('on');}catch(e){}
+  dirty=true;toast('KILL · todo apagado');}
+$('#bKill').onclick=killAll;
 function djFxOff(){Object.keys(DJXY).forEach(t=>{const o=DJXY[t];if(o){mfxOff(t);o.el.classList.remove('dn');}delete DJXY[t];});}
 (function buildDjFx(){const box=document.createElement('div');box.id='djFx';$('#ringPanel').appendChild(box);
   DJFX.forEach(([t,n])=>{const b=document.createElement('button');b.className='cap djfx';b.dataset.t=t;b.style.setProperty('--c',FXC[t]);
@@ -3426,7 +3445,7 @@ document.addEventListener('keydown',e=>{if(e.code==='Space'&&!e.repeat&&e.target
 document.addEventListener('visibilitychange',()=>{if(document.hidden){sirHolds.clear();if(sirV)sirStop();$$('#pads .pad').forEach(el=>{if(el._v){try{(Array.isArray(el._v)?el._v:[el._v]).forEach(v=>v.stop());}catch(e){}el._v=null;el.classList.remove('dn');}});}});
 window.addEventListener('resize',()=>{if(S.tab==='smp')drawWave();});
 renderPalette();renderKeys();fxUi();sync();refreshSeq();smpUi();partUi();ringUi();smp2Ui();frame();
-window.GB={smpMode,smpCopy,smpSrc,SCP:()=>SCP,padsPack,IDB,libSave,libOpen,libList,libLive,smpPack,smpUnpack,SMPR,drumRe,dkE,renderDrum,KH:()=>KH,LV,wavEncode,xyApply,LIVE,drawSiren:()=>drawSiren(),TILT,partCopy,LEN,RM,RS,ringSel,rowTool,viz:{drawScope:()=>drawScope(),drawVoice:()=>drawVoice(),drawXY:()=>drawXY(),drawBus:()=>drawBus(),drawRing:()=>drawRing()},newSession,KB:()=>KB,SYNP,sdSend:(i,v)=>{CH[i].dst=v;applyCh(i);},anM:()=>anM,shareSes,PARTS,partGo,partSwitch,partBar,drumPreset,KITS,DPRE,trig,sd,PERF,S,CH,FXP,SMPL,pat,smpSeq,chdGate,snapshot,applySnapshot,loadSession,smpDemo,chopPlay,smpSet,smpEncode,smpDecode,get ctx(){return ctx;},get lim(){return lim;},get CAP(){return CAP;},recWrite,takeUndo,doUndo,bus,extractText,setSteps,get STEPS(){return STEPS;},vinPlay,vinVoice,VINP,vinN,vinG,vinRec,vinGate,VL,vinMig,XYR,xyRec,xyAuto,xyPlay,XYQ,synG,synGate,chordPlay,DV,CHG,queueSave,drvAuto,drvSaveOrig,drvRecent,drvSetF,foldSearch,liveUp,drvMode,drvLive,sesBase,fMode,BK,lbSet,lbPerm,sesSave,sesRecent,sesLoad,migUi,APPV,LBR,libJson,smpQ,smpAutoQ,smpStretch,smpPrep,wsola,smpLen,SQ,seqLit,LIT,mfxOn,mfxOff,restartAudio,NSP,chopD,smpEqual,smpTransients,chainUnplug,chainUnplugAll,CFS,CFO,patchSelUi,XYH,XY,PRV,drumPlay,setDelayTime,applyFx,PATCHPRE,PATCHPRE2,outCycle,outPath,outClean,applyOut,CHS,CHO,patchCycle,patchClean,applyPatch,patchLevel,fxAct,fxLevel,PCH,FXP,DJV,DJXY,SIR,sirHolds,fxv:()=>({pdt:pdly?pdly.delayTime.value:0,dt:dly.delayTime.value,mDly:mDly.gain.value,dfb:pdfb.gain.value,sdfb:dfb.gain.value,fltF:fltM.frequency.value,fltQ:fltM.Q.value,mRev:mRev.gain.value}),SCR,scrOffNow,scrDown,scrMove,scrUp,scrQ,outTap,LV,applyCh,sirHold,smpCue,smpOut,rowAud,smpSeq2,sSeq,R_SMP2,smp2Ui,WV,wvSet,drawWave,rowOn,vinFx,latOut,vNow,calCalc,SCH,seqN,chdSeq,LIVE_:()=>LIVE,setBpm,pageUi,noteOpen,renderPalette,ROWS,R_VIN,swOff,get gT(){return gT;},orgWave,DHIT,lesToggle};
+window.GB={smpMode,smpCopy,smpSrc,SCP:()=>SCP,padsPack,IDB,libSave,libOpen,libList,libLive,smpPack,smpUnpack,SMPR,drumRe,dkE,renderDrum,KH:()=>KH,LV,wavEncode,xyApply,LIVE,drawSiren:()=>drawSiren(),TILT,partCopy,LEN,RM,RS,ringSel,rowTool,viz:{drawScope:()=>drawScope(),drawVoice:()=>drawVoice(),drawXY:()=>drawXY(),drawBus:()=>drawBus(),drawRing:()=>drawRing()},newSession,KB:()=>KB,SYNP,sdSend:(i,v)=>{CH[i].dst=v;applyCh(i);},anM:()=>anM,shareSes,PARTS,partGo,partSwitch,partBar,drumPreset,KITS,DPRE,trig,sd,PERF,S,CH,FXP,SMPL,pat,smpSeq,chdGate,snapshot,applySnapshot,loadSession,smpDemo,chopPlay,smpSet,smpEncode,smpDecode,get ctx(){return ctx;},get lim(){return lim;},get CAP(){return CAP;},recWrite,takeUndo,doUndo,bus,extractText,setSteps,get STEPS(){return STEPS;},vinPlay,vinVoice,VINP,vinN,vinG,vinRec,vinGate,VL,vinMig,XYR,xyRec,xyAuto,xyPlay,XYQ,synG,synGate,chordPlay,DV,CHG,queueSave,drvAuto,drvSaveOrig,drvRecent,drvSetF,foldSearch,liveUp,drvMode,drvLive,sesBase,fMode,BK,lbSet,lbPerm,sesSave,sesRecent,sesLoad,migUi,APPV,LBR,libJson,smpQ,smpAutoQ,smpStretch,smpPrep,wsola,smpLen,SQ,seqLit,LIT,mfxOn,mfxOff,restartAudio,NSP,chopD,smpEqual,smpTransients,chainUnplug,chainUnplugAll,CFS,CFO,patchSelUi,killAll,XYH,XY,PRV,drumPlay,setDelayTime,applyFx,PATCHPRE,PATCHPRE2,outCycle,outPath,outClean,applyOut,CHS,CHO,patchCycle,patchClean,applyPatch,patchLevel,fxAct,fxLevel,PCH,FXP,DJV,DJXY,SIR,sirHolds,fxv:()=>({pdt:pdly?pdly.delayTime.value:0,dt:dly.delayTime.value,mDly:mDly.gain.value,dfb:pdfb.gain.value,sdfb:dfb.gain.value,fltF:fltM.frequency.value,fltQ:fltM.Q.value,mRev:mRev.gain.value}),SCR,scrOffNow,scrDown,scrMove,scrUp,scrQ,outTap,LV,applyCh,sirHold,smpCue,smpOut,rowAud,smpSeq2,sSeq,R_SMP2,smp2Ui,WV,wvSet,drawWave,rowOn,vinFx,latOut,vNow,calCalc,SCH,seqN,chdSeq,LIVE_:()=>LIVE,setBpm,pageUi,noteOpen,renderPalette,ROWS,R_VIN,swOff,get gT(){return gT;},orgWave,DHIT,lesToggle};
 </script>
 <script>
 /* app instalable: guarda la app en el teléfono para abrir sin internet y se actualiza sola */

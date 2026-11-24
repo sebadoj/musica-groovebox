@@ -1414,6 +1414,18 @@ function rowTool(t){
 })();
 /* DJ: DELAY · FILTER · REVERB (los mismos efectos del pad de FX). Mantener = efecto prendido; mover el dedo = pad XY; soltar = apagado */
 const DJFX=[['DLY','DELAY'],['FLT','FILTER'],['REV','REVERB']],DJXY={},DJR=230;   // DJR: px que recorre el pad virtual de punta a punta
+/* KILL: apaga todo — para el tema, suelta todo lo trabado (pad, DJ, sirena, scratch, sampler) y reinicia el audio para cortar las colas */
+function killAll(){
+  try{if(S.playing)stop();}catch(e){}
+  for(const t in XYH){const H=XYH[t];if(H.on){try{mfxOff(t);}catch(e){}H.on=false;}}XY.on=false;S.hold=false;
+  try{$('#bHold').classList.remove('on');if(window.heldUi)heldUi();if(window.paintXY)paintXY();}catch(e){}
+  try{djFxOff();}catch(e){}
+  try{SMPL.voice.forEach(v=>{try{v&&v.stop();}catch(e){}});}catch(e){}
+  try{if(ctx)restartAudio();}catch(e){}
+  try{['#bSir','#bLatch','#sirPad'].forEach(s=>{const el=$(s);if(el)el.classList.remove('on','dn');});}catch(e){}
+  try{$('#clipLed').classList.remove('on');}catch(e){}
+  dirty=true;toast('KILL · todo apagado');}
+$('#bKill').onclick=killAll;
 function djFxOff(){Object.keys(DJXY).forEach(t=>{const o=DJXY[t];if(o){mfxOff(t);o.el.classList.remove('dn');}delete DJXY[t];});}
 (function buildDjFx(){const box=document.createElement('div');box.id='djFx';$('#ringPanel').appendChild(box);
   DJFX.forEach(([t,n])=>{const b=document.createElement('button');b.className='cap djfx';b.dataset.t=t;b.style.setProperty('--c',FXC[t]);
