@@ -20,8 +20,9 @@ La app publicada (`../index.html`) es un solo HTML armado desde estas fuentes.
   - `t38`: sampler PADS
   - `t1q`: regresión general
   - `t43`: v13.16 — sampler con SYNC al tempo (REPITCH / ESTIRAR con WSOLA en un worker) y SPEED; luces del secuenciador en TECLAS y SMP
-  - `t44`: v13.20 — zoom por pellizco en la onda, AUTO CUE, SAMPLER 2 (canal en el mixer, renglón SMP 2, SALIDA por chop/pad)
-  - `t45`: v13.20 — SCRATCH con el bailarín (v13.20: AudioWorklet por canal ANTES de los efectos, la SIRENA queda afuera, últimos 10 s; pausa y retoma el secuenciador)
+  - `t44`: v13.21 — zoom por pellizco en la onda, AUTO CUE, SAMPLER 2 (canal en el mixer, renglón SMP 2, SALIDA por chop/pad)
+  - `t45`: v13.21 — SCRATCH con el bailarín (v13.21: AudioWorklet por canal ANTES de los efectos, la SIRENA queda afuera, últimos 10 s; pausa y retoma el secuenciador)
+  - `t46`: v13.21 — modo DJ: el anillo del secuenciador como plato (aguja arriba, gira horario, tocar frena, girar scratchea)
   - `t42`: v13.15 — carpeta del TELÉFONO en la app instalada (File System Access, probado con OPFS) y versión en el menú
   - `t41`: v13.14 — sesiones en una carpeta de Drive (Drive simulado): GUARDAR, ÚLTIMAS 5, autoguardado _AS_, tomas a TOMAS
   - `t40`: v13.13 — movimiento sobre la tecla grabado en el secuenciador, GATE de SYN
@@ -30,9 +31,9 @@ La app publicada (`../index.html`) es un solo HTML armado desde estas fuentes.
 ## Publicar una versión
 ```bash
 cd src
-python3 build.py 13.20          # arma el HTML
-for t in t37 t38 t1q t39 t40 t41 t42 t43 t44 t45; do V=13.20 node tests/$t.js; done   # pruebas (necesitan playwright + /usr/bin/google-chrome)
-python3 mkpwa.py 13.20          # actualiza ../index.html y ../sw.js
+python3 build.py 13.21          # arma el HTML
+for t in t37 t38 t1q t39 t40 t41 t42 t43 t44 t45 t46; do V=13.21 node tests/$t.js; done   # pruebas (necesitan playwright + /usr/bin/google-chrome)
+python3 mkpwa.py 13.21          # actualiza ../index.html y ../sw.js
 cd .. && git add -A && git commit -m "v13.11: …" && git push
 ```
 GitHub Pages publica en 1–2 minutos. La app instalada se actualiza la próxima vez que se abre con internet.

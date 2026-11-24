@@ -1,7 +1,7 @@
 <script>
 'use strict';
 /* =====================================================================
-   MUSICA GROOVEBOX — versión celular v13.20 (20261123)
+   MUSICA GROOVEBOX — versión celular v13.21 (20261123)
    Un solo archivo, sin librerías, Web Audio.
    16/32 pasos · 2 synths · VINTAGE (órgano, piano eléctrico, analógico, clavinet, cuerdas) · acordes (4 presets + GATE) · 8 drums · SAMPLER (chop en 4 teclas)
    · mixer 6 canales + master (pan, 3 envíos, medidores) · buses FX (delay/reverb/mod/master)
@@ -786,7 +786,7 @@ const SCR_SRC=`class GbScratch extends AudioWorkletProcessor{
     for(let k=0;k<n;k++){
       if(this.mode===1){if(this.brake){this.v*=this.kB;if(this.v<.004){this.v=0;this.brake=false;this.tg=this.ph;this.gp=this.ph;}}
         else{const want=Math.max(-6,Math.min(6,(this.tg-this.ph)/(this.sr*.01)));this.v+=(want-this.v)*this.kV;}}
-      else{this.v+=(1-this.v)*this.kU;if(!this.sent&&this.v>.985){this.sent=true;this.port.postMessage({t:'end',T:currentTime+(k+(this.endF-this.ph)/this.v)/this.sr});}}
+      else{this.v+=(1-this.v)*this.kU;if(!this.sent&&this.v>.985&&(this.endF-this.ph)/this.v<this.sr*.25){this.sent=true;this.port.postMessage({t:'end',T:currentTime+(k+(this.endF-this.ph)/this.v)/this.sr});}}
       this.ph+=this.v;if(this.ph>this.endF){this.ph=this.endF;if(this.mode===1)this.v=0;}if(this.ph<lo){this.ph=lo;this.v=0;}
       const gt=this.mode===2?1:Math.min(1,Math.abs(this.v)*4);this.g+=(gt-this.g)*this.kG;P[k]=this.ph;Gk[k]=this.g;A[k]=1;
       if(this.mode===2){const rem=this.endF-this.ph;if(rem<this.FX)A[k]=Math.max(0,rem/this.FX);
@@ -799,7 +799,7 @@ const SCR_SRC=`class GbScratch extends AudioWorkletProcessor{
     return true;}}
 registerProcessor('gb-scratch',GbScratch);`;
 const scrSkip=i=>CH[i].s==='SIREN';   // la SIRENA no se frena: va derecho a su fader y a los efectos
-const SCR={node:null,ch:[],err:null,held:false,landing:false,paused:false,Tf:0,off:0,last:null,st:null};
+const SCR={node:null,ch:[],commit:false,g0:0,tUp:0,offUp:0,err:null,held:false,landing:false,paused:false,Tf:0,off:0,last:null,st:null};
 function scrInit(){if(SCR.node||SCR._ld||!ctx||!ctx.audioWorklet){if(ctx&&!ctx.audioWorklet)SCR.err='sin AudioWorklet';return;}SCR._ld=true;
   const add=u=>ctx.audioWorklet.addModule(u);   // blob (https) y, si no deja (archivo local), data:
   add(URL.createObjectURL(new Blob([SCR_SRC],{type:'application/javascript'}))).catch(()=>add('data:text/javascript;charset=utf-8,'+encodeURIComponent(SCR_SRC))).then(()=>{const SB=bus.map((b,i)=>i).filter(i=>!scrSkip(i)),NB=SB.length,nd=new AudioWorkletNode(ctx,'gb-scratch',{numberOfInputs:NB,numberOfOutputs:NB,outputChannelCount:Array(NB).fill(2),channelCount:2,channelCountMode:'explicit'});   // va ANTES de los efectos: entre la entrada de cada canal y su fader
@@ -807,16 +807,18 @@ function scrInit(){if(SCR.node||SCR._ld||!ctx||!ctx.audioWorklet){if(ctx&&!ctx.a
     SB.forEach((i,k)=>{const b=bus[i];try{b.inp.disconnect(b.vol);}catch(e){}b.inp.connect(nd,0,k);nd.connect(b.vol,k,0);});SCR.node=nd;SCR.ch=SB;}).catch(e=>{SCR.err=String(e&&e.message||e);});}
 const outTap=()=>clampSh;   // lo que sale por el parlante (incluye el scratch y sus efectos)
 const scrQ=()=>new Promise(r=>{if(!SCR.node)return r(null);SCR._q=r;SCR.node.port.postMessage({t:'q'});});
-function scrDown(){if(!SCR.node||SCR.landing)return false;SCR.held=true;SCR.off=0;
+const scrOffNow=()=>SCR.held?Math.min(0,SCR.g0+SCR.off):SCR.landing?Math.min(0,SCR.offUp+Math.max(0,ctx.currentTime-SCR.tUp-.03)):0;   // −30 ms: lo que tarda en arrancar   // cuánto atrás del punto de frenado está la púa (s, ≤0)
+function scrDown(){if(!SCR.node||SCR.commit)return false;SCR.g0=SCR.landing?scrOffNow():0;SCR.landing=false;SCR.held=true;SCR.off=0;
   if(!SCR.paused){SCR.Tf=ctx.currentTime;if(S.playing&&sched){clearInterval(sched);sched=null;SCR.paused=true;const tn=ctx.currentTime;qq=qq.filter(e=>e.t<=tn);}}
   SCR.node.port.postMessage({t:'down'});return true;}
 function scrMove(sec){if(!SCR.held||!SCR.node)return;SCR.off=sec;SCR.node.port.postMessage({t:'mv',d:sec});}
-function scrUp(){if(!SCR.held)return;SCR.held=false;SCR.landing=true;SCR.node.port.postMessage({t:'up'});}
-function scrResume(T){SCR.landing=false;SCR.off=0;if(!SCR.paused)return;SCR.paused=false;if(!S.playing||sched)return;
+function scrUp(){if(!SCR.held)return;SCR.offUp=Math.min(0,SCR.g0+SCR.off);SCR.tUp=ctx.currentTime;SCR.held=false;SCR.landing=true;SCR.node.port.postMessage({t:'up'});}
+function scrResume(T){SCR.commit=true;setTimeout(()=>{SCR.landing=false;SCR.commit=false;SCR.off=0;SCR.g0=0;},Math.max(0,(T-ctx.currentTime)*1000));   // la púa llega al punto de frenado en T
+  if(!SCR.paused)return;SCR.paused=false;if(!S.playing||sched)return;
   const Tf=SCR.Tf,t0=Math.max(T,ctx.currentTime+.03),k=SCH.findIndex(e=>e.t>=Tf-1e-4);
   if(k>=0){const e=SCH[k];stepI=e.s;gT=e.g;nextT=t0+(e.t-Tf);SCH.length=k;}else nextT=t0+Math.max(0,nextT-Tf);
   qq=qq.filter(e=>e.t<Tf);SCR.last={Tf,T,t0,s:stepI,g:gT,nt:nextT};sched=setInterval(tick,40);tick();dirty=true;}
-function scrCancel(){if(SCR.held||SCR.landing){SCR.held=false;SCR.landing=true;try{SCR.node.port.postMessage({t:'up'});}catch(e){}}SCR.paused=false;}
+function scrCancel(){if(SCR.held||SCR.landing){if(SCR.held){SCR.offUp=Math.min(0,SCR.g0+SCR.off);SCR.tUp=ctx.currentTime;}SCR.held=false;SCR.landing=true;try{SCR.node.port.postMessage({t:'up'});}catch(e){}}SCR.paused=false;}
 function updateCur(){if(!ctx)return;const tn=vNow();while(qq.length&&qq[0].t<=tn){if(S.cur!==qq[0].s)dirty=true;S.cur=qq[0].s;S.g=qq[0].g;lastStepT=qq[0].t;qq.shift();}}
 
 /* ---------------- partes (A B C D): cada parte guarda su propio patrón completo ---------------- */

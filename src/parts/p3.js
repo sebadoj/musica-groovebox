@@ -1190,7 +1190,7 @@ const SCR_PX=.005;   // segundos de audio por píxel de arrastre
   scopeCv.addEventListener('pointerdown',e=>{const r=scopeCv.getBoundingClientRect();if(e.clientX-r.left>62)return;e.preventDefault();initAudio();
     if(!ctx)return;if(!SCR.node){toast(SCR.err?'SCRATCH NO DISPONIBLE ('+SCR.err+')':'SCRATCH: preparando el audio, probá de nuevo');return;}
     if(!scrDown())return;id=e.pointerId;y0=e.clientY;try{scopeCv.setPointerCapture(id);}catch(x){}});
-  scopeCv.addEventListener('pointermove',e=>{if(e.pointerId!==id)return;scrMove((y0-e.clientY)*SCR_PX);});
+  scopeCv.addEventListener('pointermove',e=>{if(e.pointerId!==id)return;let s=(y0-e.clientY)*SCR_PX;const mx=.05-SCR.g0,mn=-9.9-SCR.g0;if(s>mx){y0=e.clientY+mx/SCR_PX;s=mx;}if(s<mn){y0=e.clientY-mn/SCR_PX;s=mn;}scrMove(s);});
   const up=e=>{if(e.pointerId!==id)return;id=null;scrUp();};
   scopeCv.addEventListener('pointerup',up);scopeCv.addEventListener('pointercancel',up);})();
 
@@ -1200,7 +1200,7 @@ function drawIso(c,cx,by,h,rot,sx,sy,col){c.save();c.translate(cx,by);c.rotate(r
 function drawDancer(c,x0,W,H,d){
   const t=performance.now()/1000,lvl=clamp(((MH.pk>-89?MH.pk:-60)+42)/40,0,1);
   let rot,sx=1,sy=1,yo=0,col='#e8e5de';
-  if(SCR.held||SCR.landing){rot=clamp(SCR.off,-2,2)*2.2;col='#ff9440';sy=1+Math.max(-.2,Math.min(.15,SCR.off*.3));yo=-clamp(SCR.off,-1.5,1.5)*H*.06;}
+  if(SCR.held||SCR.landing){const so=scrOffNow();rot=clamp(so,-2,2)*2.2;col='#ff9440';sy=1+Math.max(-.2,Math.min(.15,so*.3));yo=-clamp(so,-1.5,1.5)*H*.06;}
   else if(S.playing&&S.cur>=0&&ctx){
     const pos=S.cur+clamp((vNow()-lastStepT)/sd(),0,.999),bp=(pos/4)%1,bi=Math.floor(pos/4),hop=Math.sin(Math.PI*bp);
     yo=-hop*H*(.07+.1*lvl);rot=(bi%2?1:-1)*hop*(.14+.18*lvl);
@@ -1241,7 +1241,7 @@ function drawScope(){
 }
 
 /* --- SEQ: vista ANILLO (v13) — pistas = anillos concéntricos, la elegida se agranda; el centro elige la pista --- */
-const ringCv=$('#ring'),RRAD=[],RTHK=[],RTW=[];
+const ringCv=$('#ring'),RRAD=[],RTHK=[],RTW=[],DJV={base:null,pos:0,rot:0};let RIN=0;
 try{const v=localStorage.getItem('musica_gb_ring');S.ring=v===null?true:v==='1';}catch(e){S.ring=true;}
 const RDENS=[.32,.18,.55,.12,.15,.2,.3,.25,.35,.3,.18,.25,.2,.12,.1,.08,.08,.25];
 const rowHits=r=>{let n=0;for(let s=0;s<LEN[r];s++)n+=pat[r][s];return n;};
@@ -1286,20 +1286,33 @@ function rowTool(t){
   let pv=null,lastS=-1,down=false;
   const geo=e=>{const b=ringCv.getBoundingClientRect(),d=ringCv.width/b.width,x=(e.clientX-b.left)*d-ringCv.width/2,y=(e.clientY-b.top)*d-ringCv.height/2;let a=Math.atan2(x,-y)/(2*Math.PI);if(a<0)a+=1;return {a,rad:Math.hypot(x,y)};};
   const ringAt=rad=>{let best=-1,bd=1e9;for(let i=0;i<NR;i++){const dd=Math.abs(rad-RRAD[i]);if(dd<=RTW[i]/2+3&&dd<bd){bd=dd;best=i;}}return best;};
-  ringCv.addEventListener('pointerdown',e=>{const g=geo(e),k=ringAt(g.rad);if(k<0)return;e.preventDefault();initAudio();
+  let dj=null;   // modo DJ: {id,a,turns}
+  ringCv.addEventListener('pointerdown',e=>{if(S.dj){const g=geo(e);if(g.rad<RIN*.6)return;e.preventDefault();initAudio();if(!ctx)return;
+      if(!SCR.node){toast(SCR.err?'DJ NO DISPONIBLE ('+SCR.err+')':'DJ: preparando el audio, probá de nuevo');return;}
+      if(!scrDown())return;dj={id:e.pointerId,a:g.a,turns:0};try{ringCv.setPointerCapture(e.pointerId);}catch(x){}return;}
+    const g=geo(e),k=ringAt(g.rad);if(k<0)return;e.preventDefault();initAudio();
     if(k!==S.sel.r){ringSel(k);return;}
     const st=Math.floor(g.a*LEN[k])%LEN[k];lastS=st;down=true;try{ringCv.setPointerCapture(e.pointerId);}catch(x){}
     if(ROWS[k].t==='drum'){pv=pat[k][st]?0:1;pat[k][st]=pv;S.sel={r:k,s:st};if(pv&&ctx)drumPlay(k,ctx.currentTime+.005,.9);}else{pv=null;down=false;stepTap(k,st);}
     dirty=true;renderPalette();ringUi();queueSave();
     if(ROWS[k].t!=='drum'&&pat[k][st])noteOpen(true);});
-  ringCv.addEventListener('pointermove',e=>{if(!down||pv===null)return;const r=S.sel.r,g=geo(e),st=Math.floor(g.a*LEN[r])%LEN[r];if(st===lastS)return;lastS=st;if(pat[r][st]!==pv){pat[r][st]=pv;S.sel={r,s:st};dirty=true;queueSave();}});
-  const end=()=>{if(down)ringUi();down=false;pv=null;};ringCv.addEventListener('pointerup',end);ringCv.addEventListener('pointercancel',end);
+  ringCv.addEventListener('pointermove',e=>{if(dj&&e.pointerId===dj.id){const g=geo(e);let da=g.a-dj.a;if(da>.5)da-=1;if(da<-.5)da+=1;dj.a=g.a;const T=STEPS*sd();dj.turns=clamp(dj.turns+da,(-9.9-SCR.g0)/T,(.05-SCR.g0)/T);scrMove(dj.turns*T);return;}   // tope: no se empuja más allá del punto donde frenó   // horario = adelanta: una vuelta = todo el secuenciador
+    if(!down||pv===null)return;const r=S.sel.r,g=geo(e),st=Math.floor(g.a*LEN[r])%LEN[r];if(st===lastS)return;lastS=st;if(pat[r][st]!==pv){pat[r][st]=pv;S.sel={r,s:st};dirty=true;queueSave();}});
+  const end=e=>{if(dj&&e&&e.pointerId===dj.id){dj=null;scrUp();return;}if(down)ringUi();down=false;pv=null;};ringCv.addEventListener('pointerup',end);ringCv.addEventListener('pointercancel',end);
+  $('#rDJ').onclick=()=>{S.dj=!S.dj;try{localStorage.setItem('musica_gb_dj',S.dj?'1':'');}catch(x){}$('#rDJ').classList.toggle('on',S.dj);$('#ringWrap').classList.toggle('dj',S.dj);
+    $('#rNote').classList.remove('on');$('#rPicker').classList.remove('on');dirty=true;toast(S.dj?'DJ · el anillo es el plato: tocá para frenar, girá para scratchear, soltá y sigue':'DJ APAGADO · el anillo vuelve a editar pasos');};
+  try{if(localStorage.getItem('musica_gb_dj')){S.dj=true;$('#rDJ').classList.add('on');$('#ringWrap').classList.add('dj');}}catch(x){}
 })();
 function drawRing(){
   const wrap=$('#ringWrap'),wr=wrap.getBoundingClientRect(),sz=Math.max(60,Math.floor(Math.min(wr.width,wr.height)));
   if(ringCv.style.width!==sz+'px'){ringCv.style.width=sz+'px';ringCv.style.height=sz+'px';}
-  const {c,W,H,d}=cvFit(ringCv),cx=W/2,cy=H/2,R=W/2-2*d,TAU=Math.PI*2,ang=(s,L)=>s/L*TAU-Math.PI/2;
+  {const b=$('#rDJ'),l=Math.round((wr.width-sz)/2+2)+'px',bt=Math.round((wr.height-sz)/2+2)+'px';if(b.style.left!==l)b.style.left=l;if(b.style.bottom!==bt)b.style.bottom=bt;}
   const now=ctx?vNow():0,frac=S.playing&&S.cur>=0&&ctx?clamp((now-lastStepT)/sd(),0,.999):0,fl=S.playing&&ctx?Math.max(0,1-(now-lastStepT)/.28):0;
+  /* MODO DJ: el anillo es un vinilo que gira (horario) bajo la aguja fija arriba; lo que viene llega desde la izquierda */
+  const DJM=!!S.dj;let djPos=S.playing&&S.cur>=0?S.cur+frac:0;
+  if(SCR.held||SCR.landing){if(DJV.base==null)DJV.base=DJV.pos;djPos=DJV.base+scrOffNow()/sd();}else DJV.base=null;
+  DJV.pos=djPos;DJV.rot=DJM?djPos/STEPS:0;
+  const {c,W,H,d}=cvFit(ringCv),cx=W/2,cy=H/2,R=W/2-2*d,TAU=Math.PI*2,ang=DJM?(s,L)=>-(s/L)*TAU+djPos/STEPS*TAU-Math.PI/2:(s,L)=>s/L*TAU-Math.PI/2;
   /* ojo de pez */
   const rOut=R*.995,rIn=R*.47,band=rOut-rIn,sel=S.sel.r;
   for(let i=0;i<NR;i++){const dd=Math.abs(i-sel),tgt=!rowOn(i)?0:dd===0?5.2:dd===1?2:1;RTHK[i]=RTHK[i]==null?tgt:RTHK[i]+(tgt-RTHK[i])*.25;}
@@ -1307,7 +1320,7 @@ function drawRing(){
   const anySolo=RS.some(Boolean);c.lineCap='butt';
   for(let r=0;r<NR;r++){if(!rowOn(r))continue;const L=LEN[r],rad=RRAD[r],th=RTW[r],isSel=r===sel,col=ROWS[r].c,dim=RM[r]||(anySolo&&!RS[r]);
     const ps=S.playing&&S.cur>=0?(L>=STEPS?S.cur:(S.g||0)%L):-1,lw=Math.max(1.2*d,th*(isSel?.72:.62)),gap=Math.min(.06,.9/L*.12+.012);
-    for(let s=0;s<L;s++){const on=pat[r][s],a0=ang(s,L)+gap,a1=ang(s+1,L)-gap;
+    for(let s=0;s<L;s++){const on=pat[r][s],A0=ang(s,L),A1=ang(s+1,L),a0=Math.min(A0,A1)+gap,a1=Math.max(A0,A1)-gap;
       if(on)c.strokeStyle=s===ps&&fl>0?hexA('#ffffff',.55+fl*.45):hexA(col,dim?.22:isSel?1:.8);
       else c.strokeStyle=isSel?'rgba(232,229,222,.2)':(s%4===0&&L===STEPS?'rgba(232,229,222,.09)':'rgba(232,229,222,.05)');
       c.lineWidth=lw;c.beginPath();c.arc(cx,cy,rad,a0,a1);c.stroke();
@@ -1315,7 +1328,7 @@ function drawRing(){
       if(s===ps){c.strokeStyle='rgba(255,255,255,.8)';c.lineWidth=Math.max(1,.9*d);c.beginPath();c.arc(cx,cy,rad+lw/2+1.2*d,a0,a1);c.stroke();}
       if(isSel&&s===S.sel.s&&$('#rNote').classList.contains('on')){c.strokeStyle='#ff9440';c.lineWidth=1.4*d;c.beginPath();c.arc(cx,cy,rad-lw/2-1.6*d,a0,a1);c.stroke();}}
     if(ROWS[r].t==='vin'||ROWS[r].t==='syn'){const GG=ROWS[r].t==='vin'?vinG[ROWS[r].k]:synG[ROWS[r].k];c.strokeStyle=hexA(col,dim?.12:.45);c.lineWidth=Math.max(d,lw*.3);   // GATE: arco mientras la nota sigue sonando
-      for(let s=0;s<L;s++)if(pat[r][s]){const g=Math.min(GG[s]||1,L);if(g>1){c.beginPath();c.arc(cx,cy,rad,ang(s+1,L)-gap,ang(s+g,L)-gap);c.stroke();}}}
+      for(let s=0;s<L;s++)if(pat[r][s]){const g=Math.min(GG[s]||1,L);if(g>1){const u=ang(s+1,L),v=ang(s+g,L);c.beginPath();if(DJM)c.arc(cx,cy,rad,v+gap,u+gap);else c.arc(cx,cy,rad,u-gap,v-gap);c.stroke();}}}
     if(isSel){c.strokeStyle='rgba(255,148,64,.75)';c.lineWidth=1.2*d;c.beginPath();c.arc(cx,cy,rad+th/2,0,TAU);c.stroke();c.beginPath();c.arc(cx,cy,Math.max(1,rad-th/2),0,TAU);c.stroke();
       if(th>15*d){const RT=ROWS[r],segW=rad*TAU/L-4*d;c.textAlign='center';c.textBaseline='middle';
         for(let s=0;s<L;s++)if(pat[r][s]){const a=(ang(s,L)+ang(s+1,L))/2;
@@ -1324,7 +1337,11 @@ function drawRing(){
           while(fs>6&&c.measureText(tx).width>segW){fs-=.5;c.font=UIF(fs,d,600);}
           c.fillStyle=RT.t==='drum'?'rgba(20,20,20,.78)':'rgba(12,12,12,.92)';c.fillText(tx,cx+Math.cos(a)*rad,cy+Math.sin(a)*rad);}}}}
   c.strokeStyle='rgba(232,229,222,.14)';c.lineWidth=d;c.beginPath();c.arc(cx,cy,rIn-2*d,0,TAU);c.stroke();
-  if(S.playing&&S.cur>=0){const a=(S.cur+frac)/STEPS*TAU-Math.PI/2;c.strokeStyle='rgba(232,229,222,.3)';c.lineWidth=d;c.beginPath();c.moveTo(cx+Math.cos(a)*rIn,cy+Math.sin(a)*rIn);c.lineTo(cx+Math.cos(a)*R,cy+Math.sin(a)*R);c.stroke();}
+  RIN=rIn;
+  if(DJM){const a=-Math.PI/2,hot=SCR.held||SCR.landing;c.strokeStyle=hot?'#ff9440':'rgba(255,148,64,.7)';c.lineWidth=(hot?2.2:1.4)*d;c.beginPath();c.moveTo(cx,cy-rIn+2*d);c.lineTo(cx,cy-R);c.stroke();   // aguja
+    c.fillStyle=c.strokeStyle;c.beginPath();c.moveTo(cx-5*d,cy-R-1*d);c.lineTo(cx+5*d,cy-R-1*d);c.lineTo(cx,cy-R+6*d);c.closePath();c.fill();
+    c.strokeStyle='rgba(232,229,222,.06)';c.lineWidth=d;for(let k=1;k<4;k++){c.beginPath();c.arc(cx,cy,rIn-2*d-k*4*d,0,TAU);c.stroke();}}   // surcos del label
+  else if(S.playing&&S.cur>=0){const a=(S.cur+frac)/STEPS*TAU-Math.PI/2;c.strokeStyle='rgba(232,229,222,.3)';c.lineWidth=d;c.beginPath();c.moveTo(cx+Math.cos(a)*rIn,cy+Math.sin(a)*rIn);c.lineTo(cx+Math.cos(a)*R,cy+Math.sin(a)*R);c.stroke();}
   /* el centro se escala al hueco disponible */
   const k=clamp((rIn/d*2-8)/176,.5,1).toFixed(3),ce=$('#rCenter');if(ce._k!==k){ce._k=k;ce.style.transform='translate(-50%,-50%) scale('+k+')';}
 }

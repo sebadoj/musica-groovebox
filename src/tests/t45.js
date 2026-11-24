@@ -47,9 +47,10 @@ const viaBus=await p.evaluate(()=>window.__vb);
 ok(viaBus>.003,'el scratch entra por el fader del canal → pasa por sus envíos y efectos (RMS '+viaBus.toFixed(3)+')');
 /* subir más allá del punto de frenado: no puede ir al futuro */
 await pe('pointermove',20,-300);await W(300);q=await st();ok(q.ph<=q.endF+1e-6&&q.endF-q.ph<q.sr*.01,'subir de más: se queda en el punto donde frenó (no hay futuro grabado)');
-/* volver a atrasar 0,5 s y soltar */
-for(let k=1;k<=10;k++){await pe('pointermove',20,25+10*k);await W(15);}await W(250);
-const tUp=await p.evaluate(()=>GB.ctx.currentTime);await pe('pointerup',20,125);
+/* volver a atrasar ~0,55 s desde el tope (la púa sigue al dedo, sin zona muerta) y soltar */
+for(let k=1;k<=12;k++){await pe('pointermove',20,-300+10*k);await W(15);}await W(250);
+q=await st();ok(Math.abs((q.endF-q.ph)/q.sr-.565)<.04,'después del tope, bajar 120 px atrasa ~0,55 s sin zona muerta ('+((q.endF-q.ph)/q.sr).toFixed(3)+' s)');
+const tUp=await p.evaluate(()=>GB.ctx.currentTime);await pe('pointerup',20,-180);
 r=await p.evaluate(()=>({l:GB.SCR.landing,h:GB.SCR.held}));ok(r.l&&!r.h,'soltar: arranca a velocidad normal');
 await W(150);q=await st();ok(q.mode===2&&q.v>.95,'a los 150 ms ya va a velocidad normal ('+q.v.toFixed(3)+')');
 const rep=await p.evaluate(async()=>{let m=0;for(let i=0;i<8;i++){m=Math.max(m,window.__rms());await new Promise(r=>setTimeout(r,25));}return m;});

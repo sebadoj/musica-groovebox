@@ -442,6 +442,8 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
 #v-seq.ringon #ringWrap{display:flex;flex:1;min-height:0;align-items:center;justify-content:center;position:relative}
 #v-seq.ringon #ringPanel{display:flex;flex-direction:column;gap:6px;flex:none;background:var(--panel);box-shadow:inset 0 0 0 1px var(--line);border-radius:16px;padding:8px}
 #ring{display:block;touch-action:none}
+#rDJ{position:absolute;left:4px;bottom:4px;z-index:3;min-width:42px;height:30px;padding:0 10px;font:700 11px var(--ui);letter-spacing:.16em;border-radius:15px}
+#rDJ.on{background:#ff9440;color:#141414;box-shadow:0 0 0 1px #ff9440,0 0 14px rgba(255,148,64,.45)}
 #rCenter{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:2px;transform-origin:center}
 #rCenter .lbl{font:400 8px var(--ui);letter-spacing:.26em;color:var(--dim)}
 #rCenter .pick{display:flex;align-items:center;gap:2px}
@@ -570,6 +572,7 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
         <span class="meta" id="rcMeta"></span></div>
       <div id="rPicker"><div class="box" id="rPickBox"></div></div>
       <div id="rNote"><div class="nbox" id="rNoteBox"></div></div>
+      <button id="rDJ" class="cap" aria-label="Modo DJ: el anillo funciona como un plato">DJ</button>
     </div>
     <div id="ringPanel">
       <div class="r6" id="rTools"><button class="cap" data-t="rnd">AZAR</button><button class="cap" data-t="all">LLENAR</button><button class="cap" data-t="clr">VACIAR</button><button class="cap icon" data-t="shl" aria-label="Correr a la izquierda">←</button><button class="cap icon" data-t="shr" aria-label="Correr a la derecha">→</button><button class="cap icon" data-t="flp" aria-label="Invertir">⇄</button></div>
