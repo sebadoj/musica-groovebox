@@ -341,6 +341,11 @@ select option{background:#2a2926}
 #xyc{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 #xy .xl,#xy .yl{font:400 9px var(--ui);letter-spacing:.18em;color:var(--dim);z-index:1}
 #busc{display:block;width:100%;height:110px;margin-bottom:8px;background:rgba(0,0,0,.18);border:1px solid var(--line);border-radius:14px}
+#patchCv{display:block;width:100%;height:330px;margin:4px 0 6px;background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:14px;touch-action:none}
+.busbox.chain #patchSel{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.busbox.chain .psh{font:400 10px var(--ui);letter-spacing:.08em;color:var(--dim)}
+.busbox.chain .psh b{font-weight:700;letter-spacing:.14em}
+#fxMode button{font-size:10px;letter-spacing:.04em;padding:0 2px}
 #sirPad{background:transparent;border:1.5px solid rgba(255,90,138,.6);color:#ff8aa5;font:300 20px var(--ui);letter-spacing:.32em;border-radius:22px}
 #sirPad small{font:400 10px var(--ui);color:#a85b72;letter-spacing:.06em}
 #sirPad.dn{background:#3a1822;color:#fff}
@@ -536,6 +541,19 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
 .strip .sends .mini:first-child .sl.h.knob{width:34px;height:34px!important;background:radial-gradient(circle,transparent 3.6px,rgba(232,229,222,.6) 4px,rgba(232,229,222,.6) 5.4px,transparent 5.8px)}
 .strip .sends .mini:first-child .sl.h.knob::after{-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3.6px));mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3.6px))}
 .strip.mst .mini b{font-size:13px}
+/* v13.23: en el mixer DLY y REV son las perillas grandes (una por fila); MOD · DST chicas; PAN chica abajo */
+.strip .sends{flex-basis:150px}
+.strip:not(.mst) .sends .mini:nth-child(2){order:1;grid-column:1/3}
+.strip:not(.mst) .sends .mini:nth-child(3){order:2;grid-column:1/3}
+.strip:not(.mst) .sends .mini:nth-child(4){order:3}
+.strip:not(.mst) .sends .mini:nth-child(5){order:4}
+.strip:not(.mst) .sends .mini:first-child{order:9;grid-column:1/3}
+.strip:not(.mst) .sends .mini .sl.h.knob{width:22px;height:22px!important;background:radial-gradient(circle,transparent 2.6px,rgba(232,229,222,.6) 3px,rgba(232,229,222,.6) 4px,transparent 4.4px)}
+.strip:not(.mst) .sends .mini .sl.h.knob::after{-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2.6px));mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2.6px))}
+.strip:not(.mst) .sends .mini:nth-child(2) .sl.h.knob,.strip:not(.mst) .sends .mini:nth-child(3) .sl.h.knob{width:32px;height:32px!important;background:radial-gradient(circle,transparent 3.6px,rgba(232,229,222,.6) 4px,rgba(232,229,222,.6) 5.4px,transparent 5.8px)}
+.strip:not(.mst) .sends .mini:nth-child(2) .sl.h.knob::after,.strip:not(.mst) .sends .mini:nth-child(3) .sl.h.knob::after{-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3.6px));mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3.6px))}
+#strips.n9 .strip:not(.mst) .sends .mini .sl.h.knob{width:18px;height:18px!important}
+#strips.n9 .strip:not(.mst) .sends .mini:nth-child(2) .sl.h.knob,#strips.n9 .strip:not(.mst) .sends .mini:nth-child(3) .sl.h.knob{width:27px;height:27px!important}
 /* v13.10: sampler CHOP / PADS + copiar */
 #sModeSeg{display:flex;flex:1.3;min-width:0;border-radius:999px;box-shadow:inset 0 0 0 1px var(--line2);overflow:hidden}
 #sModeSeg .cap{flex:1;border-radius:0;box-shadow:none;min-width:0;padding:0}
@@ -719,7 +737,7 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
 <script>
 'use strict';
 /* =====================================================================
-   MUSICA GROOVEBOX — versión celular v13.22 (20261123)
+   MUSICA GROOVEBOX — versión celular v13.23 (20261123)
    Un solo archivo, sin librerías, Web Audio.
    16/32 pasos · 2 synths · VINTAGE (órgano, piano eléctrico, analógico, clavinet, cuerdas) · acordes (4 presets + GATE) · 8 drums · SAMPLER (chop en 4 teclas)
    · mixer 6 canales + master (pan, 3 envíos, medidores) · buses FX (delay/reverb/mod/master)
@@ -810,7 +828,18 @@ S.vinPar=vinFresh(0);
 
 /* buses FX generales (delay / reverb / mod / master) — valores y presets de fábrica */
 const DIVS=[['1/16',.25],['1/8',.5],['1/8.',.75],['1/4',1],['1/2',2]];
-const FXD=()=>({dly:{div:2,fb:.4,tone:3200,ret:.8},rev:{size:1.8,pre:0,damp:6000,ret:.8},mod:{mode:0,rate:.8,depth:.5,fb:.2,ret:.7},mst:{comp:.5,sat:0,tone:.5},dst:{drive:.5,tone:5000,ret:.8}});
+/* CADENA DE FX: cables [salida, entrada, nivel]. Salidas: dly rev mod dst · entradas: dly rev mod dst mst (master) */
+const PATCHPRE=[
+  ['PARALELO',[['dly','mst',1],['rev','mst',1],['mod','mst',1],['dst','mst',1]]],
+  ['DUB',[['dly','rev',.8],['dly','mst',1],['rev','mst',1],['mod','mst',1],['dst','mst',1]]],
+  ['SUCIO',[['dst','dly',1],['dly','rev',.7],['dly','mst',1],['rev','mst',1],['mod','mst',1]]],
+  ['ESPACIO',[['mod','rev',1],['dly','rev',.5],['mod','mst',.8],['rev','mst',1],['dly','mst',1],['dst','mst',1]]]];
+const PSRC=['dly','rev','mod','dst'],PDST=['dly','rev','mod','dst','mst'];
+function patchCycle(P){const adj={};P.forEach(([a,b])=>{if(b!=='mst')(adj[a]=adj[a]||[]).push(b);});const st={};
+  const dfs=n=>{if(st[n]===1)return true;if(st[n]===2)return false;st[n]=1;for(const m of adj[n]||[])if(dfs(m))return true;st[n]=2;return false;};return PSRC.some(dfs);}
+function patchClean(P){if(!Array.isArray(P))return null;const o=[];P.forEach(c=>{if(!Array.isArray(c))return;const [a,b]=c,v=clamp(+c[2]||0,0,1.5);
+  if(PSRC.includes(a)&&PDST.includes(b)&&a!==b&&!o.some(x=>x[0]===a&&x[1]===b)&&!patchCycle([...o,[a,b,v]]))o.push([a,b,isFinite(v)?v:1]);});return o;}
+const FXD=()=>({dly:{div:2,fb:.4,tone:3200,ret:.8},rev:{size:1.8,pre:0,damp:6000,ret:.8},mod:{mode:0,rate:.8,depth:.5,fb:.2,ret:.7},mst:{comp:.5,sat:0,tone:.5},dst:{drive:.5,tone:5000,ret:.8},patch:PATCHPRE[0][1].map(c=>c.slice())});
 const FXP=FXD();
 const FXPRE=[
  ['INIT',{}],
@@ -888,17 +917,17 @@ function initAudio(){
   repIn.connect(repDel);repDel.connect(repOut);repOut.connect(pre);repDel.connect(repFb);repFb.connect(repDel);
   /* delay */
   dlySum=G(1);dly=ctx.createDelay(2);dfb=G(.4);dflt=ctx.createBiquadFilter();dflt.type='lowpass';dflt.frequency.value=3200;
-  dRet=G(.8);dlySum.connect(dly);dly.connect(dflt);dflt.connect(dfb);dfb.connect(dly);dflt.connect(dRet);dRet.connect(pre);
+  dRet=G(.8);dlySum.connect(dly);dly.connect(dflt);dflt.connect(dfb);dfb.connect(dly);dflt.connect(dRet);
   /* reverb */
   revIn=G(1);revPre=ctx.createDelay(.5);conv=ctx.createConvolver();irSize=PERF.lite?Math.min(FXP.rev.size,1.1):FXP.rev.size;conv.buffer=makeIR(irSize);revTone=ctx.createBiquadFilter();revTone.type='lowpass';revTone.frequency.value=6000;
-  revRet=G(.8);revIn.connect(revPre);conv.connect(revTone);revTone.connect(revRet);revRet.connect(pre);
+  revRet=G(.8);revIn.connect(revPre);conv.connect(revTone);revTone.connect(revRet);
   /* mod (chorus / flanger) */
   modIn=G(1);modDel=ctx.createDelay(.05);modFb=G(.2);modLfo=ctx.createOscillator();modLfo.type='sine';modDepth=G(.003);modRet=G(.7);
-  modDel.connect(modFb);modFb.connect(modDel);modDel.connect(modRet);modRet.connect(pre);modLfo.connect(modDepth);modDepth.connect(modDel.delayTime);modLfo.start();
+  modDel.connect(modFb);modFb.connect(modDel);modDel.connect(modRet);modLfo.connect(modDepth);modDepth.connect(modDel.delayTime);modLfo.start();
   /* distorsión como envío del mixer: ganancia → hp → shaper → tono → retorno */
   sdIn=G(1);sdHp=ctx.createBiquadFilter();sdHp.type='highpass';sdHp.frequency.value=90;sdSh=ctx.createWaveShaper();sdSh.oversample='2x';sdLp=ctx.createBiquadFilter();sdLp.type='lowpass';sdLp.frequency.value=5000;sdRet=G(.55);
-  sdHp.connect(sdSh);sdSh.connect(sdLp);sdLp.connect(sdRet);sdRet.connect(pre);
-  mDly=G(0);mRev=G(0);mixOut.connect(mDly);mDly.connect(dlySum);mixOut.connect(mRev);mRev.connect(revIn);
+  sdHp.connect(sdSh);sdSh.connect(sdLp);sdLp.connect(sdRet);
+  mDly=G(0);mRev=G(0);mixOut.connect(mDly);mDly.connect(dlySum);mixOut.connect(mRev);mRev.connect(revIn);applyPatch();   // los retornos van a donde diga la cadena
   CH.forEach((c,i)=>{
     const inp=G(1),vol=G(c.vol),pn=ctx.createStereoPanner(),an=ctx.createAnalyser(),ds=G(0),rs=G(0),ms=G(0),dx=G(0);an.fftSize=256;
     inp.connect(vol);vol.connect(pn);pn.connect(mixOut);vol.connect(an);vol.connect(ds);ds.connect(dlySum);vol.connect(rs);rs.connect(revIn);vol.connect(ms);ms.connect(modIn);vol.connect(dx);dx.connect(sdIn);   // envíos post-fader
@@ -922,15 +951,28 @@ function setRoute(on,conn,offT,connect,disconnect,hold){
   else if(conn.v&&!offT.t){offT.t=setTimeout(()=>{offT.t=null;if(conn.v){conn.v=false;disconnect();}},hold);}
 }
 const RV={v:false},MD={v:false},SD={v:false},RVT={t:null},MDT={t:null},SDT={t:null};
+let PATCHN=[],padDly=false;const FXA={};
+const fxNodes=()=>({dly:{o:dRet,i:dlySum},rev:{o:revRet,i:revIn},mod:{o:modRet,i:modIn},dst:{o:sdRet,i:sdIn},mst:{i:pre}});
+function applyPatch(){if(!ctx||!dRet)return;const N=fxNodes(),t=ctx.currentTime;FXP.patch=patchClean(FXP.patch)||FXD().patch;
+  if(!FXA.dly)PSRC.forEach(k=>{const a=ctx.createAnalyser();a.fftSize=256;N[k].o.connect(a);FXA[k]=a;});
+  PATCHN.forEach(n=>{n.g.gain.setTargetAtTime(0,t,.01);setTimeout(()=>{try{n.s.disconnect(n.g);}catch(e){}try{n.g.disconnect();}catch(e){}},90);});
+  PATCHN=FXP.patch.map(([a,b,v])=>{const g=G(0);N[a].o.connect(g);g.connect(N[b].i);g.gain.setTargetAtTime(v,t+.005,.015);return {a,b,g,s:N[a].o};});
+  updateRoutes();}
+function patchLevel(i,v){const c=FXP.patch[i];if(!c)return;c[2]=clamp(v,0,1.5);const n=PATCHN[i];if(n&&ctx)n.g.gain.setTargetAtTime(c[2],ctx.currentTime,.02);updateRoutes();}
+const FXB=new Uint8Array(256);
+function fxLevel(k){const a=FXA[k];if(!a)return 0;a.getByteTimeDomainData(FXB);let s=0;for(let i=0;i<FXB.length;i++){const v=(FXB[i]-128)/128;s+=v*v;}return Math.min(1,Math.sqrt(s/FXB.length)*4);}
+/* qué efectos tienen que estar prendidos: los que reciben de algún canal… o por cable de otro efecto prendido */
+function fxAct(){const a={dly:padDly||CH.some(c=>c.dly>.02),rev:padRev||CH.some(c=>c.rev>.02),mod:!PERF.lite&&CH.some(c=>c.mod>.02),dst:CH.some(c=>c.dst>.02)};
+  for(let r=0;r<3;r++)(FXP.patch||[]).forEach(([x,y,v])=>{if(y!=='mst'&&a[x]&&v>.001&&!(y==='mod'&&PERF.lite))a[y]=true;});return a;}
 function updateRoutes(){
-  if(!ctx)return;revConn=RV.v;modConn=MD.v;
-  setRoute(padRev||CH.some(c=>c.rev>.02),RV,RVT,()=>{try{revPre.connect(conv);}catch(e){}},()=>{try{revPre.disconnect(conv);}catch(e){}},(irSize+.6)*1000);
-  setRoute(CH.some(c=>c.dst>.02),SD,SDT,()=>{try{sdIn.connect(sdHp);}catch(e){}},()=>{try{sdIn.disconnect(sdHp);}catch(e){}},500);
-  setRoute(!PERF.lite&&CH.some(c=>c.mod>.02),MD,MDT,()=>{try{modIn.connect(modDel);}catch(e){}},()=>{try{modIn.disconnect(modDel);}catch(e){}},1500);
+  if(!ctx)return;revConn=RV.v;modConn=MD.v;const A=fxAct();
+  setRoute(A.rev,RV,RVT,()=>{try{revPre.connect(conv);}catch(e){}},()=>{try{revPre.disconnect(conv);}catch(e){}},(irSize+.6)*1000);
+  setRoute(A.dst,SD,SDT,()=>{try{sdIn.connect(sdHp);}catch(e){}},()=>{try{sdIn.disconnect(sdHp);}catch(e){}},500);
+  setRoute(A.mod,MD,MDT,()=>{try{modIn.connect(modDel);}catch(e){}},()=>{try{modIn.disconnect(modDel);}catch(e){}},1500);
 }
 function restartAudio(){
   try{if(window.liveStop)liveStop(true);}catch(e){}
-  const was=S.playing;if(S.playing)stop();if(CAP)capStop();sirHolds.clear();sirV=null;LIVE.clear();SMPL.voice.fill(null);bus.length=0;
+  const was=S.playing;if(S.playing)stop();if(CAP)capStop();sirHolds.clear();sirV=null;LIVE.clear();SMPL.voice.fill(null);bus.length=0;PATCHN=[];for(const k in FXA)delete FXA[k];SCR.node=null;SCR._ld=false;SCR.held=SCR.landing=SCR.paused=SCR.commit=false;
   clearTimeout(RVT.t);clearTimeout(MDT.t);clearTimeout(SDT.t);clearTimeout(dstOffT);clearTimeout(repOffT);RV.v=false;MD.v=false;SD.v=false;RVT.t=MDT.t=SDT.t=null;lastDrive=-1;lastSd=-1;repOnFlag=false;
   const old=ctx;ctx=null;try{old&&old.close();}catch(e){}
   initAudio();if(was)play();
@@ -1245,7 +1287,7 @@ function mfxOn(type,x,y){
   if(!ctx)return;const t=ctx.currentTime;
   if(type==='FLT'){fltM.frequency.setTargetAtTime(80*Math.pow(250,x),t,.02);fltM.Q.setTargetAtTime(.7+y*14,t,.02);}
   else if(type==='DST'){setDst(true);setDrive(x);dstWet.gain.setTargetAtTime(y*.7,t,.02);dstDry.gain.setTargetAtTime(1-y*.6,t,.02);}
-  else if(type==='DLY'){dfb.gain.setTargetAtTime(.2+x*.7,t,.03);mDly.gain.setTargetAtTime(y*2,t,.02);dRet.gain.setTargetAtTime(Math.max(FXP.dly.ret,1.2),t,.03);padDuck(1-y*.35,t);}
+  else if(type==='DLY'){if(!padDly){padDly=true;updateRoutes();}dfb.gain.setTargetAtTime(.2+x*.7,t,.03);mDly.gain.setTargetAtTime(y*2,t,.02);dRet.gain.setTargetAtTime(Math.max(FXP.dly.ret,1.2),t,.03);padDuck(1-y*.35,t);}
   else if(type==='REV'){padRev=true;updateRoutes();revTone.frequency.setTargetAtTime(800*Math.pow(15,x),t,.03);mRev.gain.setTargetAtTime(y*3.2,t,.02);revRet.gain.setTargetAtTime(Math.max(FXP.rev.ret,1.5),t,.03);padDuck(1-y*.5,t);}
   else if(type==='REP'){
     if(!repConn){repConn=true;try{fltM.connect(repIn);}catch(e){}}clearTimeout(repOffT);
@@ -1257,7 +1299,7 @@ function mfxOff(type){
   if(!ctx)return;const t=ctx.currentTime;
   if(type==='FLT'){fltM.frequency.setTargetAtTime(20000,t,.04);fltM.Q.setTargetAtTime(.7,t,.04);}
   else if(type==='DST'){dstWet.gain.setTargetAtTime(0,t,.03);dstDry.gain.setTargetAtTime(1,t,.03);setDst(false);}
-  else if(type==='DLY'){mDly.gain.setTargetAtTime(0,t,.03);dfb.gain.setTargetAtTime(FXP.dly.fb,t,.3);dRet.gain.setTargetAtTime(FXP.dly.ret,t,.3);padDuck(1,t);}
+  else if(type==='DLY'){padDly=false;updateRoutes();mDly.gain.setTargetAtTime(0,t,.03);dfb.gain.setTargetAtTime(FXP.dly.fb,t,.3);dRet.gain.setTargetAtTime(FXP.dly.ret,t,.3);padDuck(1,t);}
   else if(type==='REV'){padRev=false;updateRoutes();mRev.gain.setTargetAtTime(0,t,.03);revTone.frequency.setTargetAtTime(FXP.rev.damp,t,.2);revRet.gain.setTargetAtTime(FXP.rev.ret,t,.3);padDuck(1,t);}
   else if(type==='REP'){clearTimeout(repOffT);repOffT=setTimeout(()=>{if(repConn){repConn=false;try{fltM.disconnect(repIn);}catch(e){}}},1500);repOnFlag=false;repIn.gain.cancelScheduledValues(t);repIn.gain.setValueAtTime(0,t);repOut.gain.setTargetAtTime(0,t,.01);repFb.gain.setTargetAtTime(0,t,.05);}
 }
@@ -1641,7 +1683,7 @@ function applySnapshot(j){
   if(j.xy&&j.xy.syn0)S.xy=j.xy;if(!S.xy.vin)S.xy.vin={x:'pitch',y:'cut',pr:2};
   S.dk=DR.map((_,i)=>Object.assign({},DKD,(Array.isArray(j.dk)&&j.dk[i])||{}));
   for(let i=0;i<NR;i++){LEN[i]=Math.min((j.len&&j.len[i])||STEPS,MAXS);RM[i]=!!(j.rm&&j.rm[i]);RS[i]=!!(j.rs&&j.rs[i]);}
-  if(j.fx){const b=FXD();['dly','rev','mod','mst','dst'].forEach(k=>Object.assign(FXP[k],b[k],j.fx[k]||{}));}
+  if(j.fx){const b=FXD();['dly','rev','mod','mst','dst'].forEach(k=>Object.assign(FXP[k],b[k],j.fx[k]||{}));FXP.patch=patchClean(j.fx.patch)||b.patch;}
   if(j.smp&&j.smp.chops)j.smp.chops.forEach((C,i)=>{if(SMPL.chops[i])Object.assign(SMPL.chops[i],{ps:0,pe:1,sync:'off',q:0,qa:true,spd:1,out:0},C);});
   SMPL.mode=j.smp&&j.smp.mode==='pads'?'pads':'chop';
 }
@@ -2186,7 +2228,7 @@ function drawMeters(){
 /* ---------------- vista FX: pad XY + buses ---------------- */
 const FXT=['REV','DLY','DST','FLT','REP'],FXC={REV:'#c9a6ff',DLY:'#ffb347',DST:'#ff5a4a',FLT:'#4df0c4',REP:'#7dff9a'};
 const XNAME={REV:['TONO','ENVÍO'],DLY:['FEEDBACK','ENVÍO'],DST:['DRIVE','MEZCLA'],FLT:['CORTE','RESO'],REP:['DIVISIÓN','—']};
-const FXMODES=[['PAD','PAD'],['DLY','DELAY'],['REV','REVERB'],['MOD','MOD'],['DST','DIST'],['MST','MST']];
+const FXMODES=[['PAD','PAD'],['CAD','CADENA'],['DLY','DELAY'],['REV','REVERB'],['MOD','MOD'],['DST','DIST'],['MST','MST']];
 const FXDEF={
   drive:{n:'DRIVE',min:0,max:1,f:PCT},fb:{n:'FEEDBACK',min:0,max:.92,f:PCT},tone:{n:'TONO',min:300,max:9000,exp:1,f:HZ},ret:{n:'RETORNO',min:0,max:1.2,f:PCT},
   size:{n:'TAMAÑO',min:.4,max:5,exp:1,f:v=>v.toFixed(1)+' s'},pre:{n:'PRE-DELAY',min:0,max:120,f:v=>Math.round(v)+' ms'},damp:{n:'AMORTIG.',min:1000,max:14000,exp:1,f:HZ},
@@ -2213,11 +2255,15 @@ const FXDEF={
   $('#bLatch').onclick=()=>sirHold('latch',!sirHolds.has('latch'));
 })();
 function buildFxBus(){
-  const bx=$('#fxBus');bx.innerHTML='';const m=S.fxMode;if(m==='PAD')return;
+  const bx=$('#fxBus');bx.innerHTML='';const m=S.fxMode;if(m==='PAD')return;if(m==='CAD'){buildChain(bx);return;}
   const box=document.createElement('div');box.className='busbox';
   const sel=document.createElement('select');sel.setAttribute('aria-label','Presets de FX');sel.add(new Option('PRESETS DE FX…',-1));FXPRE.forEach((p,i)=>sel.add(new Option(p[0],i)));
   sel.onchange=()=>{const i=+sel.value;if(i<0)return;fxPreset(i);buildFxBus();queueSave();toast('FX: '+FXPRE[i][0]);};box.appendChild(sel);
   const bc=document.createElement('canvas');bc.id='busc';bc.setAttribute('aria-hidden','true');box.appendChild(bc);
+  fxParams(box,m);
+  bx.appendChild(box);
+}
+function fxParams(box,m){
   const ch=()=>queueSave();
   const keyMap=(P,pairs)=>{const o={};return new Proxy(P,{get:(t,k)=>t[pairs[k]||k],set:(t,k,v)=>{t[pairs[k]||k]=v;return true;}});};
   if(m==='DLY'){const P=FXP.dly;
@@ -2233,7 +2279,70 @@ function buildFxBus(){
     mkGrid(box,keyMap(P,{mtone:'tone'}),['comp','sat','mtone'],FXDEF,()=>{applyFx();ch();});
     const V={get vol(){return S.master;},set vol(v){S.master=v;applyAll();ch();}};mkGrid(box,V,['vol'],FXDEF,()=>{});
     const n=document.createElement('div');n.className='pnote';n.textContent='El LIMITER del master está siempre activo. La luz CLIP de arriba se prende si algo llega a 0 dBFS (tocala para limpiar).';box.appendChild(n);}
-  bx.appendChild(box);
+}
+/* ===== CADENA DE FX como patch de cables =====
+   módulos DELAY · REVERB · MOD · DIST (cada uno con IN y OUT) y el MASTER. Arrastrar de OUT a IN = cable.
+   Tocar un cable = su nivel / quitar · agarrar el enchufe de un IN y soltarlo afuera = desconectar · tocar un módulo = configurarlo */
+const PCOL={dly:'#ffb347',rev:'#c9a6ff',mod:'#7ab8ff',dst:'#ff5a4a',mst:'#e8e5de'},PNAME={dly:'DELAY',rev:'REVERB',mod:'MOD',dst:'DIST',mst:'MASTER'},PMODE={dly:'DLY',rev:'REV',mod:'MOD',dst:'DST'};
+const PCH={sel:null,drag:null,G:null,msg:''};
+function patchGeo(W,H,d){const p=10*d,w=(W-3*p)/2,h=80*d,gy=46*d,M={},pos={dly:[0,0],rev:[1,0],mod:[0,1],dst:[1,1]};
+  for(const k in pos){const x=p+pos[k][0]*(w+p),y=p+pos[k][1]*(h+gy);M[k]={x,y,w,h,ix:x+22*d,iy:y+h-20*d,ox:x+w-22*d,oy:y+h-20*d};}
+  const my=p+2*h+gy+40*d,mh=H-my-p;M.mst={x:p,y:my,w:W-2*p,h:mh,slots:PSRC.map((k,i)=>({k,x:p+96*d+(W-2*p-106*d)*(i+.5)/4,y:my+mh-22*d}))};return M;}
+const pjIn=(G,b,a)=>b==='mst'?(G.mst.slots.find(s=>s.k===a)||G.mst.slots[0]):{x:G[b].ix,y:G[b].iy};
+const pbez=(x1,y1,x2,y2,d)=>{const sag=36*d+Math.hypot(x2-x1,y2-y1)*.28;return [x1,y1,x1,y1+sag,x2,y2+sag,x2,y2];};
+const bezAt=(B,t)=>{const u=1-t;return [u*u*u*B[0]+3*u*u*t*B[2]+3*u*t*t*B[4]+t*t*t*B[6],u*u*u*B[1]+3*u*u*t*B[3]+3*u*t*t*B[5]+t*t*t*B[7]];};
+function patchSum(k){if(k==='dly'){const P=FXP.dly;return (DIVS[P.div]?DIVS[P.div][0]:'')+' · FB '+Math.round(P.fb*100)+'%';}if(k==='rev')return FXP.rev.size.toFixed(1)+' s · PRE '+Math.round(FXP.rev.pre)+' ms';
+  if(k==='mod')return (FXP.mod.mode?'FLANGER':'CHORUS')+' · '+FXP.mod.rate.toFixed(1)+' Hz';return 'DRIVE '+Math.round(FXP.dst.drive*100)+'%';}
+function buildChain(bx){const box=document.createElement('div');box.className='busbox chain';
+  const same=(A,B)=>A.length===B.length&&A.every(c=>B.some(x=>x[0]===c[0]&&x[1]===c[1]&&Math.abs(x[2]-c[2])<.01));
+  mkSeg(box,'CADENA',PATCHPRE.map((p,i)=>[p[0],i]),o=>same(FXP.patch,PATCHPRE[o[1]][1]),o=>{FXP.patch=PATCHPRE[o[1]][1].map(c=>c.slice());applyPatch();PCH.sel=null;buildFxBus();queueSave();toast('CADENA: '+PATCHPRE[o[1]][0]);});
+  const cv=document.createElement('canvas');cv.id='patchCv';cv.setAttribute('aria-label','Cadena de efectos: patch de cables');box.appendChild(cv);
+  const n=document.createElement('div');n.className='pnote';n.id='patchMsg';n.textContent='Arrastrá de OUT a IN para conectar · tocá un cable para su nivel · sacá un enchufe de un IN y soltalo afuera para desconectar · tocá un módulo para configurarlo';box.appendChild(n);
+  const sp=document.createElement('div');sp.id='patchSel';box.appendChild(sp);bx.appendChild(box);patchSelUi();patchTouch(cv);}
+function patchSelUi(){const sp=$('#patchSel');if(!sp)return;sp.innerHTML='';const S0=PCH.sel;if(!S0)return;
+  const h=document.createElement('div');h.className='psh';sp.appendChild(h);
+  if(S0.k==='cab'){const c=FXP.patch[S0.i];if(!c){PCH.sel=null;return;}h.innerHTML='<b style="color:'+PCOL[c[0]]+'">'+PNAME[c[0]]+'</b> → <b style="color:'+PCOL[c[1]]+'">'+PNAME[c[1]]+'</b>';
+    const V={get lvl(){return FXP.patch[S0.i]?FXP.patch[S0.i][2]:0;},set lvl(v){patchLevel(S0.i,v);}};mkGrid(sp,V,['lvl'],{lvl:{n:'NIVEL DEL CABLE',min:0,max:1.5,f:PCT}},()=>queueSave());
+    const q=document.createElement('button');q.className='cap dark';q.textContent='QUITAR CABLE';q.onclick=()=>{FXP.patch.splice(S0.i,1);PCH.sel=null;applyPatch();patchSelUi();queueSave();};sp.appendChild(q);}
+  else if(S0.k==='mod'){h.innerHTML='<b style="color:'+PCOL[S0.id]+'">'+PNAME[S0.id]+'</b> · entra lo que mandan los canales del MIX + los cables';fxParams(sp,PMODE[S0.id]);}
+  else{h.innerHTML='<b>MASTER</b> · acá vuelve lo que conectes; un efecto sin cable al master solo se oye a través de otro';}}
+function patchTouch(cv){
+  const at=e=>{const r=cv.getBoundingClientRect(),d=cv.width/r.width;return {x:(e.clientX-r.left)*d,y:(e.clientY-r.top)*d,d};};
+  const near=(p,x,y,R)=>Math.hypot(p.x-x,p.y-y)<=R;
+  const target=(p,G,R)=>{for(const k of PSRC){const m=G[k];if(near(p,m.ix,m.iy,R)||(p.x>=m.x&&p.x<=m.x+m.w&&p.y>=m.y&&p.y<=m.y+m.h))return k;}const m=G.mst;if(p.x>=m.x&&p.x<=m.x+m.w&&p.y>=m.y-10*p.d&&p.y<=m.y+m.h)return 'mst';return null;};
+  cv.addEventListener('pointerdown',e=>{const G=PCH.G;if(!G)return;const p=at(e),R=22*p.d;e.preventDefault();initAudio();try{cv.setPointerCapture(e.pointerId);}catch(x){}
+    for(const k of PSRC)if(near(p,G[k].ox,G[k].oy,R)){PCH.drag={a:k,x:p.x,y:p.y,id:e.pointerId};return;}   // sacar un cable nuevo de OUT
+    for(let i=FXP.patch.length-1;i>=0;i--){const [a,b]=FXP.patch[i],J=pjIn(G,b,a);if(near(p,J.x,J.y,R)){const c=FXP.patch.splice(i,1)[0];applyPatch();PCH.drag={a,x:p.x,y:p.y,id:e.pointerId,lift:c};PCH.sel=null;patchSelUi();return;}}   // desenchufar
+    let best=-1,bd=14*p.d;FXP.patch.forEach(([a,b],i)=>{const J=pjIn(G,b,a),B=pbez(G[a].ox,G[a].oy,J.x,J.y,p.d);for(let t=0;t<=1;t+=1/28){const q=bezAt(B,t),dd=Math.hypot(q[0]-p.x,q[1]-p.y);if(dd<bd){bd=dd;best=i;}}});
+    if(best>=0){PCH.sel={k:'cab',i:best};patchSelUi();return;}
+    const tg=target(p,G,R);PCH.sel=tg==='mst'?{k:'mst'}:tg?{k:'mod',id:tg}:null;patchSelUi();});
+  cv.addEventListener('pointermove',e=>{const D=PCH.drag;if(!D||D.id!==e.pointerId)return;const p=at(e);D.x=p.x;D.y=p.y;});
+  const up=e=>{const D=PCH.drag;if(!D||D.id!==e.pointerId)return;PCH.drag=null;const G=PCH.G,p=at(e),b=target(p,G,26*p.d),msg=t=>{toast(t);};
+    if(!b||b===D.a){if(D.lift){msg('CABLE QUITADO · '+PNAME[D.lift[0]]+' → '+PNAME[D.lift[1]]);queueSave();}return;}
+    if(FXP.patch.some(c=>c[0]===D.a&&c[1]===b)){msg('YA ESTÁ CONECTADO');if(D.lift){FXP.patch.push(D.lift);applyPatch();}return;}
+    const nc=[D.a,b,D.lift?D.lift[2]:1];if(patchCycle([...FXP.patch,nc])){msg('ESO ARMA UN LAZO SIN FIN: '+PNAME[b]+' ya vuelve a '+PNAME[D.a]);if(D.lift){FXP.patch.push(D.lift);applyPatch();}return;}
+    FXP.patch.push(nc);applyPatch();PCH.sel={k:'cab',i:FXP.patch.length-1};patchSelUi();queueSave();msg(PNAME[D.a]+' → '+PNAME[b]);};
+  cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);}
+function drawPatch(){const cv=$('#patchCv');if(!cv||!cv.isConnected)return;const {c,W,H,d}=cvFit(cv),G=PCH.G=patchGeo(W,H,d),A=ctx?fxAct():{dly:1,rev:1,mod:1,dst:1};
+  const jack=(x,y,col,on)=>{c.fillStyle='#1b1b1b';c.beginPath();c.arc(x,y,10*d,0,7);c.fill();c.strokeStyle='rgba(232,229,222,.55)';c.lineWidth=1.6*d;c.stroke();c.fillStyle=on?col:'#050505';c.beginPath();c.arc(x,y,(on?6:4.5)*d,0,7);c.fill();};
+  const used=k=>FXP.patch.some(x=>x[0]===k),fed=k=>FXP.patch.some(x=>x[1]===k);
+  for(const k of PSRC){const m=G[k],col=PCOL[k],on=A[k],lv=ctx?fxLevel(k):0,sel=PCH.sel&&PCH.sel.k==='mod'&&PCH.sel.id===k;
+    c.globalAlpha=on?1:.55;c.fillStyle='rgba(0,0,0,.3)';c.beginPath();c.roundRect?c.roundRect(m.x,m.y,m.w,m.h,12*d):c.rect(m.x,m.y,m.w,m.h);c.fill();c.strokeStyle=sel?'#fff':hexA(col,.7);c.lineWidth=(sel?2:1.2)*d;c.stroke();
+    c.fillStyle=col;c.font=UIF(12,d,700);c.textAlign='left';c.textBaseline='top';c.fillText(PNAME[k],m.x+10*d,m.y+8*d);
+    c.fillStyle='rgba(232,229,222,.6)';c.font=UIF(8.5,d,400);c.fillText(patchSum(k),m.x+10*d,m.y+24*d);
+    c.fillStyle='rgba(232,229,222,.14)';c.fillRect(m.x+m.w-34*d,m.y+11*d,24*d,4*d);c.fillStyle=col;c.fillRect(m.x+m.w-34*d,m.y+11*d,24*d*lv,4*d);   // nivel
+    c.fillStyle='rgba(232,229,222,.45)';c.font=UIF(7.5,d,400);c.textAlign='center';c.fillText('IN',m.ix,m.iy-21*d);c.fillText('OUT',m.ox,m.oy-21*d);
+    c.textAlign='left';c.fillText('↓ envío MIX',m.ix+14*d,m.iy-4*d);
+    jack(m.ix,m.iy,'#e8e5de',fed(k));jack(m.ox,m.oy,col,used(k));c.globalAlpha=1;}
+  const M=G.mst;c.fillStyle='rgba(0,0,0,.3)';c.beginPath();c.roundRect?c.roundRect(M.x,M.y,M.w,M.h,12*d):c.rect(M.x,M.y,M.w,M.h);c.fill();c.strokeStyle=PCH.sel&&PCH.sel.k==='mst'?'#fff':'rgba(232,229,222,.4)';c.lineWidth=1.2*d;c.stroke();
+  c.fillStyle='#e8e5de';c.font=UIF(12,d,700);c.textAlign='left';c.textBaseline='top';c.fillText('MASTER',M.x+10*d,M.y+8*d);c.fillStyle='rgba(232,229,222,.5)';c.font=UIF(8,d,400);c.fillText('retornos →',M.x+10*d,M.y+26*d);
+  M.slots.forEach(s=>{jack(s.x,s.y,PCOL[s.k],FXP.patch.some(x=>x[0]===s.k&&x[1]==='mst'));c.fillStyle=hexA(PCOL[s.k],.8);c.font=UIF(7.5,d,400);c.textAlign='center';c.fillText(PNAME[s.k],s.x,s.y-22*d);});
+  const cable=(B,col,lv,sel,a)=>{c.lineCap='round';c.strokeStyle='rgba(0,0,0,.55)';c.lineWidth=8*d;c.beginPath();c.moveTo(B[0],B[1]);c.bezierCurveTo(B[2],B[3],B[4],B[5],B[6],B[7]);c.stroke();
+    if(sel){c.strokeStyle='#fff';c.lineWidth=7.5*d;c.stroke();}c.strokeStyle=hexA(col,.6+.4*lv);c.lineWidth=5*d;c.stroke();
+    if(lv>.05){c.strokeStyle=hexA('#ffffff',Math.min(.6,lv*.8));c.lineWidth=1.6*d;c.stroke();}   // brilla con la señal
+    [[B[0],B[1]],[B[6],B[7]]].forEach(([x,y])=>{c.fillStyle=col;c.beginPath();c.arc(x,y,6.5*d,0,7);c.fill();c.strokeStyle='rgba(0,0,0,.6)';c.lineWidth=1.4*d;c.stroke();});};
+  FXP.patch.forEach(([a,b,v],i)=>{const J=pjIn(G,b,a),lv=(ctx?fxLevel(a):0)*Math.min(1,v);c.globalAlpha=v<.02?.35:1;cable(pbez(G[a].ox,G[a].oy,J.x,J.y,d),PCOL[a],lv,PCH.sel&&PCH.sel.k==='cab'&&PCH.sel.i===i);c.globalAlpha=1;});
+  const D=PCH.drag;if(D){cable(pbez(G[D.a].ox,G[D.a].oy,D.x,D.y,d),PCOL[D.a],.5,true);}
 }
 function fxUi(){
   $$('#fxMode button').forEach(b=>b.classList.toggle('on',b.dataset.m===S.fxMode));
@@ -2415,7 +2524,7 @@ const pad2=n=>String(n).padStart(2,'0');
    · Las tomas LIVE van a la subcarpeta TOMAS.
    Navegadores sin carpetas (iPhone, Firefox): queda la biblioteca del teléfono de antes. */
 const AS_MIN=5,AS_KEEP=10,FOLDM='application/vnd.google-apps.folder',ASRX=/_AS_\d{12}\.json$/i;
-const APPV='13.22',APPD='20261123';
+const APPV='13.23',APPD='20261123';
 const DV={f:null,h:null,need:false,rec:[],last:0,lastT:'',lastBody:'',busy:false,err:'',sub:{}};
 const drvMode=()=>!!(window.claude&&window.claude.use);
 const FS_OK=typeof window.showDirectoryPicker==='function';
@@ -2589,7 +2698,7 @@ function loadSession(j){
   if(j.smp&&j.smp.pcm)smpDecode(j.smp.pcm);
   if(j.smp&&Array.isArray(j.smp.pads)){SMPL._rs=true;try{j.smp.pads.forEach((p,i)=>{if(p)smpDecode(p,i);else SMPL.pads[i]=null;});}finally{SMPL._rs=false;}smpStore();}
   $('#selKey').value=S.key;$('#selScale').value=S.scale;
-  renderKeys();renderPalette();paints.forEach(p=>p());applyAll();applyFx();vinFx();sync();dirty=true;smpUi();fxUi();partUi();pageUi();smp2Ui();ensureKit();queueSave();
+  renderKeys();renderPalette();paints.forEach(p=>p());applyAll();applyFx();applyPatch();PCH.sel=null;vinFx();sync();dirty=true;smpUi();fxUi();partUi();pageUi();smp2Ui();ensureKit();queueSave();
 }
 /* NUEVA SESIÓN: todo en blanco (patrones, partes, sample, sonidos y mezcla de fábrica) */
 let newT=null;
@@ -3216,7 +3325,7 @@ function viz(){const now=performance.now();if(document.hidden||now-vizT<(PERF.li
   try{drawScope();}catch(e){}
   if(S.tab==='seq'&&S.ring)try{drawRing();}catch(e){}
   if(S.tab==='keys')try{drawVoice();}catch(e){}
-  if(S.tab==='fx'){if(S.fxMode==='PAD'){try{drawXY();}catch(e){}try{drawSiren();}catch(e){}}else try{drawBus();}catch(e){}}
+  if(S.tab==='fx'){if(S.fxMode==='PAD'){try{drawXY();}catch(e){}try{drawSiren();}catch(e){}}else if(S.fxMode==='CAD'){try{drawPatch();}catch(e){}}else try{drawBus();}catch(e){}}
 }
 
 /* ---------------- loop de dibujo ---------------- */
@@ -3233,7 +3342,7 @@ document.addEventListener('keydown',e=>{if(e.code==='Space'&&!e.repeat&&e.target
 document.addEventListener('visibilitychange',()=>{if(document.hidden){sirHolds.clear();if(sirV)sirStop();$$('#pads .pad').forEach(el=>{if(el._v){try{(Array.isArray(el._v)?el._v:[el._v]).forEach(v=>v.stop());}catch(e){}el._v=null;el.classList.remove('dn');}});}});
 window.addEventListener('resize',()=>{if(S.tab==='smp')drawWave();});
 renderPalette();renderKeys();fxUi();sync();refreshSeq();smpUi();partUi();ringUi();smp2Ui();frame();
-window.GB={smpMode,smpCopy,smpSrc,SCP:()=>SCP,padsPack,IDB,libSave,libOpen,libList,libLive,smpPack,smpUnpack,SMPR,drumRe,dkE,renderDrum,KH:()=>KH,LV,wavEncode,xyApply,LIVE,drawSiren:()=>drawSiren(),TILT,partCopy,LEN,RM,RS,ringSel,rowTool,viz:{drawScope:()=>drawScope(),drawVoice:()=>drawVoice(),drawXY:()=>drawXY(),drawBus:()=>drawBus(),drawRing:()=>drawRing()},newSession,KB:()=>KB,SYNP,sdSend:(i,v)=>{CH[i].dst=v;applyCh(i);},anM:()=>anM,shareSes,PARTS,partGo,partSwitch,partBar,drumPreset,KITS,DPRE,trig,sd,PERF,S,CH,FXP,SMPL,pat,smpSeq,chdGate,snapshot,applySnapshot,loadSession,smpDemo,chopPlay,smpSet,smpEncode,smpDecode,get ctx(){return ctx;},get lim(){return lim;},get CAP(){return CAP;},recWrite,takeUndo,doUndo,bus,extractText,setSteps,get STEPS(){return STEPS;},vinPlay,vinVoice,VINP,vinN,vinG,vinRec,vinGate,VL,vinMig,XYR,xyRec,xyAuto,xyPlay,XYQ,synG,synGate,chordPlay,DV,CHG,queueSave,drvAuto,drvSaveOrig,drvRecent,drvSetF,foldSearch,liveUp,drvMode,drvLive,sesBase,fMode,BK,lbSet,lbPerm,sesSave,sesRecent,sesLoad,migUi,APPV,LBR,libJson,smpQ,smpAutoQ,smpStretch,smpPrep,wsola,smpLen,SQ,seqLit,LIT,DJV,DJXY,SIR,sirHolds,fxv:()=>({mDly:mDly.gain.value,dfb:dfb.gain.value,fltF:fltM.frequency.value,fltQ:fltM.Q.value,mRev:mRev.gain.value}),SCR,scrOffNow,scrDown,scrMove,scrUp,scrQ,outTap,LV,applyCh,sirHold,smpCue,smpOut,rowAud,smpSeq2,sSeq,R_SMP2,smp2Ui,WV,wvSet,drawWave,rowOn,vinFx,latOut,vNow,calCalc,SCH,seqN,chdSeq,LIVE_:()=>LIVE,setBpm,pageUi,noteOpen,renderPalette,ROWS,R_VIN,swOff,get gT(){return gT;},orgWave,DHIT,lesToggle};
+window.GB={smpMode,smpCopy,smpSrc,SCP:()=>SCP,padsPack,IDB,libSave,libOpen,libList,libLive,smpPack,smpUnpack,SMPR,drumRe,dkE,renderDrum,KH:()=>KH,LV,wavEncode,xyApply,LIVE,drawSiren:()=>drawSiren(),TILT,partCopy,LEN,RM,RS,ringSel,rowTool,viz:{drawScope:()=>drawScope(),drawVoice:()=>drawVoice(),drawXY:()=>drawXY(),drawBus:()=>drawBus(),drawRing:()=>drawRing()},newSession,KB:()=>KB,SYNP,sdSend:(i,v)=>{CH[i].dst=v;applyCh(i);},anM:()=>anM,shareSes,PARTS,partGo,partSwitch,partBar,drumPreset,KITS,DPRE,trig,sd,PERF,S,CH,FXP,SMPL,pat,smpSeq,chdGate,snapshot,applySnapshot,loadSession,smpDemo,chopPlay,smpSet,smpEncode,smpDecode,get ctx(){return ctx;},get lim(){return lim;},get CAP(){return CAP;},recWrite,takeUndo,doUndo,bus,extractText,setSteps,get STEPS(){return STEPS;},vinPlay,vinVoice,VINP,vinN,vinG,vinRec,vinGate,VL,vinMig,XYR,xyRec,xyAuto,xyPlay,XYQ,synG,synGate,chordPlay,DV,CHG,queueSave,drvAuto,drvSaveOrig,drvRecent,drvSetF,foldSearch,liveUp,drvMode,drvLive,sesBase,fMode,BK,lbSet,lbPerm,sesSave,sesRecent,sesLoad,migUi,APPV,LBR,libJson,smpQ,smpAutoQ,smpStretch,smpPrep,wsola,smpLen,SQ,seqLit,LIT,mfxOn,mfxOff,restartAudio,PATCHPRE,patchCycle,patchClean,applyPatch,patchLevel,fxAct,fxLevel,PCH,FXP,DJV,DJXY,SIR,sirHolds,fxv:()=>({mDly:mDly.gain.value,dfb:dfb.gain.value,fltF:fltM.frequency.value,fltQ:fltM.Q.value,mRev:mRev.gain.value}),SCR,scrOffNow,scrDown,scrMove,scrUp,scrQ,outTap,LV,applyCh,sirHold,smpCue,smpOut,rowAud,smpSeq2,sSeq,R_SMP2,smp2Ui,WV,wvSet,drawWave,rowOn,vinFx,latOut,vNow,calCalc,SCH,seqN,chdSeq,LIVE_:()=>LIVE,setBpm,pageUi,noteOpen,renderPalette,ROWS,R_VIN,swOff,get gT(){return gT;},orgWave,DHIT,lesToggle};
 </script>
 <script>
 /* app instalable: guarda la app en el teléfono para abrir sin internet y se actualiza sola */

@@ -1,7 +1,7 @@
 <script>
 'use strict';
 /* =====================================================================
-   MUSICA GROOVEBOX — versión celular v13.22 (20261123)
+   MUSICA GROOVEBOX — versión celular v13.23 (20261123)
    Un solo archivo, sin librerías, Web Audio.
    16/32 pasos · 2 synths · VINTAGE (órgano, piano eléctrico, analógico, clavinet, cuerdas) · acordes (4 presets + GATE) · 8 drums · SAMPLER (chop en 4 teclas)
    · mixer 6 canales + master (pan, 3 envíos, medidores) · buses FX (delay/reverb/mod/master)
@@ -92,7 +92,18 @@ S.vinPar=vinFresh(0);
 
 /* buses FX generales (delay / reverb / mod / master) — valores y presets de fábrica */
 const DIVS=[['1/16',.25],['1/8',.5],['1/8.',.75],['1/4',1],['1/2',2]];
-const FXD=()=>({dly:{div:2,fb:.4,tone:3200,ret:.8},rev:{size:1.8,pre:0,damp:6000,ret:.8},mod:{mode:0,rate:.8,depth:.5,fb:.2,ret:.7},mst:{comp:.5,sat:0,tone:.5},dst:{drive:.5,tone:5000,ret:.8}});
+/* CADENA DE FX: cables [salida, entrada, nivel]. Salidas: dly rev mod dst · entradas: dly rev mod dst mst (master) */
+const PATCHPRE=[
+  ['PARALELO',[['dly','mst',1],['rev','mst',1],['mod','mst',1],['dst','mst',1]]],
+  ['DUB',[['dly','rev',.8],['dly','mst',1],['rev','mst',1],['mod','mst',1],['dst','mst',1]]],
+  ['SUCIO',[['dst','dly',1],['dly','rev',.7],['dly','mst',1],['rev','mst',1],['mod','mst',1]]],
+  ['ESPACIO',[['mod','rev',1],['dly','rev',.5],['mod','mst',.8],['rev','mst',1],['dly','mst',1],['dst','mst',1]]]];
+const PSRC=['dly','rev','mod','dst'],PDST=['dly','rev','mod','dst','mst'];
+function patchCycle(P){const adj={};P.forEach(([a,b])=>{if(b!=='mst')(adj[a]=adj[a]||[]).push(b);});const st={};
+  const dfs=n=>{if(st[n]===1)return true;if(st[n]===2)return false;st[n]=1;for(const m of adj[n]||[])if(dfs(m))return true;st[n]=2;return false;};return PSRC.some(dfs);}
+function patchClean(P){if(!Array.isArray(P))return null;const o=[];P.forEach(c=>{if(!Array.isArray(c))return;const [a,b]=c,v=clamp(+c[2]||0,0,1.5);
+  if(PSRC.includes(a)&&PDST.includes(b)&&a!==b&&!o.some(x=>x[0]===a&&x[1]===b)&&!patchCycle([...o,[a,b,v]]))o.push([a,b,isFinite(v)?v:1]);});return o;}
+const FXD=()=>({dly:{div:2,fb:.4,tone:3200,ret:.8},rev:{size:1.8,pre:0,damp:6000,ret:.8},mod:{mode:0,rate:.8,depth:.5,fb:.2,ret:.7},mst:{comp:.5,sat:0,tone:.5},dst:{drive:.5,tone:5000,ret:.8},patch:PATCHPRE[0][1].map(c=>c.slice())});
 const FXP=FXD();
 const FXPRE=[
  ['INIT',{}],
@@ -170,17 +181,17 @@ function initAudio(){
   repIn.connect(repDel);repDel.connect(repOut);repOut.connect(pre);repDel.connect(repFb);repFb.connect(repDel);
   /* delay */
   dlySum=G(1);dly=ctx.createDelay(2);dfb=G(.4);dflt=ctx.createBiquadFilter();dflt.type='lowpass';dflt.frequency.value=3200;
-  dRet=G(.8);dlySum.connect(dly);dly.connect(dflt);dflt.connect(dfb);dfb.connect(dly);dflt.connect(dRet);dRet.connect(pre);
+  dRet=G(.8);dlySum.connect(dly);dly.connect(dflt);dflt.connect(dfb);dfb.connect(dly);dflt.connect(dRet);
   /* reverb */
   revIn=G(1);revPre=ctx.createDelay(.5);conv=ctx.createConvolver();irSize=PERF.lite?Math.min(FXP.rev.size,1.1):FXP.rev.size;conv.buffer=makeIR(irSize);revTone=ctx.createBiquadFilter();revTone.type='lowpass';revTone.frequency.value=6000;
-  revRet=G(.8);revIn.connect(revPre);conv.connect(revTone);revTone.connect(revRet);revRet.connect(pre);
+  revRet=G(.8);revIn.connect(revPre);conv.connect(revTone);revTone.connect(revRet);
   /* mod (chorus / flanger) */
   modIn=G(1);modDel=ctx.createDelay(.05);modFb=G(.2);modLfo=ctx.createOscillator();modLfo.type='sine';modDepth=G(.003);modRet=G(.7);
-  modDel.connect(modFb);modFb.connect(modDel);modDel.connect(modRet);modRet.connect(pre);modLfo.connect(modDepth);modDepth.connect(modDel.delayTime);modLfo.start();
+  modDel.connect(modFb);modFb.connect(modDel);modDel.connect(modRet);modLfo.connect(modDepth);modDepth.connect(modDel.delayTime);modLfo.start();
   /* distorsión como envío del mixer: ganancia → hp → shaper → tono → retorno */
   sdIn=G(1);sdHp=ctx.createBiquadFilter();sdHp.type='highpass';sdHp.frequency.value=90;sdSh=ctx.createWaveShaper();sdSh.oversample='2x';sdLp=ctx.createBiquadFilter();sdLp.type='lowpass';sdLp.frequency.value=5000;sdRet=G(.55);
-  sdHp.connect(sdSh);sdSh.connect(sdLp);sdLp.connect(sdRet);sdRet.connect(pre);
-  mDly=G(0);mRev=G(0);mixOut.connect(mDly);mDly.connect(dlySum);mixOut.connect(mRev);mRev.connect(revIn);
+  sdHp.connect(sdSh);sdSh.connect(sdLp);sdLp.connect(sdRet);
+  mDly=G(0);mRev=G(0);mixOut.connect(mDly);mDly.connect(dlySum);mixOut.connect(mRev);mRev.connect(revIn);applyPatch();   // los retornos van a donde diga la cadena
   CH.forEach((c,i)=>{
     const inp=G(1),vol=G(c.vol),pn=ctx.createStereoPanner(),an=ctx.createAnalyser(),ds=G(0),rs=G(0),ms=G(0),dx=G(0);an.fftSize=256;
     inp.connect(vol);vol.connect(pn);pn.connect(mixOut);vol.connect(an);vol.connect(ds);ds.connect(dlySum);vol.connect(rs);rs.connect(revIn);vol.connect(ms);ms.connect(modIn);vol.connect(dx);dx.connect(sdIn);   // envíos post-fader
@@ -204,15 +215,28 @@ function setRoute(on,conn,offT,connect,disconnect,hold){
   else if(conn.v&&!offT.t){offT.t=setTimeout(()=>{offT.t=null;if(conn.v){conn.v=false;disconnect();}},hold);}
 }
 const RV={v:false},MD={v:false},SD={v:false},RVT={t:null},MDT={t:null},SDT={t:null};
+let PATCHN=[],padDly=false;const FXA={};
+const fxNodes=()=>({dly:{o:dRet,i:dlySum},rev:{o:revRet,i:revIn},mod:{o:modRet,i:modIn},dst:{o:sdRet,i:sdIn},mst:{i:pre}});
+function applyPatch(){if(!ctx||!dRet)return;const N=fxNodes(),t=ctx.currentTime;FXP.patch=patchClean(FXP.patch)||FXD().patch;
+  if(!FXA.dly)PSRC.forEach(k=>{const a=ctx.createAnalyser();a.fftSize=256;N[k].o.connect(a);FXA[k]=a;});
+  PATCHN.forEach(n=>{n.g.gain.setTargetAtTime(0,t,.01);setTimeout(()=>{try{n.s.disconnect(n.g);}catch(e){}try{n.g.disconnect();}catch(e){}},90);});
+  PATCHN=FXP.patch.map(([a,b,v])=>{const g=G(0);N[a].o.connect(g);g.connect(N[b].i);g.gain.setTargetAtTime(v,t+.005,.015);return {a,b,g,s:N[a].o};});
+  updateRoutes();}
+function patchLevel(i,v){const c=FXP.patch[i];if(!c)return;c[2]=clamp(v,0,1.5);const n=PATCHN[i];if(n&&ctx)n.g.gain.setTargetAtTime(c[2],ctx.currentTime,.02);updateRoutes();}
+const FXB=new Uint8Array(256);
+function fxLevel(k){const a=FXA[k];if(!a)return 0;a.getByteTimeDomainData(FXB);let s=0;for(let i=0;i<FXB.length;i++){const v=(FXB[i]-128)/128;s+=v*v;}return Math.min(1,Math.sqrt(s/FXB.length)*4);}
+/* qué efectos tienen que estar prendidos: los que reciben de algún canal… o por cable de otro efecto prendido */
+function fxAct(){const a={dly:padDly||CH.some(c=>c.dly>.02),rev:padRev||CH.some(c=>c.rev>.02),mod:!PERF.lite&&CH.some(c=>c.mod>.02),dst:CH.some(c=>c.dst>.02)};
+  for(let r=0;r<3;r++)(FXP.patch||[]).forEach(([x,y,v])=>{if(y!=='mst'&&a[x]&&v>.001&&!(y==='mod'&&PERF.lite))a[y]=true;});return a;}
 function updateRoutes(){
-  if(!ctx)return;revConn=RV.v;modConn=MD.v;
-  setRoute(padRev||CH.some(c=>c.rev>.02),RV,RVT,()=>{try{revPre.connect(conv);}catch(e){}},()=>{try{revPre.disconnect(conv);}catch(e){}},(irSize+.6)*1000);
-  setRoute(CH.some(c=>c.dst>.02),SD,SDT,()=>{try{sdIn.connect(sdHp);}catch(e){}},()=>{try{sdIn.disconnect(sdHp);}catch(e){}},500);
-  setRoute(!PERF.lite&&CH.some(c=>c.mod>.02),MD,MDT,()=>{try{modIn.connect(modDel);}catch(e){}},()=>{try{modIn.disconnect(modDel);}catch(e){}},1500);
+  if(!ctx)return;revConn=RV.v;modConn=MD.v;const A=fxAct();
+  setRoute(A.rev,RV,RVT,()=>{try{revPre.connect(conv);}catch(e){}},()=>{try{revPre.disconnect(conv);}catch(e){}},(irSize+.6)*1000);
+  setRoute(A.dst,SD,SDT,()=>{try{sdIn.connect(sdHp);}catch(e){}},()=>{try{sdIn.disconnect(sdHp);}catch(e){}},500);
+  setRoute(A.mod,MD,MDT,()=>{try{modIn.connect(modDel);}catch(e){}},()=>{try{modIn.disconnect(modDel);}catch(e){}},1500);
 }
 function restartAudio(){
   try{if(window.liveStop)liveStop(true);}catch(e){}
-  const was=S.playing;if(S.playing)stop();if(CAP)capStop();sirHolds.clear();sirV=null;LIVE.clear();SMPL.voice.fill(null);bus.length=0;
+  const was=S.playing;if(S.playing)stop();if(CAP)capStop();sirHolds.clear();sirV=null;LIVE.clear();SMPL.voice.fill(null);bus.length=0;PATCHN=[];for(const k in FXA)delete FXA[k];SCR.node=null;SCR._ld=false;SCR.held=SCR.landing=SCR.paused=SCR.commit=false;
   clearTimeout(RVT.t);clearTimeout(MDT.t);clearTimeout(SDT.t);clearTimeout(dstOffT);clearTimeout(repOffT);RV.v=false;MD.v=false;SD.v=false;RVT.t=MDT.t=SDT.t=null;lastDrive=-1;lastSd=-1;repOnFlag=false;
   const old=ctx;ctx=null;try{old&&old.close();}catch(e){}
   initAudio();if(was)play();
@@ -527,7 +551,7 @@ function mfxOn(type,x,y){
   if(!ctx)return;const t=ctx.currentTime;
   if(type==='FLT'){fltM.frequency.setTargetAtTime(80*Math.pow(250,x),t,.02);fltM.Q.setTargetAtTime(.7+y*14,t,.02);}
   else if(type==='DST'){setDst(true);setDrive(x);dstWet.gain.setTargetAtTime(y*.7,t,.02);dstDry.gain.setTargetAtTime(1-y*.6,t,.02);}
-  else if(type==='DLY'){dfb.gain.setTargetAtTime(.2+x*.7,t,.03);mDly.gain.setTargetAtTime(y*2,t,.02);dRet.gain.setTargetAtTime(Math.max(FXP.dly.ret,1.2),t,.03);padDuck(1-y*.35,t);}
+  else if(type==='DLY'){if(!padDly){padDly=true;updateRoutes();}dfb.gain.setTargetAtTime(.2+x*.7,t,.03);mDly.gain.setTargetAtTime(y*2,t,.02);dRet.gain.setTargetAtTime(Math.max(FXP.dly.ret,1.2),t,.03);padDuck(1-y*.35,t);}
   else if(type==='REV'){padRev=true;updateRoutes();revTone.frequency.setTargetAtTime(800*Math.pow(15,x),t,.03);mRev.gain.setTargetAtTime(y*3.2,t,.02);revRet.gain.setTargetAtTime(Math.max(FXP.rev.ret,1.5),t,.03);padDuck(1-y*.5,t);}
   else if(type==='REP'){
     if(!repConn){repConn=true;try{fltM.connect(repIn);}catch(e){}}clearTimeout(repOffT);
@@ -539,7 +563,7 @@ function mfxOff(type){
   if(!ctx)return;const t=ctx.currentTime;
   if(type==='FLT'){fltM.frequency.setTargetAtTime(20000,t,.04);fltM.Q.setTargetAtTime(.7,t,.04);}
   else if(type==='DST'){dstWet.gain.setTargetAtTime(0,t,.03);dstDry.gain.setTargetAtTime(1,t,.03);setDst(false);}
-  else if(type==='DLY'){mDly.gain.setTargetAtTime(0,t,.03);dfb.gain.setTargetAtTime(FXP.dly.fb,t,.3);dRet.gain.setTargetAtTime(FXP.dly.ret,t,.3);padDuck(1,t);}
+  else if(type==='DLY'){padDly=false;updateRoutes();mDly.gain.setTargetAtTime(0,t,.03);dfb.gain.setTargetAtTime(FXP.dly.fb,t,.3);dRet.gain.setTargetAtTime(FXP.dly.ret,t,.3);padDuck(1,t);}
   else if(type==='REV'){padRev=false;updateRoutes();mRev.gain.setTargetAtTime(0,t,.03);revTone.frequency.setTargetAtTime(FXP.rev.damp,t,.2);revRet.gain.setTargetAtTime(FXP.rev.ret,t,.3);padDuck(1,t);}
   else if(type==='REP'){clearTimeout(repOffT);repOffT=setTimeout(()=>{if(repConn){repConn=false;try{fltM.disconnect(repIn);}catch(e){}}},1500);repOnFlag=false;repIn.gain.cancelScheduledValues(t);repIn.gain.setValueAtTime(0,t);repOut.gain.setTargetAtTime(0,t,.01);repFb.gain.setTargetAtTime(0,t,.05);}
 }
@@ -924,7 +948,7 @@ function applySnapshot(j){
   if(j.xy&&j.xy.syn0)S.xy=j.xy;if(!S.xy.vin)S.xy.vin={x:'pitch',y:'cut',pr:2};
   S.dk=DR.map((_,i)=>Object.assign({},DKD,(Array.isArray(j.dk)&&j.dk[i])||{}));
   for(let i=0;i<NR;i++){LEN[i]=Math.min((j.len&&j.len[i])||STEPS,MAXS);RM[i]=!!(j.rm&&j.rm[i]);RS[i]=!!(j.rs&&j.rs[i]);}
-  if(j.fx){const b=FXD();['dly','rev','mod','mst','dst'].forEach(k=>Object.assign(FXP[k],b[k],j.fx[k]||{}));}
+  if(j.fx){const b=FXD();['dly','rev','mod','mst','dst'].forEach(k=>Object.assign(FXP[k],b[k],j.fx[k]||{}));FXP.patch=patchClean(j.fx.patch)||b.patch;}
   if(j.smp&&j.smp.chops)j.smp.chops.forEach((C,i)=>{if(SMPL.chops[i])Object.assign(SMPL.chops[i],{ps:0,pe:1,sync:'off',q:0,qa:true,spd:1,out:0},C);});
   SMPL.mode=j.smp&&j.smp.mode==='pads'?'pads':'chop';
 }

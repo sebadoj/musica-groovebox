@@ -341,6 +341,11 @@ select option{background:#2a2926}
 #xyc{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 #xy .xl,#xy .yl{font:400 9px var(--ui);letter-spacing:.18em;color:var(--dim);z-index:1}
 #busc{display:block;width:100%;height:110px;margin-bottom:8px;background:rgba(0,0,0,.18);border:1px solid var(--line);border-radius:14px}
+#patchCv{display:block;width:100%;height:330px;margin:4px 0 6px;background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:14px;touch-action:none}
+.busbox.chain #patchSel{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.busbox.chain .psh{font:400 10px var(--ui);letter-spacing:.08em;color:var(--dim)}
+.busbox.chain .psh b{font-weight:700;letter-spacing:.14em}
+#fxMode button{font-size:10px;letter-spacing:.04em;padding:0 2px}
 #sirPad{background:transparent;border:1.5px solid rgba(255,90,138,.6);color:#ff8aa5;font:300 20px var(--ui);letter-spacing:.32em;border-radius:22px}
 #sirPad small{font:400 10px var(--ui);color:#a85b72;letter-spacing:.06em}
 #sirPad.dn{background:#3a1822;color:#fff}
@@ -536,6 +541,19 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
 .strip .sends .mini:first-child .sl.h.knob{width:34px;height:34px!important;background:radial-gradient(circle,transparent 3.6px,rgba(232,229,222,.6) 4px,rgba(232,229,222,.6) 5.4px,transparent 5.8px)}
 .strip .sends .mini:first-child .sl.h.knob::after{-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3.6px));mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3.6px))}
 .strip.mst .mini b{font-size:13px}
+/* v13.23: en el mixer DLY y REV son las perillas grandes (una por fila); MOD · DST chicas; PAN chica abajo */
+.strip .sends{flex-basis:150px}
+.strip:not(.mst) .sends .mini:nth-child(2){order:1;grid-column:1/3}
+.strip:not(.mst) .sends .mini:nth-child(3){order:2;grid-column:1/3}
+.strip:not(.mst) .sends .mini:nth-child(4){order:3}
+.strip:not(.mst) .sends .mini:nth-child(5){order:4}
+.strip:not(.mst) .sends .mini:first-child{order:9;grid-column:1/3}
+.strip:not(.mst) .sends .mini .sl.h.knob{width:22px;height:22px!important;background:radial-gradient(circle,transparent 2.6px,rgba(232,229,222,.6) 3px,rgba(232,229,222,.6) 4px,transparent 4.4px)}
+.strip:not(.mst) .sends .mini .sl.h.knob::after{-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2.6px));mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2.6px))}
+.strip:not(.mst) .sends .mini:nth-child(2) .sl.h.knob,.strip:not(.mst) .sends .mini:nth-child(3) .sl.h.knob{width:32px;height:32px!important;background:radial-gradient(circle,transparent 3.6px,rgba(232,229,222,.6) 4px,rgba(232,229,222,.6) 5.4px,transparent 5.8px)}
+.strip:not(.mst) .sends .mini:nth-child(2) .sl.h.knob::after,.strip:not(.mst) .sends .mini:nth-child(3) .sl.h.knob::after{-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3.6px));mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3.6px))}
+#strips.n9 .strip:not(.mst) .sends .mini .sl.h.knob{width:18px;height:18px!important}
+#strips.n9 .strip:not(.mst) .sends .mini:nth-child(2) .sl.h.knob,#strips.n9 .strip:not(.mst) .sends .mini:nth-child(3) .sl.h.knob{width:27px;height:27px!important}
 /* v13.10: sampler CHOP / PADS + copiar */
 #sModeSeg{display:flex;flex:1.3;min-width:0;border-radius:999px;box-shadow:inset 0 0 0 1px var(--line2);overflow:hidden}
 #sModeSeg .cap{flex:1;border-radius:0;box-shadow:none;min-width:0;padding:0}
