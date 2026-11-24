@@ -545,15 +545,20 @@ const FXDEF={
   const mseg=$('#fxMode');
   FXMODES.forEach(m=>{const b=document.createElement('button');b.textContent=m[1];b.dataset.m=m[0];b.onclick=()=>{S.fxMode=m[0];fxUi();};mseg.appendChild(b);});
   const seg=$('#fxSeg');
-  FXT.forEach(t=>{const b=document.createElement('button');b.textContent=t;b.dataset.t=t;b.onclick=()=>{if(XY.on){mfxOff(S.mfx);XY.on=false;}S.mfx=t;fxUi();};seg.appendChild(b);});
+  FXT.forEach(t=>{XYH[t]=XYH[t]||{on:false,x:.5,y:.7};const b=document.createElement('button');b.textContent=t;b.dataset.t=t;
+    b.onclick=()=>{const H=XYH[t];if(t===S.mfx&&H.on&&!xy._d){mfxOff(t);H.on=false;toast(t+' SUELTO');}   // tocar el efecto trabado lo suelta
+      else if(t!==S.mfx){const P=XYH[S.mfx];if(P.on&&!S.hold&&!xy._d){mfxOff(S.mfx);P.on=false;}S.mfx=t;}   // con HOLD, los trabados siguen sonando al cambiar de efecto
+      XY.on=XYH[S.mfx].on;XY.x=XYH[S.mfx].x;XY.y=XYH[S.mfx].y;fxUi();};seg.appendChild(b);});
   const xy=$('#xy'),dot=xy.querySelector('.dot'),vl=xy.querySelector('.vl'),hl=xy.querySelector('.hl');
-  const move=e=>{const r=xy.getBoundingClientRect();XY.x=clamp((e.clientX-r.left)/r.width,0,1);XY.y=clamp(1-(e.clientY-r.top)/r.height,0,1);mfxOn(S.mfx,XY.x,XY.y);paintXY();};
+  const move=e=>{const r=xy.getBoundingClientRect();XY.x=clamp((e.clientX-r.left)/r.width,0,1);XY.y=clamp(1-(e.clientY-r.top)/r.height,0,1);XYH[S.mfx]={on:true,x:XY.x,y:XY.y};mfxOn(S.mfx,XY.x,XY.y);paintXY();};
   xy.addEventListener('pointerdown',e=>{e.preventDefault();initAudio();try{xy.setPointerCapture(e.pointerId);}catch(x){}xy._d=true;XY.on=true;move(e);});
   xy.addEventListener('pointermove',e=>{if(xy._d)move(e);});
-  const up=()=>{if(!xy._d)return;xy._d=false;if(!S.hold){mfxOff(S.mfx);XY.on=false;paintXY();}};
+  const up=()=>{if(!xy._d)return;xy._d=false;if(!S.hold){mfxOff(S.mfx);XY.on=false;XYH[S.mfx].on=false;paintXY();}else heldUi();};
   xy.addEventListener('pointerup',up);xy.addEventListener('pointercancel',up);
   window.paintXY=()=>{dot.classList.toggle('on',XY.on);vl.style.display=hl.style.display=XY.on?'block':'none';dot.style.left=XY.x*100+'%';dot.style.top=(1-XY.y)*100+'%';vl.style.left=XY.x*100+'%';hl.style.top=(1-XY.y)*100+'%';};
-  $('#bHold').onclick=()=>{S.hold=!S.hold;$('#bHold').classList.toggle('on',S.hold);if(!S.hold&&XY.on&&!xy._d){mfxOff(S.mfx);XY.on=false;paintXY();}};
+  $('#bHold').onclick=()=>{S.hold=!S.hold;$('#bHold').classList.toggle('on',S.hold);
+    if(!S.hold){for(const t in XYH){const H=XYH[t];if(H.on&&!(xy._d&&t===S.mfx)){mfxOff(t);H.on=false;}}XY.on=XYH[S.mfx].on;paintXY();heldUi();}};   // apagar HOLD suelta todos
+  window.heldUi=()=>{$$('#fxSeg button').forEach(b=>b.classList.toggle('held',!!(XYH[b.dataset.t]&&XYH[b.dataset.t].on)));};
   const sp=$('#sirPad');let sy0=0,sx0=0;
   sp.addEventListener('pointerdown',e=>{e.preventDefault();try{sp.setPointerCapture(e.pointerId);}catch(x){}sy0=e.clientY;sx0=e.clientX;sp._d=true;sirHold('pad',true);});
   sp.addEventListener('pointermove',e=>{if(!sp._d)return;SIR.pm=Math.pow(2,clamp((sy0-e.clientY)/60,-1,1));SIR.rm=Math.pow(4,clamp((e.clientX-sx0)/110,-1,1));sirLive();});
@@ -592,17 +597,17 @@ function fxParams(box,m){
    SALIDA: los efectos del pad XY: MIX → FILTER · DIST · REPEAT → MASTER, y de dónde toman las tiradas DELAY ↗ / REVERB ↗
    Arrastrar de OUT a IN = cable · tocar un cable = nivel / quitar · sacar un enchufe de un IN y soltarlo afuera = desconectar · tocar un módulo = configurarlo */
 const CFS={key:'patch',pre:PATCHPRE,srcs:PSRC,mods:PSRC,ch:CHS,cycle:patchCycle,path:()=>true,
-  names:{dly:'DELAY',rev:'REVERB',mod:'MOD',dst:'DIST',mst:'MASTER'},cols:{dly:'#ffb347',rev:'#c9a6ff',mod:'#7ab8ff',dst:'#ff5a4a'},
+  names:{dly:'DELAY',rev:'REVERB',mod:'MOD',dst:'DIST',mst:'SALIDA'},cols:{dly:'#ffb347',rev:'#c9a6ff',mod:'#7ab8ff',dst:'#ff5a4a'},
   io:k=>({i:1,o:1}),grid:{dly:[0,0],rev:[1,0],mod:[0,1],dst:[1,1]},rows:2,
   sum:k=>{if(k==='dly'){const P=FXP.dly;return (DIVS[P.div]?DIVS[P.div][0]:'')+' · FB '+Math.round(P.fb*100)+'%';}if(k==='rev')return FXP.rev.size.toFixed(1)+' s · PRE '+Math.round(FXP.rev.pre)+' ms';
     if(k==='mod')return (FXP.mod.mode?'FLANGER':'CHORUS')+' · '+FXP.mod.rate.toFixed(1)+' Hz';return 'DRIVE '+Math.round(FXP.dst.drive*100)+'%';},
   inLbl:'↓ envío MIX',act:()=>ctx?fxAct():{dly:1,rev:1,mod:1,dst:1},
   modSel:(sp,k,h)=>{h.innerHTML='<b style="color:'+CFS.cols[k]+'">'+CFS.names[k]+'</b> · entra lo que mandan los canales del MIX + los cables';fxParams(sp,{dly:'DLY',rev:'REV',mod:'MOD',dst:'DST'}[k]);},
-  mstNote:'<b>MASTER</b> · acá vuelve lo que conectes; un efecto sin cable al master solo se oye a través de otro'};
+  mstNote:'<b>SALIDA</b> · los retornos entran con el MIX a la cadena de SALIDA: pasan por FILTER, DIST, REPEAT y las tiradas del pad antes del master · un efecto sin cable acá solo se oye a través de otro'};
 const CFO={key:'out',pre:PATCHPRE2,srcs:OSRC,mods:['mix','flt','dist','rep','tdly','trev'],ch:CHO,cycle:outCycle,path:outPath,
   names:{mix:'MIX',flt:'FILTER',dist:'DIST',rep:'REPEAT',tdly:'DELAY',trev:'REVERB',mst:'MASTER'},cols:{mix:'#e8e5de',flt:'#4df0c4',dist:'#ff5a4a',rep:'#7dff9a',tdly:'#ffb347',trev:'#c9a6ff'},
   io:k=>k==='mix'?{o:1}:{i:1,o:1},grid:{mix:[0,0],flt:[1,0],dist:[0,1],rep:[1,1],tdly:[0,2],trev:[1,2]},rows:3,
-  sum:k=>({mix:'todo lo que suena',flt:'pad · CORTE ↔ RESO ↕',dist:'pad · DRIVE ↔ MEZCLA ↕',rep:'pad · DIVISIÓN ↔',tdly:'pad · FEEDBACK ↔ ENVÍO ↕',trev:'pad · TONO ↔ ENVÍO ↕'}[k]),
+  sum:k=>({mix:'canales + retornos de envíos',flt:'pad · CORTE ↔ RESO ↕',dist:'pad · DRIVE ↔ MEZCLA ↕',rep:'pad · DIVISIÓN ↔',tdly:'pad · FEEDBACK ↔ ENVÍO ↕',trev:'pad · TONO ↔ ENVÍO ↕'}[k]),
   inLbl:'',act:()=>({mix:1,flt:1,dist:1,rep:1,tdly:1,trev:1}),
   modSel:(sp,k,h)=>{h.innerHTML='<b style="color:'+CFO.cols[k]+'">'+CFO.names[k]+'</b> · '+({mix:'la salida de todos los canales del mixer',flt:'se toca con el pad XY de FX (FLT) o el botón FILTER del modo DJ',dist:'se toca con el pad XY de FX (DST)',rep:'se toca con el pad XY de FX (REP)',tdly:'delay propio del pad (pad DLY o botón DELAY del modo DJ): toma el tiempo, tono y retorno de DELAY',trev:'reverb propia del pad (pad REV o botón REVERB del modo DJ): toma el tamaño y el retorno de REVERB'}[k]);
     if(k==='dist'){const P=FXP.dst;const n=document.createElement('div');n.className='pnote';n.textContent='El DIST de salida usa la curva del pad: DRIVE ↔ y MEZCLA ↕ mientras lo mantenés.';sp.appendChild(n);}
@@ -672,7 +677,7 @@ function drawPatch(){const cv=$('#patchCv');if(!cv||!cv.isConnected)return;const
     if(m.ix!=null){c.textAlign='left';c.fillText('IN'+(F.inLbl?' · '+F.inLbl:''),m.ix+15*d,m.iy);}if(m.ox!=null){c.textAlign='right';c.fillText('OUT',m.ox-15*d,m.oy);}c.textBaseline='top';
     if(m.ix!=null)jack(m.ix,m.iy,'#e8e5de',fed(k));if(m.ox!=null)jack(m.ox,m.oy,col,used(k));c.globalAlpha=1;}
   const M=G.mst;c.fillStyle='rgba(0,0,0,.3)';c.beginPath();c.roundRect?c.roundRect(M.x,M.y,M.w,M.h,12*d):c.rect(M.x,M.y,M.w,M.h);c.fill();c.strokeStyle=PCH.sel&&PCH.sel.k==='mst'?'#fff':'rgba(232,229,222,.4)';c.lineWidth=1.2*d;c.stroke();
-  c.fillStyle='#e8e5de';c.font=UIF(12,d,700);c.textAlign='left';c.textBaseline='top';c.fillText('MASTER',M.x+10*d,M.y+8*d);c.fillStyle='rgba(232,229,222,.5)';c.font=UIF(8,d,400);c.fillText(F.key==='out'?'salida →':'retornos →',M.x+10*d,M.y+26*d);
+  c.fillStyle='#e8e5de';c.font=UIF(12,d,700);c.textAlign='left';c.textBaseline='top';c.fillText(F.names.mst,M.x+10*d,M.y+8*d);c.fillStyle='rgba(232,229,222,.5)';c.font=UIF(8,d,400);c.fillText(F.key==='out'?'al master →':'retornos → pad XY',M.x+10*d,M.y+26*d);
   M.slots.forEach(s=>{jack(s.x,s.y,F.cols[s.k],L.some(x=>x[0]===s.k&&x[1]==='mst'));c.fillStyle=hexA(F.cols[s.k],.8);c.font=UIF(7.5,d,400);c.textAlign='center';c.fillText(F.names[s.k],s.x,s.y-22*d);});
   const cable=(B,col,lv,sel)=>{c.lineCap='round';c.strokeStyle='rgba(0,0,0,.55)';c.lineWidth=8*d;c.beginPath();c.moveTo(B[0],B[1]);c.bezierCurveTo(B[2],B[3],B[4],B[5],B[6],B[7]);c.stroke();
     if(sel){c.strokeStyle='#fff';c.lineWidth=7.5*d;c.stroke();}c.strokeStyle=hexA(col,.6+.4*lv);c.lineWidth=5*d;c.stroke();
@@ -684,9 +689,9 @@ function drawPatch(){const cv=$('#patchCv');if(!cv||!cv.isConnected)return;const
 function fxUi(){
   $$('#fxMode button').forEach(b=>b.classList.toggle('on',b.dataset.m===S.fxMode));
   const pad=S.fxMode==='PAD';$('#fxPad').style.display=pad?'flex':'none';$('#fxBus').classList.toggle('on',!pad);
-  $$('#fxSeg button').forEach(b=>b.classList.toggle('on',b.dataset.t===S.mfx));
+  $$('#fxSeg button').forEach(b=>b.classList.toggle('on',b.dataset.t===S.mfx));heldUi();
   const n=XNAME[S.mfx];$('#xy').style.setProperty('--c',FXC[S.mfx]);$('#xy .xl').textContent=n[0]+' →';$('#xy .yl').textContent='↑ '+n[1];
-  $('#fxInfo').textContent=S.mfx+' · tocá y mantené el pad';paintXY();buildFxBus();
+  $('#fxInfo').textContent=S.mfx+(XYH[S.mfx]&&XYH[S.mfx].on?' · TRABADO (tocá '+S.mfx+' para soltarlo)':S.hold?' · HOLD: lo que toques queda sonando':' · tocá y mantené el pad');paintXY();buildFxBus();
 }
 
 /* ---------------- vista SMP: sampler (grabar · chop en 4 teclas · efectos) ---------------- */

@@ -1,7 +1,7 @@
 <script>
 'use strict';
 /* =====================================================================
-   MUSICA GROOVEBOX — versión celular v13.27 (20261124)
+   MUSICA GROOVEBOX — versión celular v13.28 (20261124)
    Un solo archivo, sin librerías, Web Audio.
    16/32 pasos · 2 synths · VINTAGE (órgano, piano eléctrico, analógico, clavinet, cuerdas) · acordes (4 presets + GATE) · 8 drums · SAMPLER (chop en 4 teclas)
    · mixer 6 canales + master (pan, 3 envíos, medidores) · buses FX (delay/reverb/mod/master)
@@ -41,6 +41,7 @@ const S={tab:'seq',bpm:90,key:9,scale:1,playing:false,rec:false,page:0,cur:-1,se
   kmode:'syn0',ko:[0,0],seventh:false,pre:[0,2],chdPre:0,cut:[0,0],mfx:'DLY',hold:false,master:.85,fxMode:'PAD',hasUndo:false,xy:{syn0:{x:'pitch',y:'cut',pr:2},syn1:{x:'pitch',y:'cut',pr:2},chd:{x:'pitch',y:'cut',pr:2}},kit:0,part:0,next:null,song:false,rep:[1,1,1,1],smp2:false,sw:0,vinPre:0,vko:0,vch:false};
 S.xy.vin={x:'pitch',y:'cut',pr:2};
 const XY={x:.5,y:.7,on:false};
+const XYH={};   // v13.28: estado de cada efecto del pad (HOLD por efecto): {on,x,y}
 
 /* patrón de ejemplo (dub lento en La menor) para que arranque sonando algo */
 [0,8,11].forEach(s=>pat[0][s]=1);[4,12].forEach(s=>pat[1][s]=1);[2,6,10,14].forEach(s=>pat[2][s]=1);pat[3][15]=1;pat[6][7]=1;
@@ -233,7 +234,7 @@ function setRoute(on,conn,offT,connect,disconnect,hold){
 }
 const RV={v:false},MD={v:false},SD={v:false},RVT={t:null},MDT={t:null},SDT={t:null},PRV={v:false},PRVT={t:null};
 let padDly=false;
-const fxNodes=()=>({dly:{o:dRet,i:dlySum},rev:{o:revRet,i:revIn},mod:{o:modRet,i:modIn},dst:{o:sdRet,i:sdIn},mst:{i:pre}});
+const fxNodes=()=>({dly:{o:dRet,i:dlySum},rev:{o:revRet,i:revIn},mod:{o:modRet,i:modIn},dst:{o:sdRet,i:sdIn},mst:{i:mixOut}});   // v13.28: los retornos de envío entran a la SALIDA junto con el MIX (pasan por los efectos del pad XY)
 const outNodes=()=>({mix:{o:mixOut},flt:{i:fltM,o:fltM},dist:{i:dstIn,o:dstSum},rep:{i:repX,o:repOut},tdly:{i:mDly,o:pdRet},trev:{i:mRev,o:prRet},mst:{i:pre}});
 /* una cadena = lista de cables [salida, entrada, nivel] → un GainNode por cable (con fundido) + un analizador por salida */
 function mkChain(o){const C={N:[],A:{},o};
