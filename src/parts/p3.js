@@ -600,11 +600,11 @@ const CFS={key:'patch',pre:PATCHPRE,srcs:PSRC,mods:PSRC,ch:CHS,cycle:patchCycle,
   modSel:(sp,k,h)=>{h.innerHTML='<b style="color:'+CFS.cols[k]+'">'+CFS.names[k]+'</b> · entra lo que mandan los canales del MIX + los cables';fxParams(sp,{dly:'DLY',rev:'REV',mod:'MOD',dst:'DST'}[k]);},
   mstNote:'<b>MASTER</b> · acá vuelve lo que conectes; un efecto sin cable al master solo se oye a través de otro'};
 const CFO={key:'out',pre:PATCHPRE2,srcs:OSRC,mods:['mix','flt','dist','rep','tdly','trev'],ch:CHO,cycle:outCycle,path:outPath,
-  names:{mix:'MIX',flt:'FILTER',dist:'DIST',rep:'REPEAT',tdly:'DELAY ↗',trev:'REVERB ↗',mst:'MASTER'},cols:{mix:'#e8e5de',flt:'#4df0c4',dist:'#ff5a4a',rep:'#7dff9a',tdly:'#ffb347',trev:'#c9a6ff'},
-  io:k=>k==='mix'?{o:1}:k==='tdly'||k==='trev'?{i:1}:{i:1,o:1},grid:{mix:[0,0],flt:[1,0],dist:[0,1],rep:[1,1],tdly:[0,2],trev:[1,2]},rows:3,
-  sum:k=>({mix:'todo lo que suena',flt:'pad · CORTE ↔ RESO ↕',dist:'pad · DRIVE ↔ MEZCLA ↕',rep:'pad · DIVISIÓN ↔',tdly:'tirada al DELAY de envíos',trev:'tirada a la REVERB de envíos'}[k]),
+  names:{mix:'MIX',flt:'FILTER',dist:'DIST',rep:'REPEAT',tdly:'DELAY',trev:'REVERB',mst:'MASTER'},cols:{mix:'#e8e5de',flt:'#4df0c4',dist:'#ff5a4a',rep:'#7dff9a',tdly:'#ffb347',trev:'#c9a6ff'},
+  io:k=>k==='mix'?{o:1}:{i:1,o:1},grid:{mix:[0,0],flt:[1,0],dist:[0,1],rep:[1,1],tdly:[0,2],trev:[1,2]},rows:3,
+  sum:k=>({mix:'todo lo que suena',flt:'pad · CORTE ↔ RESO ↕',dist:'pad · DRIVE ↔ MEZCLA ↕',rep:'pad · DIVISIÓN ↔',tdly:'pad · FEEDBACK ↔ ENVÍO ↕',trev:'pad · TONO ↔ ENVÍO ↕'}[k]),
   inLbl:'',act:()=>({mix:1,flt:1,dist:1,rep:1,tdly:1,trev:1}),
-  modSel:(sp,k,h)=>{h.innerHTML='<b style="color:'+CFO.cols[k]+'">'+CFO.names[k]+'</b> · '+({mix:'la salida de todos los canales del mixer',flt:'se toca con el pad XY de FX (FLT) o el botón FILTER del modo DJ',dist:'se toca con el pad XY de FX (DST)',rep:'se toca con el pad XY de FX (REP)',tdly:'el pad DELAY tira desde acá al delay de los envíos',trev:'el pad REVERB tira desde acá a la reverb de los envíos'}[k]);
+  modSel:(sp,k,h)=>{h.innerHTML='<b style="color:'+CFO.cols[k]+'">'+CFO.names[k]+'</b> · '+({mix:'la salida de todos los canales del mixer',flt:'se toca con el pad XY de FX (FLT) o el botón FILTER del modo DJ',dist:'se toca con el pad XY de FX (DST)',rep:'se toca con el pad XY de FX (REP)',tdly:'delay propio del pad (pad DLY o botón DELAY del modo DJ): toma el tiempo, tono y retorno de DELAY',trev:'reverb propia del pad (pad REV o botón REVERB del modo DJ): toma el tamaño y el retorno de REVERB'}[k]);
     if(k==='dist'){const P=FXP.dst;const n=document.createElement('div');n.className='pnote';n.textContent='El DIST de salida usa la curva del pad: DRIVE ↔ y MEZCLA ↕ mientras lo mantenés.';sp.appendChild(n);}
     if(k==='tdly')fxParams(sp,'DLY');if(k==='trev')fxParams(sp,'REV');},
   mstNote:'<b>MASTER</b> · siempre tiene que llegarle el MIX por algún camino (si no, quedaría en silencio)'};
@@ -629,7 +629,7 @@ function buildChain(bx){const F=PCF(),L=()=>FXP[F.key],box=document.createElemen
   {const row=document.createElement('div');row.className='chainx';const b=document.createElement('button');b.className='cap dark';b.textContent='DESCONECTAR TODO';
     b.onclick=()=>{chainUnplugAll(F);PCH.sel=null;buildFxBus();toast(F.key==='out'?'SALIDA SIN EFECTOS: MIX → MASTER directo (las tiradas del pad no salen)':'ENVÍOS DESCONECTADOS: los efectos de envío no vuelven al master');};row.appendChild(b);box.appendChild(row);}
   const cv=document.createElement('canvas');cv.id='patchCv';cv.style.height=(F.rows===3?380:330)+'px';cv.setAttribute('aria-label','Cadena de efectos: patch de cables');box.appendChild(cv);
-  const n=document.createElement('div');n.className='pnote';n.id='patchMsg';n.textContent=F.key==='out'?'Efectos de salida del pad XY: el MIX pasa por FILTER, DIST y REPEAT en el orden que cablees · DELAY ↗ y REVERB ↗ son las tiradas del pad · siempre tiene que haber camino del MIX al MASTER':'Arrastrá de OUT a IN para conectar · tocá un cable para su nivel · sacá un enchufe de un IN y soltalo afuera para desconectar · tocá un módulo para configurarlo';box.appendChild(n);
+  const n=document.createElement('div');n.className='pnote';n.id='patchMsg';n.textContent=F.key==='out'?'Efectos de salida del pad XY: cableá el orden de FILTER, DIST, REPEAT, DELAY y REVERB (por ejemplo REVERB OUT → FILTER IN para filtrar la cola) · siempre tiene que haber camino del MIX al MASTER':'Arrastrá de OUT a IN para conectar · tocá un cable para su nivel · sacá un enchufe de un IN y soltalo afuera para desconectar · tocá un módulo para configurarlo';box.appendChild(n);
   const sp=document.createElement('div');sp.id='patchSel';box.appendChild(sp);bx.appendChild(box);patchSelUi();patchTouch(cv);}
 function patchSelUi(){const sp=$('#patchSel');if(!sp)return;sp.innerHTML='';const F=PCF(),L=FXP[F.key],S0=PCH.sel;if(!S0)return;
   const h=document.createElement('div');h.className='psh';sp.appendChild(h);

@@ -15,7 +15,7 @@ await tab('fx');await W(100);await p.evaluate(()=>[...document.querySelectorAll(
 ok(await p.evaluate(()=>{const b=[...document.querySelectorAll('.busbox.chain button')].map(x=>x.textContent);return b.includes('ENVÍOS')&&b.includes('SALIDA (PAD XY)');}),'CADENA tiene dos modos: ENVÍOS y SALIDA (PAD XY)');
 await p.evaluate(()=>[...document.querySelectorAll('.busbox.chain button')].find(x=>x.textContent==='SALIDA (PAD XY)').click());await W(300);
 ok(await p.evaluate(()=>{const b=[...document.querySelectorAll('.busbox.chain button')].map(x=>x.textContent);return b.includes('ORIGINAL')&&b.includes('DIST PRIMERO')&&b.includes('TIRADAS FILTRADAS')&&!b.includes('DUB');}),'SALIDA: sus propios presets');
-ok(await p.evaluate(()=>['mix','flt','dist','rep','tdly','trev'].every(k=>GB.PCH.G&&GB.PCH.G[k])&&GB.PCH.G.mix.ix==null&&GB.PCH.G.tdly.ox==null),'módulos MIX (solo OUT), FILTER, DIST, REPEAT, DELAY ↗ y REVERB ↗ (solo IN)');
+ok(await p.evaluate(()=>['mix','flt','dist','rep','tdly','trev'].every(k=>GB.PCH.G&&GB.PCH.G[k])&&GB.PCH.G.mix.ix==null&&GB.PCH.G.tdly.ox!=null&&GB.PCH.G.tdly.ix!=null&&GB.PCH.G.trev.ox!=null),'módulos MIX (solo OUT), FILTER, DIST, REPEAT, DELAY y REVERB (con IN y OUT)');
 /* gestos */
 const J=k=>p.evaluate(k=>{const cv=document.querySelector('#patchCv'),R=cv.getBoundingClientRect(),d=cv.width/R.width,G=GB.PCH.G;const f=(x,y)=>({x:R.left+x/d,y:R.top+y/d});
   if(k==='empty')return f(G.mix.x+G.mix.w+5*d,G.mix.y+G.mix.h+14*d);if(k.startsWith('mst.'))return (s=>f(s.x,s.y))(G.mst.slots.find(s=>s.k===k.slice(4)));const [m,io]=k.split('.');return io==='in'?f(G[m].ix,G[m].iy):f(G[m].ox,G[m].oy);},k);
@@ -37,9 +37,9 @@ ok(r.lo<r.hi-20,'el pad FILTER sigue filtrando en su nuevo lugar (agudos '+r.lo.
 var r;
 /* tiradas del pad: de dónde salen */
 r=await p.evaluate(async()=>{GB.CH.forEach((c,i)=>{c.dly=0;c.rev=0;GB.applyCh(i);});GB.FXP.out=GB.PATCHPRE2[0][1].filter(c=>c[1]!=='tdly').map(c=>c.slice());GB.applyOut();await new Promise(r=>setTimeout(r,3000));
-  const m=async()=>{let x=0;for(let i=0;i<48;i++){await new Promise(r=>setTimeout(r,25));x=Math.max(x,GB.fxLevel('dly'));}return x;};
+  const m=async()=>{let x=0;for(let i=0;i<48;i++){await new Promise(r=>setTimeout(r,25));x=Math.max(x,GB.CHO.lvl('tdly'));}return x;};
   GB.mfxOn('DLY',.5,.8);const sin=await m();GB.mfxOff('DLY');await new Promise(r=>setTimeout(r,3000));GB.FXP.out.push(['flt','tdly',1]);GB.applyOut();await new Promise(r=>setTimeout(r,400));GB.mfxOn('DLY',.5,.8);const con=await m();GB.mfxOff('DLY');return {sin,con};});
-ok(r.con>r.sin*3&&r.con>.1,'la tirada del pad DELAY sale de donde esté cableado DELAY ↗ (sin cable '+r.sin.toFixed(3)+' · desde FILTER '+r.con.toFixed(3)+')');
+ok(r.con>r.sin*3&&r.con>.1,'el DELAY del pad toma de donde esté cableado su IN (sin cable '+r.sin.toFixed(3)+' · desde FILTER '+r.con.toFixed(3)+')');
 /* REPEAT y DIST del pad siguen andando */
 r=await p.evaluate(async()=>{GB.FXP.out=GB.PATCHPRE2[0][1].map(c=>c.slice());GB.applyOut();await new Promise(r=>setTimeout(r,300));GB.mfxOn('REP',.3,.5);let m=0;for(let i=0;i<20;i++){await new Promise(r=>setTimeout(r,25));m=Math.max(m,GB.CHO.lvl('rep'));}GB.mfxOff('REP');
   GB.mfxOn('DST',.8,.9);let d=0;for(let i=0;i<10;i++){await new Promise(r=>setTimeout(r,25));d=Math.max(d,GB.CHO.lvl('dist'));}GB.mfxOff('DST');return {m,d};});

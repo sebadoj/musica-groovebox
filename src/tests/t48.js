@@ -68,7 +68,7 @@ ok(r.old===JSON.stringify((await p.evaluate(()=>GB.PATCHPRE[0][1]))),'sesión vi
 ok(!r.cyc&&!r.bad.includes('zzz')&&r.bad.includes('1.5'),'cadena inválida se limpia (sin lazos, sin módulos raros, nivel ≤150%: '+r.bad+')');
 /* pad de DELAY en FX sin envíos de canal: igual prende lo que cuelga del delay */
 r=await p.evaluate(()=>{GB.CH.forEach((c,i)=>{c.dly=0;GB.applyCh(i);});GB.FXP.patch=[['dly','rev',1],['rev','mst',1],['dly','mst',1]];GB.applyPatch();const a0=GB.fxAct().rev;GB.mfxOn('DLY',.5,.5);const a1=GB.fxAct().rev;GB.mfxOff('DLY');return [a0,a1,GB.fxAct().rev];});
-ok(!r[0]&&r[1]&&!r[2],'pad DELAY: prende la reverb que cuelga del delay mientras se usa');
+ok(!r[0]&&!r[1]&&!r[2],'pad DELAY: ya no toca los efectos de envío (v13.27: tiene su propio delay en la cadena de SALIDA)');
 /* reinicio del audio: la cadena y el scratch se rearman */
 const ra=await p.evaluate(()=>typeof GB.restartAudio==='function');
 if(ra){await p.evaluate(()=>GB.restartAudio());await W(800);r=await p.evaluate(()=>({sc:!!GB.SCR.node&&GB.SCR.node.context===GB.ctx,fx:GB.fxLevel?true:false}));ok(r.sc,'después de reiniciar el audio el scratch se rearma (bug de v13.18 arreglado)');}
