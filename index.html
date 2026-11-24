@@ -66,7 +66,6 @@ select{flex:1;width:0;min-width:0;height:34px;background:#06201a;color:var(--lcd
   #clipLed{padding:0 4px;font-size:9px}}
 #bUndo,#bRedo{font-size:17px;padding:0 9px;position:relative;flex:none}
 #bUndo.off,#bRedo.off{opacity:.35}
-#bUndo[data-n]:not([data-n=''])::after,#bRedo[data-n]:not([data-n=''])::after{content:attr(data-n);position:absolute;top:1px;right:4px;font:700 8px var(--ui);color:var(--acc)}
 .lamp{flex:none;height:34px;padding:0 7px;border-radius:8px;background:#1a0d0c;color:#6b2a25;border:1px solid #3a1714;font:700 11px var(--mono);letter-spacing:.04em}
 .lamp.hot{background:var(--red);color:#fff;border-color:#ff8f84;box-shadow:0 0 12px 2px var(--red)}
 
@@ -762,7 +761,7 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
 <script>
 'use strict';
 /* =====================================================================
-   MUSICA GROOVEBOX — versión celular v13.30 (20261124)
+   MUSICA GROOVEBOX — versión celular v13.31 (20261124)
    Un solo archivo, sin librerías, Web Audio.
    16/32 pasos · 2 synths · VINTAGE (órgano, piano eléctrico, analógico, clavinet, cuerdas) · acordes (4 presets + GATE) · 8 drums · SAMPLER (chop en 4 teclas)
    · mixer 6 canales + master (pan, 3 envíos, medidores) · buses FX (delay/reverb/mod/master)
@@ -2624,7 +2623,7 @@ const pad2=n=>String(n).padStart(2,'0');
    · Las tomas LIVE van a la subcarpeta TOMAS.
    Navegadores sin carpetas (iPhone, Firefox): queda la biblioteca del teléfono de antes. */
 const AS_MIN=5,AS_KEEP=10,FOLDM='application/vnd.google-apps.folder',ASRX=/_AS_\d{12}\.json$/i;
-const APPV='13.30',APPD='20261124';
+const APPV='13.31',APPD='20261124';
 const DV={f:null,h:null,need:false,rec:[],last:0,lastT:'',lastBody:'',busy:false,err:'',sub:{}};
 const drvMode=()=>!!(window.claude&&window.claude.use);
 const FS_OK=typeof window.showDirectoryPicker==='function';
