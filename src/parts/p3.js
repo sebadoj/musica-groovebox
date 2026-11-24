@@ -609,6 +609,12 @@ const CFO={key:'out',pre:PATCHPRE2,srcs:OSRC,mods:['mix','flt','dist','rep','tdl
     if(k==='tdly')fxParams(sp,'DLY');if(k==='trev')fxParams(sp,'REV');},
   mstNote:'<b>MASTER</b> · siempre tiene que llegarle el MIX por algún camino (si no, quedaría en silencio)'};
 const PCF=()=>S.chainMode==='out'?CFO:CFS;
+/* DESCONECTAR un módulo: saca todos sus cables y puentea lo que pasaba por él (lo que entraba va directo a donde salía) */
+function chainUnplug(F,id){const L=FXP[F.key],ins=L.filter(c=>c[1]===id),outs=L.filter(c=>c[0]===id);if(!ins.length&&!outs.length)return 'nada';
+  const nx=L.filter(c=>c[0]!==id&&c[1]!==id);
+  for(const a of ins)for(const b of outs){const nc=[a[0],b[1],Math.min(a[2],b[2])];if(nc[0]===nc[1]||nx.some(c=>c[0]===nc[0]&&c[1]===nc[1])||F.cycle([...nx,nc]))continue;if(F.key==='patch'&&!PSRC.includes(nc[0]))continue;nx.push(nc);}
+  if(!F.path(nx))return 'silencio';FXP[F.key].length=0;nx.forEach(c=>FXP[F.key].push(c));F.ch.apply();queueSave();return 'ok';}
+function chainUnplugAll(F){FXP[F.key]=F.key==='out'?[['mix','mst',1]]:[];F.ch.apply();queueSave();}
 const PCH={sel:null,drag:null,G:null};
 function patchGeo(W,H,d){const F=PCF(),p=10*d,w=(W-3*p)/2,h=(F.rows===3?66:80)*d,gy=(F.rows===3?32:46)*d,M={};
   for(const k of F.mods){const [cx,cy]=F.grid[k],x=p+cx*(w+p),y=p+cy*(h+gy),io=F.io(k);M[k]={x,y,w,h};if(io.i){M[k].ix=x+22*d;M[k].iy=y+h-20*d;}if(io.o){M[k].ox=x+w-22*d;M[k].oy=y+h-20*d;}}
@@ -620,6 +626,8 @@ function buildChain(bx){const F=PCF(),L=()=>FXP[F.key],box=document.createElemen
   mkSeg(box,'MODO',[['ENVÍOS','snd'],['SALIDA (PAD XY)','out']],o=>(S.chainMode||'snd')===o[1],o=>{S.chainMode=o[1];PCH.sel=null;PCH.drag=null;buildFxBus();});
   const same=(A,B)=>A.length===B.length&&A.every(c=>B.some(x=>x[0]===c[0]&&x[1]===c[1]&&Math.abs(x[2]-c[2])<.01));
   mkSeg(box,'CADENA',F.pre.map((p,i)=>[p[0],i]),o=>same(L(),F.pre[o[1]][1]),o=>{FXP[F.key]=F.pre[o[1]][1].map(c=>c.slice());F.ch.apply();PCH.sel=null;buildFxBus();queueSave();toast('CADENA '+(F.key==='out'?'DE SALIDA':'DE ENVÍOS')+': '+F.pre[o[1]][0]);});
+  {const row=document.createElement('div');row.className='chainx';const b=document.createElement('button');b.className='cap dark';b.textContent='DESCONECTAR TODO';
+    b.onclick=()=>{chainUnplugAll(F);PCH.sel=null;buildFxBus();toast(F.key==='out'?'SALIDA SIN EFECTOS: MIX → MASTER directo (las tiradas del pad no salen)':'ENVÍOS DESCONECTADOS: los efectos de envío no vuelven al master');};row.appendChild(b);box.appendChild(row);}
   const cv=document.createElement('canvas');cv.id='patchCv';cv.style.height=(F.rows===3?380:330)+'px';cv.setAttribute('aria-label','Cadena de efectos: patch de cables');box.appendChild(cv);
   const n=document.createElement('div');n.className='pnote';n.id='patchMsg';n.textContent=F.key==='out'?'Efectos de salida del pad XY: el MIX pasa por FILTER, DIST y REPEAT en el orden que cablees · DELAY ↗ y REVERB ↗ son las tiradas del pad · siempre tiene que haber camino del MIX al MASTER':'Arrastrá de OUT a IN para conectar · tocá un cable para su nivel · sacá un enchufe de un IN y soltalo afuera para desconectar · tocá un módulo para configurarlo';box.appendChild(n);
   const sp=document.createElement('div');sp.id='patchSel';box.appendChild(sp);bx.appendChild(box);patchSelUi();patchTouch(cv);}
@@ -627,8 +635,12 @@ function patchSelUi(){const sp=$('#patchSel');if(!sp)return;sp.innerHTML='';cons
   const h=document.createElement('div');h.className='psh';sp.appendChild(h);
   if(S0.k==='cab'){const c=L[S0.i];if(!c){PCH.sel=null;return;}h.innerHTML='<b style="color:'+F.cols[c[0]]+'">'+F.names[c[0]]+'</b> → <b style="color:'+(F.cols[c[1]]||'#e8e5de')+'">'+F.names[c[1]]+'</b>';
     const V={get lvl(){return FXP[F.key][S0.i]?FXP[F.key][S0.i][2]:0;},set lvl(v){F.ch.level(S0.i,v);}};mkGrid(sp,V,['lvl'],{lvl:{n:'NIVEL DEL CABLE',min:0,max:1.5,f:PCT}},()=>queueSave());
-    const q=document.createElement('button');q.className='cap dark';q.textContent='QUITAR CABLE';q.onclick=()=>{const nx=L.filter((_,i)=>i!==S0.i);if(!F.path(nx)){toast('NO: EL MIX QUEDARÍA SIN CAMINO AL MASTER (SILENCIO)');return;}L.splice(S0.i,1);PCH.sel=null;F.ch.apply();patchSelUi();queueSave();};sp.appendChild(q);}
-  else if(S0.k==='mod')F.modSel(sp,S0.id,h);else h.innerHTML=F.mstNote;}
+    const q=document.createElement('button');q.className='cap dark';q.textContent='DESCONECTAR CABLE';q.onclick=()=>{const nx=L.filter((_,i)=>i!==S0.i);if(!F.path(nx)){toast('NO: EL MIX QUEDARÍA SIN CAMINO AL MASTER (SILENCIO)');return;}L.splice(S0.i,1);PCH.sel=null;F.ch.apply();patchSelUi();queueSave();};sp.appendChild(q);}
+  else if(S0.k==='mod'){const id=S0.id,u=document.createElement('button');u.className='cap dark';u.textContent='DESCONECTAR '+F.names[id];
+    u.onclick=()=>{const r=chainUnplug(F,id);if(r==='nada'){toast(F.names[id]+' YA ESTÁ DESCONECTADO');return;}if(r==='silencio'){toast('NO: EL MIX QUEDARÍA SIN CAMINO AL MASTER (SILENCIO)');return;}
+      toast(F.names[id]+' DESCONECTADO · lo que pasaba por él va directo');patchSelUi();};
+    sp.appendChild(u);F.modSel(sp,id,h);sp.insertBefore(u,sp.children[1]);}
+  else h.innerHTML=F.mstNote;}
 function patchTouch(cv){
   const at=e=>{const r=cv.getBoundingClientRect(),d=cv.width/r.width;return {x:(e.clientX-r.left)*d,y:(e.clientY-r.top)*d,d};};
   const near=(p,x,y,R)=>x!=null&&Math.hypot(p.x-x,p.y-y)<=R;
