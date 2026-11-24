@@ -56,15 +56,17 @@ button{border:0;cursor:pointer;padding:0}
 .r2>*{min-width:0}
 .r2 label{display:flex;align-items:center;gap:6px;flex:1;min-width:0}
 select{flex:1;width:0;min-width:0;height:34px;background:#06201a;color:var(--lcd);border:1px solid #14473b;border-radius:8px;padding:0 6px;font:700 14px var(--mono)}
-#bClr,#bUndo,#bSes{flex:none;font-size:13px;padding:0 8px}
-#bClr.arm{color:var(--red);--glow:var(--red)}
+#bSes{flex:none;font-size:13px;padding:0 8px}
+
 #bKill{flex:none;font:700 12px var(--ui);letter-spacing:.1em;padding:0 9px;color:#fff;background:#b3261e;box-shadow:inset 0 0 0 1px #ff5a4a}
 #bKill:active{background:#ff3b30}
 @media (max-width:420px){   /* v13.29: con KILL la fila se compacta para que Tono y Escala se sigan leyendo */
   .r2{gap:4px}.r2 select{padding:0 2px 0 8px;font-size:12px;letter-spacing:0}
-  #bClr{font-size:11px;padding:0 7px}#bLive{padding:0 6px}#bKill{font-size:11px;padding:0 7px}#bSes{padding:0 6px}
+  #bLive{padding:0 6px}#bKill{font-size:11px;padding:0 7px}#bSes{padding:0 6px}
   #clipLed{padding:0 4px;font-size:9px}}
-#bUndo{display:none;font-size:16px}#bUndo.has{display:block}
+#bUndo,#bRedo{font-size:17px;padding:0 9px;position:relative;flex:none}
+#bUndo.off,#bRedo.off{opacity:.35}
+#bUndo[data-n]:not([data-n=''])::after,#bRedo[data-n]:not([data-n=''])::after{content:attr(data-n);position:absolute;top:1px;right:4px;font:700 8px var(--ui);color:var(--acc)}
 .lamp{flex:none;height:34px;padding:0 7px;border-radius:8px;background:#1a0d0c;color:#6b2a25;border:1px solid #3a1714;font:700 11px var(--mono);letter-spacing:.04em}
 .lamp.hot{background:var(--red);color:#fff;border-color:#ff8f84;box-shadow:0 0 12px 2px var(--red)}
 
@@ -609,8 +611,8 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
   <div class="r2">
     <label><span class="lb">Tono</span> <select id="selKey"></select></label>
     <label><span class="lb">Escala</span> <select id="selScale"></select></label>
-    <button id="bUndo" class="cap dark sm" aria-label="Deshacer la última grabación">↶</button>
-    <button id="bClr" class="cap dark sm">BORRAR</button>
+    <button id="bUndo" class="cap dark sm off" aria-label="Deshacer (hasta 2 pasos)">↶</button>
+    <button id="bRedo" class="cap dark sm off" aria-label="Rehacer">↷</button>
     <button id="bSes" class="cap dark sm" aria-label="Sesiones y Drive">☰</button>
     <button id="bLive" class="cap dark sm" aria-label="Grabar todo lo que sale por el master">● LIVE</button>
     <button id="bKill" class="cap sm" aria-label="KILL: apaga todo (para el tema, suelta los efectos y corta las colas)">KILL</button>
@@ -760,7 +762,7 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
 <script>
 'use strict';
 /* =====================================================================
-   MUSICA GROOVEBOX — versión celular v13.29 (20261124)
+   MUSICA GROOVEBOX — versión celular v13.30 (20261124)
    Un solo archivo, sin librerías, Web Audio.
    16/32 pasos · 2 synths · VINTAGE (órgano, piano eléctrico, analógico, clavinet, cuerdas) · acordes (4 presets + GATE) · 8 drums · SAMPLER (chop en 4 teclas)
    · mixer 6 canales + master (pan, 3 envíos, medidores) · buses FX (delay/reverb/mod/master)
@@ -1648,7 +1650,7 @@ const partOrder=()=>[0,1,2,3].filter(i=>PARTS[i]||i===S.part);
 function partSwitch(i){
   if(i===S.part||i<0||i>3)return;
   PARTS[S.part]=partSnap();if(!PARTS[i])PARTS[i]=JSON.parse(JSON.stringify(PARTS[S.part]));   // una parte nueva arranca como copia de la actual
-  partApply(PARTS[i]);S.part=i;UNDO=null;UNDOP=null;S.hasUndo=false;try{$('#bUndo').classList.remove('has');}catch(e){}
+  partApply(PARTS[i]);S.part=i;histReset();
   dirty=true;try{renderPalette();partUi();}catch(e){}queueSave();
 }
 function partGo(i){   // sonando: cambia al final del compás; parado: al instante
@@ -1662,19 +1664,31 @@ function partBar(){   // al empezar cada compás
 }
 
 /* REC en vivo: cuantiza al paso más cercano; devuelve el paso escrito (o -1) */
-let UNDO=null,UNDOP=null;
 /* copiar una parte en otra (si el destino es la parte que suena, se aplica en vivo) */
 function partCopy(src,dst){
   if(src===dst||src<0||dst<0||src>3||dst>3)return false;
   const data=src===S.part?partSnap():(PARTS[src]?JSON.parse(JSON.stringify(PARTS[src])):null);if(!data)return false;
   if(dst===S.part){takeUndo();partApply(data);}
-  else{UNDO=null;UNDOP={i:dst,prev:PARTS[dst]?JSON.parse(JSON.stringify(PARTS[dst])):null,rep:S.rep[dst]};PARTS[dst]=JSON.parse(JSON.stringify(data));S.hasUndo=true;try{$('#bUndo').classList.add('has');}catch(e){}}
+  else PARTS[dst]=JSON.parse(JSON.stringify(data));
   S.rep[dst]=S.rep[src];dirty=true;queueSave();return true;
 }
 const snapSeq=()=>JSON.stringify({pat,seqN,synG,chdSeq,chdGate,smpSeq,smpSeq2,vinN,vinG,xyr:XYR,len:LEN,steps:STEPS});
-function takeUndo(){UNDOP=null;UNDO=snapSeq();S.hasUndo=true;$('#bUndo').classList.add('has');}
-function doUndo(){if(UNDOP){PARTS[UNDOP.i]=UNDOP.prev;S.rep[UNDOP.i]=UNDOP.rep;const n=PN[UNDOP.i];UNDOP=null;S.hasUndo=false;$('#bUndo').classList.remove('has');try{partUi();}catch(e){}queueSave();toast('COPIA EN '+n+' DESHECHA');return;}
-  if(!UNDO)return;const j=JSON.parse(UNDO);partApply(j);if(j.steps)STEPS=j.steps;try{pageUi();}catch(e){}UNDO=null;S.hasUndo=false;$('#bUndo').classList.remove('has');dirty=true;renderPalette();queueSave();toast('GRABACIÓN DESHECHA');}
+/* HISTORIAL (v13.30): ↶ deshace hasta 2 pasos · ↷ rehace.
+   Cada cambio de la secuencia (pasos, notas, gates, movimiento, largo, 16/32) es un paso; los cambios seguidos se juntan;
+   una pasada de REC con el tema andando es un solo paso. Se reinicia al cambiar de parte o abrir una sesión. */
+const HMAX=2,HIST={u:[],r:[],base:null,pend:null,tc:null,tk:null};
+function histReset(){HIST.u=[];HIST.r=[];HIST.pend=null;clearTimeout(HIST.tc);clearTimeout(HIST.tk);HIST.base=snapSeq();histUi();}
+function histSee(){const cur=snapSeq();if(HIST.base===null){HIST.base=cur;return false;}if(cur===HIST.base)return false;if(HIST.pend===null)HIST.pend=HIST.base;HIST.base=cur;return true;}
+function histCommit(){if(HIST.pend!==null&&HIST.pend!==HIST.base){HIST.u.push(HIST.pend);while(HIST.u.length>HMAX)HIST.u.shift();HIST.r=[];}HIST.pend=null;histUi();}
+function histCheck(){if(histSee()){clearTimeout(HIST.tc);const go=()=>{if(S.rec&&S.playing){HIST.tc=setTimeout(go,400);return;}histCommit();};HIST.tc=setTimeout(go,700);}else histUi();}
+function histTouch(){if(HIST.lock)return;clearTimeout(HIST.tk);HIST.tk=setTimeout(histCheck,250);}   // lo llama queueSave
+function histFlush(){clearTimeout(HIST.tk);clearTimeout(HIST.tc);histSee();histCommit();}
+function histApply(sj){HIST.lock=true;try{const j=JSON.parse(sj);partApply(j);if(j.steps)STEPS=j.steps;try{pageUi();}catch(e){}dirty=true;try{renderPalette();}catch(e){}}finally{HIST.lock=false;}HIST.base=snapSeq();queueSave();histUi();}
+function histUndo(){histFlush();if(!HIST.u.length){toast('NADA PARA DESHACER');return false;}HIST.r.push(HIST.base);histApply(HIST.u.pop());toast('↶ DESHECHO'+(HIST.u.length?' · queda '+HIST.u.length:''));return true;}
+function histRedo(){histFlush();if(!HIST.r.length){toast('NADA PARA REHACER');return false;}HIST.u.push(HIST.base);while(HIST.u.length>HMAX)HIST.u.shift();histApply(HIST.r.pop());toast('↷ REHECHO');return true;}
+function histUi(){S.hasUndo=HIST.u.length>0||(HIST.pend!==null&&HIST.pend!==HIST.base);try{const u=$('#bUndo'),r=$('#bRedo');u.classList.toggle('off',!S.hasUndo);u.dataset.n=Math.min(HMAX,HIST.u.length+(HIST.pend!==null&&HIST.pend!==HIST.base?1:0))||'';
+  r.classList.toggle('off',!HIST.r.length);r.dataset.n=HIST.r.length||'';}catch(e){}}
+const takeUndo=()=>histFlush(),doUndo=()=>histUndo();   // compatibilidad: marcar un corte antes de una operación grande
 function recPos(row){
   if(!(S.rec&&S.playing)||!ctx||!SCH.length)return -1;
   /* el paso que estabas ESCUCHANDO al tocar = ahora − latencia; se cuantiza al más cercano */
@@ -1740,7 +1754,7 @@ function applySnapshot(j){
   SMPL.mode=j.smp&&j.smp.mode==='pads'?'pads':'chop';
 }
 const CHG={on:false,t0:0,cb:null};   // hay cambios desde el último guardado en Drive
-function queueSave(){if(!CHG.on){CHG.on=true;CHG.t0=Date.now();if(CHG.cb)try{CHG.cb();}catch(e){}}clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(snapshot(false)));}catch(e){}},500);}
+function queueSave(){histTouch();if(!CHG.on){CHG.on=true;CHG.t0=Date.now();if(CHG.cb)try{CHG.cb();}catch(e){}}clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(snapshot(false)));}catch(e){}},500);}
 const DEF=JSON.parse(JSON.stringify(snapshot(false)));   // estado de fábrica (para NUEVA SESIÓN)
 (function load(){try{const j=JSON.parse(localStorage.getItem(KEY)||'null');if(j)applySnapshot(j);}catch(e){}})();
 
@@ -1795,7 +1809,7 @@ $('#selKey').onchange=e=>{S.key=+e.target.value;dirty=true;renderKeys();renderPa
 $('#selScale').onchange=e=>{S.scale=+e.target.value;dirty=true;renderKeys();renderPalette();queueSave();};
 bindPad($('#bPlay'),()=>togglePlay());
 $('#bRec').onclick=()=>{S.rec=!S.rec;if(S.rec){takeUndo();toast(S.playing?'REC: TOCÁ LAS TECLAS · METRÓNOMO ON':'REC: DALE PLAY Y TOCÁ · METRÓNOMO ON');}sync();};
-$('#bUndo').onclick=doUndo;
+$('#bUndo').onclick=histUndo;$('#bRedo').onclick=histRedo;
 /* TEMPO: apretá el número y mové el dedo a los costados (1 BPM cada 5 px) · 50–200 */
 const BPMMAX=200;
 function setBpm(v){const n=clamp(Math.round(v),50,BPMMAX);if(n===S.bpm)return;S.bpm=n;setDelayTime();sync();queueSave();}
@@ -1811,12 +1825,7 @@ let cntL='';function cntUi(){const on=S.playing&&S.cur>=0,g=on?(S.g||0):0,txt=(M
   bindPad(sb,e=>{sx=e.clientX;sy=e.clientY;SIR.pm=1;SIR.rm=1;sirHold('btn',true);},()=>{SIR.pm=1;SIR.rm=1;sirLive();sirHold('btn',false);sb.style.removeProperty('--sx');sb.style.removeProperty('--sy');});
   sb.addEventListener('pointermove',e=>{if(!sb.classList.contains('dn'))return;const dy=clamp((sy-e.clientY)/60,-1,1),dx=clamp((e.clientX-sx)/110,-1,1);SIR.pm=Math.pow(2,dy);SIR.rm=Math.pow(4,dx);sirLive();
     sb.style.setProperty('--sx',(dx*14).toFixed(1)+'px');sb.style.setProperty('--sy',(-dy*8).toFixed(1)+'px');});}
-let clrT=null;
-$('#bClr').onclick=()=>{
-  const b=$('#bClr');
-  if(!b.classList.contains('arm')){b.classList.add('arm','on');b.textContent='¿SEGURO?';clearTimeout(clrT);clrT=setTimeout(()=>{b.classList.remove('arm','on');b.textContent='BORRAR';},3000);return;}
-  clearTimeout(clrT);b.classList.remove('arm','on');b.textContent='BORRAR';takeUndo();pat.forEach(r=>r.fill(0));XYR.forEach(a=>a.fill(null));dirty=true;toast('SECUENCIA BORRADA · ↶ DESHACE');queueSave();
-};
+
 let CLIPLATCH=false;
 const clipReset=()=>{CLIPLATCH=false;};
 $('#clipLed').onclick=clipReset;
@@ -2615,7 +2624,7 @@ const pad2=n=>String(n).padStart(2,'0');
    · Las tomas LIVE van a la subcarpeta TOMAS.
    Navegadores sin carpetas (iPhone, Firefox): queda la biblioteca del teléfono de antes. */
 const AS_MIN=5,AS_KEEP=10,FOLDM='application/vnd.google-apps.folder',ASRX=/_AS_\d{12}\.json$/i;
-const APPV='13.29',APPD='20261124';
+const APPV='13.30',APPD='20261124';
 const DV={f:null,h:null,need:false,rec:[],last:0,lastT:'',lastBody:'',busy:false,err:'',sub:{}};
 const drvMode=()=>!!(window.claude&&window.claude.use);
 const FS_OK=typeof window.showDirectoryPicker==='function';
@@ -2789,14 +2798,14 @@ function loadSession(j){
   if(j.smp&&j.smp.pcm)smpDecode(j.smp.pcm);
   if(j.smp&&Array.isArray(j.smp.pads)){SMPL._rs=true;try{for(let i=0;i<NSP;i++){const p=j.smp.pads[i];if(p)smpDecode(p,i);else SMPL.pads[i]=null;}}finally{SMPL._rs=false;}smpStore();}
   $('#selKey').value=S.key;$('#selScale').value=S.scale;
-  renderKeys();renderPalette();paints.forEach(p=>p());applyAll();applyFx();applyPatch();applyOut();PCH.sel=null;vinFx();sync();dirty=true;smpUi();fxUi();partUi();pageUi();smp2Ui();ensureKit();queueSave();
+  renderKeys();renderPalette();paints.forEach(p=>p());applyAll();applyFx();applyPatch();applyOut();PCH.sel=null;histReset();vinFx();sync();dirty=true;smpUi();fxUi();partUi();pageUi();smp2Ui();ensureKit();queueSave();
 }
 /* NUEVA SESIÓN: todo en blanco (patrones, partes, sample, sonidos y mezcla de fábrica) */
 let newT=null;
 function newSession(){
   if(S.playing)stop();if(CAP)capStop();
   const j=JSON.parse(JSON.stringify(DEF));j.pat.forEach(r=>r.fill(0));j.seqN.forEach(r=>r.fill(0));j.chdSeq.fill(0);j.chdGate.fill(2);j.smpSeq.fill(0);if(j.smpSeq2)j.smpSeq2.fill(0);j.smp2=false;if(j.synG)j.synG.forEach(a=>a.fill(1));j.vinN.forEach(a=>a.fill(0));j.vinG.forEach(a=>a.fill(1));if(j.xyr)j.xyr.forEach(a=>a.fill(null));j.steps=16;j.sw=0;j.parts=null;j.part=0;j.song=false;j.name='';delete j.smp.pcm;
-  SMPL.buf=null;SMPL.rbuf=null;SMPL.name='';SMPL.pads.fill(null);SMPL.mode='chop';smpStore();UNDO=null;S.hasUndo=false;try{$('#bUndo').classList.remove('has');}catch(e){}
+  SMPL.buf=null;SMPL.rbuf=null;SMPL.name='';SMPL.pads.fill(null);SMPL.mode='chop';smpStore();
   loadSession(j);S.name='';$('#shName').value='';queueSave();CHG.on=false;DV.lastBody='';try{chgUi();}catch(e){}
 }
 $('#shNew').onclick=()=>{const b=$('#shNew');
@@ -3444,8 +3453,8 @@ $$('#tabs button').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.t==='
 document.addEventListener('keydown',e=>{if(e.code==='Space'&&!e.repeat&&e.target.tagName!=='SELECT'&&e.target.tagName!=='INPUT'){e.preventDefault();togglePlay();}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){sirHolds.clear();if(sirV)sirStop();$$('#pads .pad').forEach(el=>{if(el._v){try{(Array.isArray(el._v)?el._v:[el._v]).forEach(v=>v.stop());}catch(e){}el._v=null;el.classList.remove('dn');}});}});
 window.addEventListener('resize',()=>{if(S.tab==='smp')drawWave();});
-renderPalette();renderKeys();fxUi();sync();refreshSeq();smpUi();partUi();ringUi();smp2Ui();frame();
-window.GB={smpMode,smpCopy,smpSrc,SCP:()=>SCP,padsPack,IDB,libSave,libOpen,libList,libLive,smpPack,smpUnpack,SMPR,drumRe,dkE,renderDrum,KH:()=>KH,LV,wavEncode,xyApply,LIVE,drawSiren:()=>drawSiren(),TILT,partCopy,LEN,RM,RS,ringSel,rowTool,viz:{drawScope:()=>drawScope(),drawVoice:()=>drawVoice(),drawXY:()=>drawXY(),drawBus:()=>drawBus(),drawRing:()=>drawRing()},newSession,KB:()=>KB,SYNP,sdSend:(i,v)=>{CH[i].dst=v;applyCh(i);},anM:()=>anM,shareSes,PARTS,partGo,partSwitch,partBar,drumPreset,KITS,DPRE,trig,sd,PERF,S,CH,FXP,SMPL,pat,smpSeq,chdGate,snapshot,applySnapshot,loadSession,smpDemo,chopPlay,smpSet,smpEncode,smpDecode,get ctx(){return ctx;},get lim(){return lim;},get CAP(){return CAP;},recWrite,takeUndo,doUndo,bus,extractText,setSteps,get STEPS(){return STEPS;},vinPlay,vinVoice,VINP,vinN,vinG,vinRec,vinGate,VL,vinMig,XYR,xyRec,xyAuto,xyPlay,XYQ,synG,synGate,chordPlay,DV,CHG,queueSave,drvAuto,drvSaveOrig,drvRecent,drvSetF,foldSearch,liveUp,drvMode,drvLive,sesBase,fMode,BK,lbSet,lbPerm,sesSave,sesRecent,sesLoad,migUi,APPV,LBR,libJson,smpQ,smpAutoQ,smpStretch,smpPrep,wsola,smpLen,SQ,seqLit,LIT,mfxOn,mfxOff,restartAudio,NSP,chopD,smpEqual,smpTransients,chainUnplug,chainUnplugAll,CFS,CFO,patchSelUi,killAll,XYH,XY,PRV,drumPlay,setDelayTime,applyFx,PATCHPRE,PATCHPRE2,outCycle,outPath,outClean,applyOut,CHS,CHO,patchCycle,patchClean,applyPatch,patchLevel,fxAct,fxLevel,PCH,FXP,DJV,DJXY,SIR,sirHolds,fxv:()=>({pdt:pdly?pdly.delayTime.value:0,dt:dly.delayTime.value,mDly:mDly.gain.value,dfb:pdfb.gain.value,sdfb:dfb.gain.value,fltF:fltM.frequency.value,fltQ:fltM.Q.value,mRev:mRev.gain.value}),SCR,scrOffNow,scrDown,scrMove,scrUp,scrQ,outTap,LV,applyCh,sirHold,smpCue,smpOut,rowAud,smpSeq2,sSeq,R_SMP2,smp2Ui,WV,wvSet,drawWave,rowOn,vinFx,latOut,vNow,calCalc,SCH,seqN,chdSeq,LIVE_:()=>LIVE,setBpm,pageUi,noteOpen,renderPalette,ROWS,R_VIN,swOff,get gT(){return gT;},orgWave,DHIT,lesToggle};
+renderPalette();renderKeys();fxUi();sync();refreshSeq();smpUi();partUi();ringUi();smp2Ui();histReset();frame();
+window.GB={smpMode,smpCopy,smpSrc,SCP:()=>SCP,padsPack,IDB,libSave,libOpen,libList,libLive,smpPack,smpUnpack,SMPR,drumRe,dkE,renderDrum,KH:()=>KH,LV,wavEncode,xyApply,LIVE,drawSiren:()=>drawSiren(),TILT,partCopy,LEN,RM,RS,ringSel,rowTool,viz:{drawScope:()=>drawScope(),drawVoice:()=>drawVoice(),drawXY:()=>drawXY(),drawBus:()=>drawBus(),drawRing:()=>drawRing()},newSession,KB:()=>KB,SYNP,sdSend:(i,v)=>{CH[i].dst=v;applyCh(i);},anM:()=>anM,shareSes,PARTS,partGo,partSwitch,partBar,drumPreset,KITS,DPRE,trig,sd,PERF,S,CH,FXP,SMPL,pat,smpSeq,chdGate,snapshot,applySnapshot,loadSession,smpDemo,chopPlay,smpSet,smpEncode,smpDecode,get ctx(){return ctx;},get lim(){return lim;},get CAP(){return CAP;},recWrite,takeUndo,doUndo,bus,extractText,setSteps,get STEPS(){return STEPS;},vinPlay,vinVoice,VINP,vinN,vinG,vinRec,vinGate,VL,vinMig,XYR,xyRec,xyAuto,xyPlay,XYQ,synG,synGate,chordPlay,DV,CHG,queueSave,drvAuto,drvSaveOrig,drvRecent,drvSetF,foldSearch,liveUp,drvMode,drvLive,sesBase,fMode,BK,lbSet,lbPerm,sesSave,sesRecent,sesLoad,migUi,APPV,LBR,libJson,smpQ,smpAutoQ,smpStretch,smpPrep,wsola,smpLen,SQ,seqLit,LIT,mfxOn,mfxOff,restartAudio,NSP,chopD,smpEqual,smpTransients,chainUnplug,chainUnplugAll,CFS,CFO,patchSelUi,killAll,HIST,histUndo,histRedo,histFlush,histReset,histUi,XYH,XY,PRV,drumPlay,setDelayTime,applyFx,PATCHPRE,PATCHPRE2,outCycle,outPath,outClean,applyOut,CHS,CHO,patchCycle,patchClean,applyPatch,patchLevel,fxAct,fxLevel,PCH,FXP,DJV,DJXY,SIR,sirHolds,fxv:()=>({pdt:pdly?pdly.delayTime.value:0,dt:dly.delayTime.value,mDly:mDly.gain.value,dfb:pdfb.gain.value,sdfb:dfb.gain.value,fltF:fltM.frequency.value,fltQ:fltM.Q.value,mRev:mRev.gain.value}),SCR,scrOffNow,scrDown,scrMove,scrUp,scrQ,outTap,LV,applyCh,sirHold,smpCue,smpOut,rowAud,smpSeq2,sSeq,R_SMP2,smp2Ui,WV,wvSet,drawWave,rowOn,vinFx,latOut,vNow,calCalc,SCH,seqN,chdSeq,LIVE_:()=>LIVE,setBpm,pageUi,noteOpen,renderPalette,ROWS,R_VIN,swOff,get gT(){return gT;},orgWave,DHIT,lesToggle};
 </script>
 <script>
 /* app instalable: guarda la app en el teléfono para abrir sin internet y se actualiza sola */

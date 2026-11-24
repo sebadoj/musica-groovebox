@@ -1,7 +1,7 @@
 <script>
 'use strict';
 /* =====================================================================
-   MUSICA GROOVEBOX — versión celular v13.29 (20261124)
+   MUSICA GROOVEBOX — versión celular v13.30 (20261124)
    Un solo archivo, sin librerías, Web Audio.
    16/32 pasos · 2 synths · VINTAGE (órgano, piano eléctrico, analógico, clavinet, cuerdas) · acordes (4 presets + GATE) · 8 drums · SAMPLER (chop en 4 teclas)
    · mixer 6 canales + master (pan, 3 envíos, medidores) · buses FX (delay/reverb/mod/master)
@@ -890,7 +890,7 @@ const partOrder=()=>[0,1,2,3].filter(i=>PARTS[i]||i===S.part);
 function partSwitch(i){
   if(i===S.part||i<0||i>3)return;
   PARTS[S.part]=partSnap();if(!PARTS[i])PARTS[i]=JSON.parse(JSON.stringify(PARTS[S.part]));   // una parte nueva arranca como copia de la actual
-  partApply(PARTS[i]);S.part=i;UNDO=null;UNDOP=null;S.hasUndo=false;try{$('#bUndo').classList.remove('has');}catch(e){}
+  partApply(PARTS[i]);S.part=i;histReset();
   dirty=true;try{renderPalette();partUi();}catch(e){}queueSave();
 }
 function partGo(i){   // sonando: cambia al final del compás; parado: al instante
@@ -904,19 +904,31 @@ function partBar(){   // al empezar cada compás
 }
 
 /* REC en vivo: cuantiza al paso más cercano; devuelve el paso escrito (o -1) */
-let UNDO=null,UNDOP=null;
 /* copiar una parte en otra (si el destino es la parte que suena, se aplica en vivo) */
 function partCopy(src,dst){
   if(src===dst||src<0||dst<0||src>3||dst>3)return false;
   const data=src===S.part?partSnap():(PARTS[src]?JSON.parse(JSON.stringify(PARTS[src])):null);if(!data)return false;
   if(dst===S.part){takeUndo();partApply(data);}
-  else{UNDO=null;UNDOP={i:dst,prev:PARTS[dst]?JSON.parse(JSON.stringify(PARTS[dst])):null,rep:S.rep[dst]};PARTS[dst]=JSON.parse(JSON.stringify(data));S.hasUndo=true;try{$('#bUndo').classList.add('has');}catch(e){}}
+  else PARTS[dst]=JSON.parse(JSON.stringify(data));
   S.rep[dst]=S.rep[src];dirty=true;queueSave();return true;
 }
 const snapSeq=()=>JSON.stringify({pat,seqN,synG,chdSeq,chdGate,smpSeq,smpSeq2,vinN,vinG,xyr:XYR,len:LEN,steps:STEPS});
-function takeUndo(){UNDOP=null;UNDO=snapSeq();S.hasUndo=true;$('#bUndo').classList.add('has');}
-function doUndo(){if(UNDOP){PARTS[UNDOP.i]=UNDOP.prev;S.rep[UNDOP.i]=UNDOP.rep;const n=PN[UNDOP.i];UNDOP=null;S.hasUndo=false;$('#bUndo').classList.remove('has');try{partUi();}catch(e){}queueSave();toast('COPIA EN '+n+' DESHECHA');return;}
-  if(!UNDO)return;const j=JSON.parse(UNDO);partApply(j);if(j.steps)STEPS=j.steps;try{pageUi();}catch(e){}UNDO=null;S.hasUndo=false;$('#bUndo').classList.remove('has');dirty=true;renderPalette();queueSave();toast('GRABACIÓN DESHECHA');}
+/* HISTORIAL (v13.30): ↶ deshace hasta 2 pasos · ↷ rehace.
+   Cada cambio de la secuencia (pasos, notas, gates, movimiento, largo, 16/32) es un paso; los cambios seguidos se juntan;
+   una pasada de REC con el tema andando es un solo paso. Se reinicia al cambiar de parte o abrir una sesión. */
+const HMAX=2,HIST={u:[],r:[],base:null,pend:null,tc:null,tk:null};
+function histReset(){HIST.u=[];HIST.r=[];HIST.pend=null;clearTimeout(HIST.tc);clearTimeout(HIST.tk);HIST.base=snapSeq();histUi();}
+function histSee(){const cur=snapSeq();if(HIST.base===null){HIST.base=cur;return false;}if(cur===HIST.base)return false;if(HIST.pend===null)HIST.pend=HIST.base;HIST.base=cur;return true;}
+function histCommit(){if(HIST.pend!==null&&HIST.pend!==HIST.base){HIST.u.push(HIST.pend);while(HIST.u.length>HMAX)HIST.u.shift();HIST.r=[];}HIST.pend=null;histUi();}
+function histCheck(){if(histSee()){clearTimeout(HIST.tc);const go=()=>{if(S.rec&&S.playing){HIST.tc=setTimeout(go,400);return;}histCommit();};HIST.tc=setTimeout(go,700);}else histUi();}
+function histTouch(){if(HIST.lock)return;clearTimeout(HIST.tk);HIST.tk=setTimeout(histCheck,250);}   // lo llama queueSave
+function histFlush(){clearTimeout(HIST.tk);clearTimeout(HIST.tc);histSee();histCommit();}
+function histApply(sj){HIST.lock=true;try{const j=JSON.parse(sj);partApply(j);if(j.steps)STEPS=j.steps;try{pageUi();}catch(e){}dirty=true;try{renderPalette();}catch(e){}}finally{HIST.lock=false;}HIST.base=snapSeq();queueSave();histUi();}
+function histUndo(){histFlush();if(!HIST.u.length){toast('NADA PARA DESHACER');return false;}HIST.r.push(HIST.base);histApply(HIST.u.pop());toast('↶ DESHECHO'+(HIST.u.length?' · queda '+HIST.u.length:''));return true;}
+function histRedo(){histFlush();if(!HIST.r.length){toast('NADA PARA REHACER');return false;}HIST.u.push(HIST.base);while(HIST.u.length>HMAX)HIST.u.shift();histApply(HIST.r.pop());toast('↷ REHECHO');return true;}
+function histUi(){S.hasUndo=HIST.u.length>0||(HIST.pend!==null&&HIST.pend!==HIST.base);try{const u=$('#bUndo'),r=$('#bRedo');u.classList.toggle('off',!S.hasUndo);u.dataset.n=Math.min(HMAX,HIST.u.length+(HIST.pend!==null&&HIST.pend!==HIST.base?1:0))||'';
+  r.classList.toggle('off',!HIST.r.length);r.dataset.n=HIST.r.length||'';}catch(e){}}
+const takeUndo=()=>histFlush(),doUndo=()=>histUndo();   // compatibilidad: marcar un corte antes de una operación grande
 function recPos(row){
   if(!(S.rec&&S.playing)||!ctx||!SCH.length)return -1;
   /* el paso que estabas ESCUCHANDO al tocar = ahora − latencia; se cuantiza al más cercano */
@@ -982,7 +994,7 @@ function applySnapshot(j){
   SMPL.mode=j.smp&&j.smp.mode==='pads'?'pads':'chop';
 }
 const CHG={on:false,t0:0,cb:null};   // hay cambios desde el último guardado en Drive
-function queueSave(){if(!CHG.on){CHG.on=true;CHG.t0=Date.now();if(CHG.cb)try{CHG.cb();}catch(e){}}clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(snapshot(false)));}catch(e){}},500);}
+function queueSave(){histTouch();if(!CHG.on){CHG.on=true;CHG.t0=Date.now();if(CHG.cb)try{CHG.cb();}catch(e){}}clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(snapshot(false)));}catch(e){}},500);}
 const DEF=JSON.parse(JSON.stringify(snapshot(false)));   // estado de fábrica (para NUEVA SESIÓN)
 (function load(){try{const j=JSON.parse(localStorage.getItem(KEY)||'null');if(j)applySnapshot(j);}catch(e){}})();
 </script>

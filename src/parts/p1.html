@@ -56,15 +56,17 @@ button{border:0;cursor:pointer;padding:0}
 .r2>*{min-width:0}
 .r2 label{display:flex;align-items:center;gap:6px;flex:1;min-width:0}
 select{flex:1;width:0;min-width:0;height:34px;background:#06201a;color:var(--lcd);border:1px solid #14473b;border-radius:8px;padding:0 6px;font:700 14px var(--mono)}
-#bClr,#bUndo,#bSes{flex:none;font-size:13px;padding:0 8px}
-#bClr.arm{color:var(--red);--glow:var(--red)}
+#bSes{flex:none;font-size:13px;padding:0 8px}
+
 #bKill{flex:none;font:700 12px var(--ui);letter-spacing:.1em;padding:0 9px;color:#fff;background:#b3261e;box-shadow:inset 0 0 0 1px #ff5a4a}
 #bKill:active{background:#ff3b30}
 @media (max-width:420px){   /* v13.29: con KILL la fila se compacta para que Tono y Escala se sigan leyendo */
   .r2{gap:4px}.r2 select{padding:0 2px 0 8px;font-size:12px;letter-spacing:0}
-  #bClr{font-size:11px;padding:0 7px}#bLive{padding:0 6px}#bKill{font-size:11px;padding:0 7px}#bSes{padding:0 6px}
+  #bLive{padding:0 6px}#bKill{font-size:11px;padding:0 7px}#bSes{padding:0 6px}
   #clipLed{padding:0 4px;font-size:9px}}
-#bUndo{display:none;font-size:16px}#bUndo.has{display:block}
+#bUndo,#bRedo{font-size:17px;padding:0 9px;position:relative;flex:none}
+#bUndo.off,#bRedo.off{opacity:.35}
+#bUndo[data-n]:not([data-n=''])::after,#bRedo[data-n]:not([data-n=''])::after{content:attr(data-n);position:absolute;top:1px;right:4px;font:700 8px var(--ui);color:var(--acc)}
 .lamp{flex:none;height:34px;padding:0 7px;border-radius:8px;background:#1a0d0c;color:#6b2a25;border:1px solid #3a1714;font:700 11px var(--mono);letter-spacing:.04em}
 .lamp.hot{background:var(--red);color:#fff;border-color:#ff8f84;box-shadow:0 0 12px 2px var(--red)}
 
@@ -602,8 +604,8 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
   <div class="r2">
     <label><span class="lb">Tono</span> <select id="selKey"></select></label>
     <label><span class="lb">Escala</span> <select id="selScale"></select></label>
-    <button id="bUndo" class="cap dark sm" aria-label="Deshacer la última grabación">↶</button>
-    <button id="bClr" class="cap dark sm">BORRAR</button>
+    <button id="bUndo" class="cap dark sm off" aria-label="Deshacer (hasta 2 pasos)">↶</button>
+    <button id="bRedo" class="cap dark sm off" aria-label="Rehacer">↷</button>
     <button id="bSes" class="cap dark sm" aria-label="Sesiones y Drive">☰</button>
     <button id="bLive" class="cap dark sm" aria-label="Grabar todo lo que sale por el master">● LIVE</button>
     <button id="bKill" class="cap sm" aria-label="KILL: apaga todo (para el tema, suelta los efectos y corta las colas)">KILL</button>

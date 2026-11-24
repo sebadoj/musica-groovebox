@@ -50,7 +50,7 @@ $('#selKey').onchange=e=>{S.key=+e.target.value;dirty=true;renderKeys();renderPa
 $('#selScale').onchange=e=>{S.scale=+e.target.value;dirty=true;renderKeys();renderPalette();queueSave();};
 bindPad($('#bPlay'),()=>togglePlay());
 $('#bRec').onclick=()=>{S.rec=!S.rec;if(S.rec){takeUndo();toast(S.playing?'REC: TOCÁ LAS TECLAS · METRÓNOMO ON':'REC: DALE PLAY Y TOCÁ · METRÓNOMO ON');}sync();};
-$('#bUndo').onclick=doUndo;
+$('#bUndo').onclick=histUndo;$('#bRedo').onclick=histRedo;
 /* TEMPO: apretá el número y mové el dedo a los costados (1 BPM cada 5 px) · 50–200 */
 const BPMMAX=200;
 function setBpm(v){const n=clamp(Math.round(v),50,BPMMAX);if(n===S.bpm)return;S.bpm=n;setDelayTime();sync();queueSave();}
@@ -66,12 +66,7 @@ let cntL='';function cntUi(){const on=S.playing&&S.cur>=0,g=on?(S.g||0):0,txt=(M
   bindPad(sb,e=>{sx=e.clientX;sy=e.clientY;SIR.pm=1;SIR.rm=1;sirHold('btn',true);},()=>{SIR.pm=1;SIR.rm=1;sirLive();sirHold('btn',false);sb.style.removeProperty('--sx');sb.style.removeProperty('--sy');});
   sb.addEventListener('pointermove',e=>{if(!sb.classList.contains('dn'))return;const dy=clamp((sy-e.clientY)/60,-1,1),dx=clamp((e.clientX-sx)/110,-1,1);SIR.pm=Math.pow(2,dy);SIR.rm=Math.pow(4,dx);sirLive();
     sb.style.setProperty('--sx',(dx*14).toFixed(1)+'px');sb.style.setProperty('--sy',(-dy*8).toFixed(1)+'px');});}
-let clrT=null;
-$('#bClr').onclick=()=>{
-  const b=$('#bClr');
-  if(!b.classList.contains('arm')){b.classList.add('arm','on');b.textContent='¿SEGURO?';clearTimeout(clrT);clrT=setTimeout(()=>{b.classList.remove('arm','on');b.textContent='BORRAR';},3000);return;}
-  clearTimeout(clrT);b.classList.remove('arm','on');b.textContent='BORRAR';takeUndo();pat.forEach(r=>r.fill(0));XYR.forEach(a=>a.fill(null));dirty=true;toast('SECUENCIA BORRADA · ↶ DESHACE');queueSave();
-};
+
 let CLIPLATCH=false;
 const clipReset=()=>{CLIPLATCH=false;};
 $('#clipLed').onclick=clipReset;
@@ -1044,14 +1039,14 @@ function loadSession(j){
   if(j.smp&&j.smp.pcm)smpDecode(j.smp.pcm);
   if(j.smp&&Array.isArray(j.smp.pads)){SMPL._rs=true;try{for(let i=0;i<NSP;i++){const p=j.smp.pads[i];if(p)smpDecode(p,i);else SMPL.pads[i]=null;}}finally{SMPL._rs=false;}smpStore();}
   $('#selKey').value=S.key;$('#selScale').value=S.scale;
-  renderKeys();renderPalette();paints.forEach(p=>p());applyAll();applyFx();applyPatch();applyOut();PCH.sel=null;vinFx();sync();dirty=true;smpUi();fxUi();partUi();pageUi();smp2Ui();ensureKit();queueSave();
+  renderKeys();renderPalette();paints.forEach(p=>p());applyAll();applyFx();applyPatch();applyOut();PCH.sel=null;histReset();vinFx();sync();dirty=true;smpUi();fxUi();partUi();pageUi();smp2Ui();ensureKit();queueSave();
 }
 /* NUEVA SESIÓN: todo en blanco (patrones, partes, sample, sonidos y mezcla de fábrica) */
 let newT=null;
 function newSession(){
   if(S.playing)stop();if(CAP)capStop();
   const j=JSON.parse(JSON.stringify(DEF));j.pat.forEach(r=>r.fill(0));j.seqN.forEach(r=>r.fill(0));j.chdSeq.fill(0);j.chdGate.fill(2);j.smpSeq.fill(0);if(j.smpSeq2)j.smpSeq2.fill(0);j.smp2=false;if(j.synG)j.synG.forEach(a=>a.fill(1));j.vinN.forEach(a=>a.fill(0));j.vinG.forEach(a=>a.fill(1));if(j.xyr)j.xyr.forEach(a=>a.fill(null));j.steps=16;j.sw=0;j.parts=null;j.part=0;j.song=false;j.name='';delete j.smp.pcm;
-  SMPL.buf=null;SMPL.rbuf=null;SMPL.name='';SMPL.pads.fill(null);SMPL.mode='chop';smpStore();UNDO=null;S.hasUndo=false;try{$('#bUndo').classList.remove('has');}catch(e){}
+  SMPL.buf=null;SMPL.rbuf=null;SMPL.name='';SMPL.pads.fill(null);SMPL.mode='chop';smpStore();
   loadSession(j);S.name='';$('#shName').value='';queueSave();CHG.on=false;DV.lastBody='';try{chgUi();}catch(e){}
 }
 $('#shNew').onclick=()=>{const b=$('#shNew');
@@ -1699,7 +1694,7 @@ $$('#tabs button').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.t==='
 document.addEventListener('keydown',e=>{if(e.code==='Space'&&!e.repeat&&e.target.tagName!=='SELECT'&&e.target.tagName!=='INPUT'){e.preventDefault();togglePlay();}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){sirHolds.clear();if(sirV)sirStop();$$('#pads .pad').forEach(el=>{if(el._v){try{(Array.isArray(el._v)?el._v:[el._v]).forEach(v=>v.stop());}catch(e){}el._v=null;el.classList.remove('dn');}});}});
 window.addEventListener('resize',()=>{if(S.tab==='smp')drawWave();});
-renderPalette();renderKeys();fxUi();sync();refreshSeq();smpUi();partUi();ringUi();smp2Ui();frame();
+renderPalette();renderKeys();fxUi();sync();refreshSeq();smpUi();partUi();ringUi();smp2Ui();histReset();frame();
 window.GB={trig,sd,PERF,S,CH,FXP,SMPL,pat,smpSeq,chdGate,snapshot,applySnapshot,loadSession,smpDemo,chopPlay,smpSet,smpEncode,smpDecode,get ctx(){return ctx;},get lim(){return lim;},get CAP(){return CAP;},recWrite,takeUndo,doUndo,bus,extractText};
 </script>
 </body>

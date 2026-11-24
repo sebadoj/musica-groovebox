@@ -37,7 +37,7 @@ const srv=http.createServer((q,r)=>{r.setHeader('content-type','text/html');r.en
  // seq row for sampler + rec
  await p.tap('#tabs [data-t=seq]');await p.waitForTimeout(200);
  await p.evaluate(()=>{GB.S.sel={r:11,s:0};});
- await p.tap('#bRec');ok(await p.evaluate(()=>GB.S.rec&&GB.S.hasUndo),'rec armed+undo');
+ await p.tap('#bRec');ok(await p.evaluate(()=>GB.S.rec),'rec armed');
  await p.tap('#tabs [data-t=smp]');
  for(let k=0;k<3;k++){const bx=await p.locator('#sPads .pad').nth(k).boundingBox();await p.touchscreen.tap(bx.x+8,bx.y+8);await p.waitForTimeout(260);}
  ok(await p.evaluate(()=>GB.smpSeq.some(v=>v>0)&&GB.pat[11].some(v=>v)),'rec wrote sampler steps '+await p.evaluate(()=>JSON.stringify(GB.smpSeq)));
