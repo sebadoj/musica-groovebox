@@ -587,69 +587,87 @@ function fxParams(box,m){
     const V={get vol(){return S.master;},set vol(v){S.master=v;applyAll();ch();}};mkGrid(box,V,['vol'],FXDEF,()=>{});
     const n=document.createElement('div');n.className='pnote';n.textContent='El LIMITER del master está siempre activo. La luz CLIP de arriba se prende si algo llega a 0 dBFS (tocala para limpiar).';box.appendChild(n);}
 }
-/* ===== CADENA DE FX como patch de cables =====
-   módulos DELAY · REVERB · MOD · DIST (cada uno con IN y OUT) y el MASTER. Arrastrar de OUT a IN = cable.
-   Tocar un cable = su nivel / quitar · agarrar el enchufe de un IN y soltarlo afuera = desconectar · tocar un módulo = configurarlo */
-const PCOL={dly:'#ffb347',rev:'#c9a6ff',mod:'#7ab8ff',dst:'#ff5a4a',mst:'#e8e5de'},PNAME={dly:'DELAY',rev:'REVERB',mod:'MOD',dst:'DIST',mst:'MASTER'},PMODE={dly:'DLY',rev:'REV',mod:'MOD',dst:'DST'};
-const PCH={sel:null,drag:null,G:null,msg:''};
-function patchGeo(W,H,d){const p=10*d,w=(W-3*p)/2,h=80*d,gy=46*d,M={},pos={dly:[0,0],rev:[1,0],mod:[0,1],dst:[1,1]};
-  for(const k in pos){const x=p+pos[k][0]*(w+p),y=p+pos[k][1]*(h+gy);M[k]={x,y,w,h,ix:x+22*d,iy:y+h-20*d,ox:x+w-22*d,oy:y+h-20*d};}
-  const my=p+2*h+gy+40*d,mh=H-my-p;M.mst={x:p,y:my,w:W-2*p,h:mh,slots:PSRC.map((k,i)=>({k,x:p+96*d+(W-2*p-106*d)*(i+.5)/4,y:my+mh-22*d}))};return M;}
+/* ===== CADENA DE FX como patch de cables — dos modos =====
+   ENVÍOS: DELAY · REVERB · MOD · DIST de los envíos del mixer (cada uno con IN y OUT) → MASTER
+   SALIDA: los efectos del pad XY: MIX → FILTER · DIST · REPEAT → MASTER, y de dónde toman las tiradas DELAY ↗ / REVERB ↗
+   Arrastrar de OUT a IN = cable · tocar un cable = nivel / quitar · sacar un enchufe de un IN y soltarlo afuera = desconectar · tocar un módulo = configurarlo */
+const CFS={key:'patch',pre:PATCHPRE,srcs:PSRC,mods:PSRC,ch:CHS,cycle:patchCycle,path:()=>true,
+  names:{dly:'DELAY',rev:'REVERB',mod:'MOD',dst:'DIST',mst:'MASTER'},cols:{dly:'#ffb347',rev:'#c9a6ff',mod:'#7ab8ff',dst:'#ff5a4a'},
+  io:k=>({i:1,o:1}),grid:{dly:[0,0],rev:[1,0],mod:[0,1],dst:[1,1]},rows:2,
+  sum:k=>{if(k==='dly'){const P=FXP.dly;return (DIVS[P.div]?DIVS[P.div][0]:'')+' · FB '+Math.round(P.fb*100)+'%';}if(k==='rev')return FXP.rev.size.toFixed(1)+' s · PRE '+Math.round(FXP.rev.pre)+' ms';
+    if(k==='mod')return (FXP.mod.mode?'FLANGER':'CHORUS')+' · '+FXP.mod.rate.toFixed(1)+' Hz';return 'DRIVE '+Math.round(FXP.dst.drive*100)+'%';},
+  inLbl:'↓ envío MIX',act:()=>ctx?fxAct():{dly:1,rev:1,mod:1,dst:1},
+  modSel:(sp,k,h)=>{h.innerHTML='<b style="color:'+CFS.cols[k]+'">'+CFS.names[k]+'</b> · entra lo que mandan los canales del MIX + los cables';fxParams(sp,{dly:'DLY',rev:'REV',mod:'MOD',dst:'DST'}[k]);},
+  mstNote:'<b>MASTER</b> · acá vuelve lo que conectes; un efecto sin cable al master solo se oye a través de otro'};
+const CFO={key:'out',pre:PATCHPRE2,srcs:OSRC,mods:['mix','flt','dist','rep','tdly','trev'],ch:CHO,cycle:outCycle,path:outPath,
+  names:{mix:'MIX',flt:'FILTER',dist:'DIST',rep:'REPEAT',tdly:'DELAY ↗',trev:'REVERB ↗',mst:'MASTER'},cols:{mix:'#e8e5de',flt:'#4df0c4',dist:'#ff5a4a',rep:'#7dff9a',tdly:'#ffb347',trev:'#c9a6ff'},
+  io:k=>k==='mix'?{o:1}:k==='tdly'||k==='trev'?{i:1}:{i:1,o:1},grid:{mix:[0,0],flt:[1,0],dist:[0,1],rep:[1,1],tdly:[0,2],trev:[1,2]},rows:3,
+  sum:k=>({mix:'todo lo que suena',flt:'pad · CORTE ↔ RESO ↕',dist:'pad · DRIVE ↔ MEZCLA ↕',rep:'pad · DIVISIÓN ↔',tdly:'tirada al DELAY de envíos',trev:'tirada a la REVERB de envíos'}[k]),
+  inLbl:'',act:()=>({mix:1,flt:1,dist:1,rep:1,tdly:1,trev:1}),
+  modSel:(sp,k,h)=>{h.innerHTML='<b style="color:'+CFO.cols[k]+'">'+CFO.names[k]+'</b> · '+({mix:'la salida de todos los canales del mixer',flt:'se toca con el pad XY de FX (FLT) o el botón FILTER del modo DJ',dist:'se toca con el pad XY de FX (DST)',rep:'se toca con el pad XY de FX (REP)',tdly:'el pad DELAY tira desde acá al delay de los envíos',trev:'el pad REVERB tira desde acá a la reverb de los envíos'}[k]);
+    if(k==='dist'){const P=FXP.dst;const n=document.createElement('div');n.className='pnote';n.textContent='El DIST de salida usa la curva del pad: DRIVE ↔ y MEZCLA ↕ mientras lo mantenés.';sp.appendChild(n);}
+    if(k==='tdly')fxParams(sp,'DLY');if(k==='trev')fxParams(sp,'REV');},
+  mstNote:'<b>MASTER</b> · siempre tiene que llegarle el MIX por algún camino (si no, quedaría en silencio)'};
+const PCF=()=>S.chainMode==='out'?CFO:CFS;
+const PCH={sel:null,drag:null,G:null};
+function patchGeo(W,H,d){const F=PCF(),p=10*d,w=(W-3*p)/2,h=(F.rows===3?66:80)*d,gy=(F.rows===3?32:46)*d,M={};
+  for(const k of F.mods){const [cx,cy]=F.grid[k],x=p+cx*(w+p),y=p+cy*(h+gy),io=F.io(k);M[k]={x,y,w,h};if(io.i){M[k].ix=x+22*d;M[k].iy=y+h-20*d;}if(io.o){M[k].ox=x+w-22*d;M[k].oy=y+h-20*d;}}
+  const my=p+F.rows*h+(F.rows-1)*gy+40*d,mh=H-my-p;M.mst={x:p,y:my,w:W-2*p,h:mh,slots:F.srcs.map((k,i)=>({k,x:p+96*d+(W-2*p-106*d)*(i+.5)/F.srcs.length,y:my+mh-22*d}))};return M;}
 const pjIn=(G,b,a)=>b==='mst'?(G.mst.slots.find(s=>s.k===a)||G.mst.slots[0]):{x:G[b].ix,y:G[b].iy};
 const pbez=(x1,y1,x2,y2,d)=>{const sag=36*d+Math.hypot(x2-x1,y2-y1)*.28;return [x1,y1,x1,y1+sag,x2,y2+sag,x2,y2];};
 const bezAt=(B,t)=>{const u=1-t;return [u*u*u*B[0]+3*u*u*t*B[2]+3*u*t*t*B[4]+t*t*t*B[6],u*u*u*B[1]+3*u*u*t*B[3]+3*u*t*t*B[5]+t*t*t*B[7]];};
-function patchSum(k){if(k==='dly'){const P=FXP.dly;return (DIVS[P.div]?DIVS[P.div][0]:'')+' · FB '+Math.round(P.fb*100)+'%';}if(k==='rev')return FXP.rev.size.toFixed(1)+' s · PRE '+Math.round(FXP.rev.pre)+' ms';
-  if(k==='mod')return (FXP.mod.mode?'FLANGER':'CHORUS')+' · '+FXP.mod.rate.toFixed(1)+' Hz';return 'DRIVE '+Math.round(FXP.dst.drive*100)+'%';}
-function buildChain(bx){const box=document.createElement('div');box.className='busbox chain';
+function buildChain(bx){const F=PCF(),L=()=>FXP[F.key],box=document.createElement('div');box.className='busbox chain';
+  mkSeg(box,'MODO',[['ENVÍOS','snd'],['SALIDA (PAD XY)','out']],o=>(S.chainMode||'snd')===o[1],o=>{S.chainMode=o[1];PCH.sel=null;PCH.drag=null;buildFxBus();});
   const same=(A,B)=>A.length===B.length&&A.every(c=>B.some(x=>x[0]===c[0]&&x[1]===c[1]&&Math.abs(x[2]-c[2])<.01));
-  mkSeg(box,'CADENA',PATCHPRE.map((p,i)=>[p[0],i]),o=>same(FXP.patch,PATCHPRE[o[1]][1]),o=>{FXP.patch=PATCHPRE[o[1]][1].map(c=>c.slice());applyPatch();PCH.sel=null;buildFxBus();queueSave();toast('CADENA: '+PATCHPRE[o[1]][0]);});
-  const cv=document.createElement('canvas');cv.id='patchCv';cv.setAttribute('aria-label','Cadena de efectos: patch de cables');box.appendChild(cv);
-  const n=document.createElement('div');n.className='pnote';n.id='patchMsg';n.textContent='Arrastrá de OUT a IN para conectar · tocá un cable para su nivel · sacá un enchufe de un IN y soltalo afuera para desconectar · tocá un módulo para configurarlo';box.appendChild(n);
+  mkSeg(box,'CADENA',F.pre.map((p,i)=>[p[0],i]),o=>same(L(),F.pre[o[1]][1]),o=>{FXP[F.key]=F.pre[o[1]][1].map(c=>c.slice());F.ch.apply();PCH.sel=null;buildFxBus();queueSave();toast('CADENA '+(F.key==='out'?'DE SALIDA':'DE ENVÍOS')+': '+F.pre[o[1]][0]);});
+  const cv=document.createElement('canvas');cv.id='patchCv';cv.style.height=(F.rows===3?380:330)+'px';cv.setAttribute('aria-label','Cadena de efectos: patch de cables');box.appendChild(cv);
+  const n=document.createElement('div');n.className='pnote';n.id='patchMsg';n.textContent=F.key==='out'?'Efectos de salida del pad XY: el MIX pasa por FILTER, DIST y REPEAT en el orden que cablees · DELAY ↗ y REVERB ↗ son las tiradas del pad · siempre tiene que haber camino del MIX al MASTER':'Arrastrá de OUT a IN para conectar · tocá un cable para su nivel · sacá un enchufe de un IN y soltalo afuera para desconectar · tocá un módulo para configurarlo';box.appendChild(n);
   const sp=document.createElement('div');sp.id='patchSel';box.appendChild(sp);bx.appendChild(box);patchSelUi();patchTouch(cv);}
-function patchSelUi(){const sp=$('#patchSel');if(!sp)return;sp.innerHTML='';const S0=PCH.sel;if(!S0)return;
+function patchSelUi(){const sp=$('#patchSel');if(!sp)return;sp.innerHTML='';const F=PCF(),L=FXP[F.key],S0=PCH.sel;if(!S0)return;
   const h=document.createElement('div');h.className='psh';sp.appendChild(h);
-  if(S0.k==='cab'){const c=FXP.patch[S0.i];if(!c){PCH.sel=null;return;}h.innerHTML='<b style="color:'+PCOL[c[0]]+'">'+PNAME[c[0]]+'</b> → <b style="color:'+PCOL[c[1]]+'">'+PNAME[c[1]]+'</b>';
-    const V={get lvl(){return FXP.patch[S0.i]?FXP.patch[S0.i][2]:0;},set lvl(v){patchLevel(S0.i,v);}};mkGrid(sp,V,['lvl'],{lvl:{n:'NIVEL DEL CABLE',min:0,max:1.5,f:PCT}},()=>queueSave());
-    const q=document.createElement('button');q.className='cap dark';q.textContent='QUITAR CABLE';q.onclick=()=>{FXP.patch.splice(S0.i,1);PCH.sel=null;applyPatch();patchSelUi();queueSave();};sp.appendChild(q);}
-  else if(S0.k==='mod'){h.innerHTML='<b style="color:'+PCOL[S0.id]+'">'+PNAME[S0.id]+'</b> · entra lo que mandan los canales del MIX + los cables';fxParams(sp,PMODE[S0.id]);}
-  else{h.innerHTML='<b>MASTER</b> · acá vuelve lo que conectes; un efecto sin cable al master solo se oye a través de otro';}}
+  if(S0.k==='cab'){const c=L[S0.i];if(!c){PCH.sel=null;return;}h.innerHTML='<b style="color:'+F.cols[c[0]]+'">'+F.names[c[0]]+'</b> → <b style="color:'+(F.cols[c[1]]||'#e8e5de')+'">'+F.names[c[1]]+'</b>';
+    const V={get lvl(){return FXP[F.key][S0.i]?FXP[F.key][S0.i][2]:0;},set lvl(v){F.ch.level(S0.i,v);}};mkGrid(sp,V,['lvl'],{lvl:{n:'NIVEL DEL CABLE',min:0,max:1.5,f:PCT}},()=>queueSave());
+    const q=document.createElement('button');q.className='cap dark';q.textContent='QUITAR CABLE';q.onclick=()=>{const nx=L.filter((_,i)=>i!==S0.i);if(!F.path(nx)){toast('NO: EL MIX QUEDARÍA SIN CAMINO AL MASTER (SILENCIO)');return;}L.splice(S0.i,1);PCH.sel=null;F.ch.apply();patchSelUi();queueSave();};sp.appendChild(q);}
+  else if(S0.k==='mod')F.modSel(sp,S0.id,h);else h.innerHTML=F.mstNote;}
 function patchTouch(cv){
   const at=e=>{const r=cv.getBoundingClientRect(),d=cv.width/r.width;return {x:(e.clientX-r.left)*d,y:(e.clientY-r.top)*d,d};};
-  const near=(p,x,y,R)=>Math.hypot(p.x-x,p.y-y)<=R;
-  const target=(p,G,R)=>{for(const k of PSRC){const m=G[k];if(near(p,m.ix,m.iy,R)||(p.x>=m.x&&p.x<=m.x+m.w&&p.y>=m.y&&p.y<=m.y+m.h))return k;}const m=G.mst;if(p.x>=m.x&&p.x<=m.x+m.w&&p.y>=m.y-10*p.d&&p.y<=m.y+m.h)return 'mst';return null;};
-  cv.addEventListener('pointerdown',e=>{const G=PCH.G;if(!G)return;const p=at(e),R=22*p.d;e.preventDefault();initAudio();try{cv.setPointerCapture(e.pointerId);}catch(x){}
-    for(const k of PSRC)if(near(p,G[k].ox,G[k].oy,R)){PCH.drag={a:k,x:p.x,y:p.y,id:e.pointerId};return;}   // sacar un cable nuevo de OUT
-    for(let i=FXP.patch.length-1;i>=0;i--){const [a,b]=FXP.patch[i],J=pjIn(G,b,a);if(near(p,J.x,J.y,R)){const c=FXP.patch.splice(i,1)[0];applyPatch();PCH.drag={a,x:p.x,y:p.y,id:e.pointerId,lift:c};PCH.sel=null;patchSelUi();return;}}   // desenchufar
-    let best=-1,bd=14*p.d;FXP.patch.forEach(([a,b],i)=>{const J=pjIn(G,b,a),B=pbez(G[a].ox,G[a].oy,J.x,J.y,p.d);for(let t=0;t<=1;t+=1/28){const q=bezAt(B,t),dd=Math.hypot(q[0]-p.x,q[1]-p.y);if(dd<bd){bd=dd;best=i;}}});
+  const near=(p,x,y,R)=>x!=null&&Math.hypot(p.x-x,p.y-y)<=R;
+  const target=(p,G,R)=>{const F=PCF();for(const k of F.mods){const m=G[k];if(m.ix==null)continue;if(near(p,m.ix,m.iy,R)||(p.x>=m.x&&p.x<=m.x+m.w&&p.y>=m.y&&p.y<=m.y+m.h))return k;}const m=G.mst;if(p.x>=m.x&&p.x<=m.x+m.w&&p.y>=m.y-10*p.d&&p.y<=m.y+m.h)return 'mst';return null;};
+  cv.addEventListener('pointerdown',e=>{const G=PCH.G;if(!G)return;const F=PCF(),L=FXP[F.key],p=at(e),R=22*p.d;e.preventDefault();initAudio();try{cv.setPointerCapture(e.pointerId);}catch(x){}
+    for(const k of F.mods)if(near(p,G[k].ox,G[k].oy,R)){PCH.drag={a:k,x:p.x,y:p.y,id:e.pointerId};return;}   // sacar un cable nuevo de OUT
+    for(let i=L.length-1;i>=0;i--){const [a,b]=L[i],J=pjIn(G,b,a);if(near(p,J.x,J.y,R)){const c=L.splice(i,1)[0];PCH.drag={a,x:p.x,y:p.y,id:e.pointerId,lift:c,i};PCH.sel=null;patchSelUi();return;}}   // desenchufar (se aplica al soltar)
+    let best=-1,bd=14*p.d;L.forEach(([a,b],i)=>{const J=pjIn(G,b,a),B=pbez(G[a].ox,G[a].oy,J.x,J.y,p.d);for(let t=0;t<=1;t+=1/28){const q=bezAt(B,t),dd=Math.hypot(q[0]-p.x,q[1]-p.y);if(dd<bd){bd=dd;best=i;}}});
     if(best>=0){PCH.sel={k:'cab',i:best};patchSelUi();return;}
-    const tg=target(p,G,R);PCH.sel=tg==='mst'?{k:'mst'}:tg?{k:'mod',id:tg}:null;patchSelUi();});
+    const tg=target(p,G,R),inBox=F.mods.find(k=>{const m=G[k];return p.x>=m.x&&p.x<=m.x+m.w&&p.y>=m.y&&p.y<=m.y+m.h;});
+    PCH.sel=tg==='mst'?{k:'mst'}:tg?{k:'mod',id:tg}:inBox?{k:'mod',id:inBox}:null;patchSelUi();});
   cv.addEventListener('pointermove',e=>{const D=PCH.drag;if(!D||D.id!==e.pointerId)return;const p=at(e);D.x=p.x;D.y=p.y;});
-  const up=e=>{const D=PCH.drag;if(!D||D.id!==e.pointerId)return;PCH.drag=null;const G=PCH.G,p=at(e),b=target(p,G,26*p.d),msg=t=>{toast(t);};
-    if(!b||b===D.a){if(D.lift){msg('CABLE QUITADO · '+PNAME[D.lift[0]]+' → '+PNAME[D.lift[1]]);queueSave();}return;}
-    if(FXP.patch.some(c=>c[0]===D.a&&c[1]===b)){msg('YA ESTÁ CONECTADO');if(D.lift){FXP.patch.push(D.lift);applyPatch();}return;}
-    const nc=[D.a,b,D.lift?D.lift[2]:1];if(patchCycle([...FXP.patch,nc])){msg('ESO ARMA UN LAZO SIN FIN: '+PNAME[b]+' ya vuelve a '+PNAME[D.a]);if(D.lift){FXP.patch.push(D.lift);applyPatch();}return;}
-    FXP.patch.push(nc);applyPatch();PCH.sel={k:'cab',i:FXP.patch.length-1};patchSelUi();queueSave();msg(PNAME[D.a]+' → '+PNAME[b]);};
+  const up=e=>{const D=PCH.drag;if(!D||D.id!==e.pointerId)return;PCH.drag=null;const F=PCF(),L=FXP[F.key],G=PCH.G,p=at(e),b=target(p,G,26*p.d),back=()=>{if(D.lift)L.splice(D.i,0,D.lift);};
+    if(!b||b===D.a){if(D.lift){if(!F.path(L)){back();toast('NO: EL MIX QUEDARÍA SIN CAMINO AL MASTER (SILENCIO)');return;}F.ch.apply();toast('CABLE QUITADO · '+F.names[D.lift[0]]+' → '+F.names[D.lift[1]]);queueSave();}return;}
+    if(L.some(c=>c[0]===D.a&&c[1]===b)){back();toast('YA ESTÁ CONECTADO');return;}
+    const nc=[D.a,b,D.lift?D.lift[2]:1];if(F.cycle([...L,nc])){back();toast('ESO ARMA UN LAZO SIN FIN: '+F.names[b]+' ya vuelve a '+F.names[D.a]);return;}
+    const nx=[...L,nc];if(!F.path(nx)){back();toast('NO: EL MIX QUEDARÍA SIN CAMINO AL MASTER (SILENCIO)');return;}
+    L.push(nc);F.ch.apply();PCH.sel={k:'cab',i:L.length-1};patchSelUi();queueSave();toast(F.names[D.a]+' → '+F.names[b]);};
   cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);}
-function drawPatch(){const cv=$('#patchCv');if(!cv||!cv.isConnected)return;const {c,W,H,d}=cvFit(cv),G=PCH.G=patchGeo(W,H,d),A=ctx?fxAct():{dly:1,rev:1,mod:1,dst:1};
+function drawPatch(){const cv=$('#patchCv');if(!cv||!cv.isConnected)return;const F=PCF(),L=FXP[F.key],{c,W,H,d}=cvFit(cv),G=PCH.G=patchGeo(W,H,d),A=F.act();
   const jack=(x,y,col,on)=>{c.fillStyle='#1b1b1b';c.beginPath();c.arc(x,y,10*d,0,7);c.fill();c.strokeStyle='rgba(232,229,222,.55)';c.lineWidth=1.6*d;c.stroke();c.fillStyle=on?col:'#050505';c.beginPath();c.arc(x,y,(on?6:4.5)*d,0,7);c.fill();};
-  const used=k=>FXP.patch.some(x=>x[0]===k),fed=k=>FXP.patch.some(x=>x[1]===k);
-  for(const k of PSRC){const m=G[k],col=PCOL[k],on=A[k],lv=ctx?fxLevel(k):0,sel=PCH.sel&&PCH.sel.k==='mod'&&PCH.sel.id===k;
+  const D=PCH.drag,used=k=>L.some(x=>x[0]===k)||(D&&D.a===k),fed=k=>L.some(x=>x[1]===k);
+  for(const k of F.mods){const m=G[k],col=F.cols[k],on=A[k],lv=ctx&&m.ox!=null?F.ch.lvl(k):0,sel=PCH.sel&&PCH.sel.k==='mod'&&PCH.sel.id===k;
     c.globalAlpha=on?1:.55;c.fillStyle='rgba(0,0,0,.3)';c.beginPath();c.roundRect?c.roundRect(m.x,m.y,m.w,m.h,12*d):c.rect(m.x,m.y,m.w,m.h);c.fill();c.strokeStyle=sel?'#fff':hexA(col,.7);c.lineWidth=(sel?2:1.2)*d;c.stroke();
-    c.fillStyle=col;c.font=UIF(12,d,700);c.textAlign='left';c.textBaseline='top';c.fillText(PNAME[k],m.x+10*d,m.y+8*d);
-    c.fillStyle='rgba(232,229,222,.6)';c.font=UIF(8.5,d,400);c.fillText(patchSum(k),m.x+10*d,m.y+24*d);
-    c.fillStyle='rgba(232,229,222,.14)';c.fillRect(m.x+m.w-34*d,m.y+11*d,24*d,4*d);c.fillStyle=col;c.fillRect(m.x+m.w-34*d,m.y+11*d,24*d*lv,4*d);   // nivel
-    c.fillStyle='rgba(232,229,222,.45)';c.font=UIF(7.5,d,400);c.textAlign='center';c.fillText('IN',m.ix,m.iy-21*d);c.fillText('OUT',m.ox,m.oy-21*d);
-    c.textAlign='left';c.fillText('↓ envío MIX',m.ix+14*d,m.iy-4*d);
-    jack(m.ix,m.iy,'#e8e5de',fed(k));jack(m.ox,m.oy,col,used(k));c.globalAlpha=1;}
+    c.fillStyle=col;c.font=UIF(12,d,700);c.textAlign='left';c.textBaseline='top';c.fillText(F.names[k],m.x+10*d,m.y+8*d);
+    c.fillStyle='rgba(232,229,222,.6)';c.font=UIF(8.5,d,400);c.fillText(F.sum(k),m.x+10*d,m.y+24*d);
+    if(m.ox!=null){c.fillStyle='rgba(232,229,222,.14)';c.fillRect(m.x+m.w-34*d,m.y+11*d,24*d,4*d);c.fillStyle=col;c.fillRect(m.x+m.w-34*d,m.y+11*d,24*d*lv,4*d);}   // nivel
+    c.fillStyle='rgba(232,229,222,.5)';c.font=UIF(7.5,d,400);c.textBaseline='middle';   // rótulos al costado de cada jack
+    if(m.ix!=null){c.textAlign='left';c.fillText('IN'+(F.inLbl?' · '+F.inLbl:''),m.ix+15*d,m.iy);}if(m.ox!=null){c.textAlign='right';c.fillText('OUT',m.ox-15*d,m.oy);}c.textBaseline='top';
+    if(m.ix!=null)jack(m.ix,m.iy,'#e8e5de',fed(k));if(m.ox!=null)jack(m.ox,m.oy,col,used(k));c.globalAlpha=1;}
   const M=G.mst;c.fillStyle='rgba(0,0,0,.3)';c.beginPath();c.roundRect?c.roundRect(M.x,M.y,M.w,M.h,12*d):c.rect(M.x,M.y,M.w,M.h);c.fill();c.strokeStyle=PCH.sel&&PCH.sel.k==='mst'?'#fff':'rgba(232,229,222,.4)';c.lineWidth=1.2*d;c.stroke();
-  c.fillStyle='#e8e5de';c.font=UIF(12,d,700);c.textAlign='left';c.textBaseline='top';c.fillText('MASTER',M.x+10*d,M.y+8*d);c.fillStyle='rgba(232,229,222,.5)';c.font=UIF(8,d,400);c.fillText('retornos →',M.x+10*d,M.y+26*d);
-  M.slots.forEach(s=>{jack(s.x,s.y,PCOL[s.k],FXP.patch.some(x=>x[0]===s.k&&x[1]==='mst'));c.fillStyle=hexA(PCOL[s.k],.8);c.font=UIF(7.5,d,400);c.textAlign='center';c.fillText(PNAME[s.k],s.x,s.y-22*d);});
-  const cable=(B,col,lv,sel,a)=>{c.lineCap='round';c.strokeStyle='rgba(0,0,0,.55)';c.lineWidth=8*d;c.beginPath();c.moveTo(B[0],B[1]);c.bezierCurveTo(B[2],B[3],B[4],B[5],B[6],B[7]);c.stroke();
+  c.fillStyle='#e8e5de';c.font=UIF(12,d,700);c.textAlign='left';c.textBaseline='top';c.fillText('MASTER',M.x+10*d,M.y+8*d);c.fillStyle='rgba(232,229,222,.5)';c.font=UIF(8,d,400);c.fillText(F.key==='out'?'salida →':'retornos →',M.x+10*d,M.y+26*d);
+  M.slots.forEach(s=>{jack(s.x,s.y,F.cols[s.k],L.some(x=>x[0]===s.k&&x[1]==='mst'));c.fillStyle=hexA(F.cols[s.k],.8);c.font=UIF(7.5,d,400);c.textAlign='center';c.fillText(F.names[s.k],s.x,s.y-22*d);});
+  const cable=(B,col,lv,sel)=>{c.lineCap='round';c.strokeStyle='rgba(0,0,0,.55)';c.lineWidth=8*d;c.beginPath();c.moveTo(B[0],B[1]);c.bezierCurveTo(B[2],B[3],B[4],B[5],B[6],B[7]);c.stroke();
     if(sel){c.strokeStyle='#fff';c.lineWidth=7.5*d;c.stroke();}c.strokeStyle=hexA(col,.6+.4*lv);c.lineWidth=5*d;c.stroke();
     if(lv>.05){c.strokeStyle=hexA('#ffffff',Math.min(.6,lv*.8));c.lineWidth=1.6*d;c.stroke();}   // brilla con la señal
     [[B[0],B[1]],[B[6],B[7]]].forEach(([x,y])=>{c.fillStyle=col;c.beginPath();c.arc(x,y,6.5*d,0,7);c.fill();c.strokeStyle='rgba(0,0,0,.6)';c.lineWidth=1.4*d;c.stroke();});};
-  FXP.patch.forEach(([a,b,v],i)=>{const J=pjIn(G,b,a),lv=(ctx?fxLevel(a):0)*Math.min(1,v);c.globalAlpha=v<.02?.35:1;cable(pbez(G[a].ox,G[a].oy,J.x,J.y,d),PCOL[a],lv,PCH.sel&&PCH.sel.k==='cab'&&PCH.sel.i===i);c.globalAlpha=1;});
-  const D=PCH.drag;if(D){cable(pbez(G[D.a].ox,G[D.a].oy,D.x,D.y,d),PCOL[D.a],.5,true);}
+  L.forEach(([a,b,v],i)=>{const J=pjIn(G,b,a),lv=(ctx?F.ch.lvl(a):0)*Math.min(1,v);c.globalAlpha=v<.02?.35:1;cable(pbez(G[a].ox,G[a].oy,J.x,J.y,d),F.cols[a],lv,PCH.sel&&PCH.sel.k==='cab'&&PCH.sel.i===i);c.globalAlpha=1;});
+  if(D&&G[D.a]){cable(pbez(G[D.a].ox,G[D.a].oy,D.x,D.y,d),F.cols[D.a],.5,true);}
 }
 function fxUi(){
   $$('#fxMode button').forEach(b=>b.classList.toggle('on',b.dataset.m===S.fxMode));
@@ -1009,7 +1027,7 @@ function loadSession(j){
   if(j.smp&&j.smp.pcm)smpDecode(j.smp.pcm);
   if(j.smp&&Array.isArray(j.smp.pads)){SMPL._rs=true;try{for(let i=0;i<NSP;i++){const p=j.smp.pads[i];if(p)smpDecode(p,i);else SMPL.pads[i]=null;}}finally{SMPL._rs=false;}smpStore();}
   $('#selKey').value=S.key;$('#selScale').value=S.scale;
-  renderKeys();renderPalette();paints.forEach(p=>p());applyAll();applyFx();applyPatch();PCH.sel=null;vinFx();sync();dirty=true;smpUi();fxUi();partUi();pageUi();smp2Ui();ensureKit();queueSave();
+  renderKeys();renderPalette();paints.forEach(p=>p());applyAll();applyFx();applyPatch();applyOut();PCH.sel=null;vinFx();sync();dirty=true;smpUi();fxUi();partUi();pageUi();smp2Ui();ensureKit();queueSave();
 }
 /* NUEVA SESIÓN: todo en blanco (patrones, partes, sample, sonidos y mezcla de fábrica) */
 let newT=null;
