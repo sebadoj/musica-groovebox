@@ -1,7 +1,7 @@
 <script>
 'use strict';
 /* =====================================================================
-   MUSICA GROOVEBOX — versión celular v13.31 (20261124)
+   MUSICA GROOVEBOX — versión celular v13.32 (20261125)
    Un solo archivo, sin librerías, Web Audio.
    16/32 pasos · 2 synths · VINTAGE (órgano, piano eléctrico, analógico, clavinet, cuerdas) · acordes (4 presets + GATE) · 8 drums · SAMPLER (chop en 4 teclas)
    · mixer 6 canales + master (pan, 3 envíos, medidores) · buses FX (delay/reverb/mod/master)
@@ -261,7 +261,7 @@ function updateRoutes(){
 }
 function restartAudio(){
   try{if(window.liveStop)liveStop(true);}catch(e){}
-  const was=S.playing;if(S.playing)stop();if(CAP)capStop();sirHolds.clear();sirV=null;LIVE.clear();SMPL.voice.fill(null);bus.length=0;CHS.reset();CHO.reset();SCR.node=null;SCR._ld=false;SCR.held=SCR.landing=SCR.paused=SCR.commit=false;
+  const was=S.playing;if(S.playing)stop();if(CAP)capStop();sirHolds.clear();sirV=null;LIVE.clear();SMPL.vc.fill(null);SMPL.vp.fill(null);bus.length=0;CHS.reset();CHO.reset();SCR.node=null;SCR._ld=false;SCR.held=SCR.landing=SCR.paused=SCR.commit=false;
   clearTimeout(RVT.t);clearTimeout(MDT.t);clearTimeout(SDT.t);clearTimeout(dstOffT);clearTimeout(repOffT);RV.v=false;MD.v=false;SD.v=false;RVT.t=MDT.t=SDT.t=null;clearTimeout(PRVT.t);PRV.v=false;PRVT.t=null;padRev=false;padDly=false;lastDrive=-1;lastSd=-1;repOnFlag=false;
   const old=ctx;ctx=null;try{old&&old.close();}catch(e){}
   initAudio();if(was)play();
@@ -594,34 +594,51 @@ function mfxOff(type){
 }
 
 /* ---------------- SAMPLER: motor ---------------- */
-/* dos modos: CHOP = un sample cortado en 8 · PADS = cada uno de los 8 botones tiene su propio sample (con su recorte ps..pe) */
-const NSP=8;   // pads del sampler
-const chopD=i=>({s:i/NSP,e:(i+1)/NSP,ps:0,pe:1,pitch:0,filt:.5,crush:0,gain:1,rev:false,mode:'one',sync:'off',q:0,qa:true,spd:1,out:0});
-const SMPL={buf:null,rbuf:null,name:'',sel:0,mode:'chop',pads:Array(NSP).fill(null),voice:Array(NSP).fill(null),
-  chops:Array.from({length:NSP},(_,i)=>({s:i/NSP,e:(i+1)/NSP,ps:0,pe:1,pitch:0,filt:.5,crush:0,gain:1,rev:false,mode:'one',sync:'off',q:0,qa:true,spd:1,out:0}))};
-const smpOut=i=>S.smp2&&SMPL.chops[i]&&SMPL.chops[i].out?7:5;   // canal del mixer: SAMPLER o SAMPLER 2
-const smpSrc=i=>SMPL.mode==='pads'?SMPL.pads[i]:(SMPL.buf?{buf:SMPL.buf,rbuf:SMPL.rbuf,name:SMPL.name}:null);
-const smpHas=()=>SMPL.mode==='pads'?SMPL.pads.some(Boolean):!!SMPL.buf;
-const smpReg=(C)=>SMPL.mode==='pads'?[C.ps??0,C.pe??1]:[C.s,C.e];
+/* v13.32: dos samplers que suenan a la vez
+   CHOP (canal 1: renglón SMPL + canal SAMPLER) = hasta 3 samples cortados en 8 chops; cada chop usa uno de los 3 (C.src)
+   PADS (canal 2: renglón SMP 2 + canal SAMPLER 2) = 8 pads, cada uno con su propio sample (recorte ps..pe)
+   Cada banco tiene sus propios ajustes; el botón CHOP/PADS elige cuál se edita. */
+const NSP=8,NSRC=3;   // pads por banco · samples para CHOP
+const chopD=i=>({s:i/NSP,e:(i+1)/NSP,ps:0,pe:1,pitch:0,filt:.5,crush:0,gain:1,rev:false,mode:'one',sync:'off',q:0,qa:true,spd:1,src:-1});
+const SMPL={sel:0,mode:'chop',cur:0,srcs:Array(NSRC).fill(null),pads:Array(NSP).fill(null),vc:Array(NSP).fill(null),vp:Array(NSP).fill(null),
+  cch:Array.from({length:NSP},(_,i)=>chopD(i)),pch:Array.from({length:NSP},(_,i)=>chopD(i)),
+  get chops(){return this.mode==='pads'?this.pch:this.cch;},get voice(){return this.mode==='pads'?this.vp:this.vc;},
+  get buf(){const s=this.srcs[this.cur];return s?s.buf:null;},get rbuf(){const s=this.srcs[this.cur];return s?s.rbuf:null;},get name(){const s=this.srcs[this.cur];return s?s.name:'';}};
+const curB=()=>SMPL.mode==='pads'?1:0,sBank=b=>b?SMPL.pch:SMPL.cch,sVox=b=>b?SMPL.vp:SMPL.vc;
+const smpOut=(i,b=curB())=>b?7:5;   // CHOP → SAMPLER · PADS → SAMPLER 2
+const smpSrc=(i,b=curB())=>{if(b)return SMPL.pads[i];const C=SMPL.cch[i];return C&&C.src>=0?SMPL.srcs[C.src]:null;};
+const smpHas=()=>SMPL.srcs.some(Boolean)||SMPL.pads.some(Boolean);
+const smpReg=(C,b=curB())=>b?[C.ps??0,C.pe??1]:[C.s,C.e];
+const chopsOf=k=>SMPL.cch.map((C,i)=>C.src===k?i:-1).filter(i=>i>=0);
 const CRCACHE={};
 function crushCurve(bits){if(CRCACHE[bits])return CRCACHE[bits];const n=2048,c=new Float32Array(n),L=Math.pow(2,bits)/2;for(let i=0;i<n;i++){const x=i*2/(n-1)-1;c[i]=Math.round(x*L)/L;}return CRCACHE[bits]=c;}
-function smpEqual(){SMPL.chops.forEach((C,i)=>{C.s=i/NSP;C.e=(i+1)/NSP;});}
-function smpSet(data,rate,name,slot){
-  if(!data||data.length<64)return false;if(slot===undefined)slot=SMPL.mode==='pads'?SMPL.sel:-1;
+function smpEqual(k=SMPL.cur){const L=chopsOf(k),n=L.length;L.forEach((i,j)=>{const C=SMPL.cch[i];C.s=j/n;C.e=(j+1)/n;});}   // solo los chops de ese sample
+function smpBufs(data,rate){
   const mkB=(n,r)=>ctx?ctx.createBuffer(1,n,r):new AudioBuffer({length:n,sampleRate:r,numberOfChannels:1});
   const maxN=Math.floor(rate*12);if(data.length>maxN)data=data.subarray(0,maxN);
   let pk=0;for(let i=0;i<data.length;i++){const a=Math.abs(data[i]);if(a>pk)pk=a;}
   const g=pk>.0005?.95/pk:1,b=mkB(data.length,rate),d=b.getChannelData(0),rb=mkB(data.length,rate),rd=rb.getChannelData(0),N=data.length;
-  for(let i=0;i<N;i++){const v=data[i]*g;d[i]=v;rd[N-1-i]=v;}
-  if(slot>=0){SMPL.pads[slot]={buf:b,rbuf:rb,name:name||'SAMPLE'};const C=SMPL.chops[slot];C.ps=0;C.pe=1;}
-  else{SMPL.buf=b;SMPL.rbuf=rb;SMPL.name=name||'SAMPLE';smpEqual();if(SMPL.mode==='chop')SMPL.sel=0;}
+  for(let i=0;i<N;i++){const v=data[i]*g;d[i]=v;rd[N-1-i]=v;}return {b,rb};}
+/* restaurar sin tocar ajustes ni asignaciones (sesiones, teléfono) */
+function smpLoadSrc(k,data,rate,name){if(!data||data.length<64||k<0||k>=NSRC)return false;const {b,rb}=smpBufs(data,rate);SMPL.srcs[k]={buf:b,rbuf:rb,name:name||'SAMPLE'};return true;}
+function smpLoadPad(i,data,rate,name){if(!data||data.length<64||i<0||i>=NSP)return false;const {b,rb}=smpBufs(data,rate);SMPL.pads[i]={buf:b,rbuf:rb,name:name||'SAMPLE'};return true;}
+/* cargar un sample nuevo: en PADS va al pad elegido; en CHOP va al sample elegido (1–3) y toma los chops LIBRES —
+   los chops que ya usan otro sample no se tocan */
+function smpSet(data,rate,name,slot){
+  if(!data||data.length<64)return false;if(slot===undefined)slot=SMPL.mode==='pads'?SMPL.sel:-1;
+  if(slot>=0){smpLoadPad(slot,data,rate,name);const C=SMPL.pch[slot];C.ps=0;C.pe=1;}
+  else{const k=SMPL.cur;smpLoadSrc(k,data,rate,name);
+    const free=SMPL.cch.map((C,i)=>(C.src<0||!SMPL.srcs[C.src])?i:-1).filter(i=>i>=0);free.forEach(i=>{SMPL.cch[i].src=k;});
+    smpEqual(k);SMPL.last={k,took:free.length,n:chopsOf(k).length};
+    if(SMPL.mode==='chop'){const m=chopsOf(k);if(m.length&&!m.includes(SMPL.sel))SMPL.sel=m[0];}}
   if(!SMPL._rs&&typeof smpStore==='function')smpStore();   // queda guardado en el teléfono
+  if(!SMPL._rs&&typeof queueSave==='function')queueSave();   // y también qué chops usan cada sample
   return true;
 }
-function chopPlay(i,t,vel,dur){
-  const P=smpSrc(i);if(!ctx||!P)return null;const C=SMPL.chops[i],N=P.buf.duration;if(!C)return null;
-  if(SMPL.voice[i]){try{SMPL.voice[i].stop(t);}catch(e){}}
-  const R=smpReg(C);let s=R[0]*N,e=R[1]*N;if(C.rev){const ss=N-e;e=N-s;s=ss;}
+function chopPlay(i,t,vel,dur,bk){
+  const b=bk===undefined?curB():bk,VX=sVox(b),P=smpSrc(i,b);if(!ctx||!P)return null;const C=sBank(b)[i],N=P.buf.duration;if(!C)return null;
+  if(VX[i]){try{VX[i].stop(t);}catch(e){}}
+  const R=smpReg(C,b);let s=R[0]*N,e=R[1]*N;if(C.rev){const ss=N-e;e=N-s;s=ss;}
   if(e-s<.005)return null;
   /* SPEED multiplica la velocidad; SYNC ajusta la región a Q tiempos del tema (REPITCH: velocidad y altura · ESTIRAR: misma altura) */
   const sp=C.spd||1,L=e-s;let rate=Math.pow(2,C.pitch/12)*sp,buf=C.rev?P.rbuf:P.buf;
@@ -635,18 +652,18 @@ function chopPlay(i,t,vel,dur){
   else{f.type='lowpass';f.frequency.value=22000;}
   src.connect(f);let last=f;
   if(C.crush>.02){const w=ctx.createWaveShaper();w.curve=crushCurve(Math.round(16-C.crush*13));f.connect(w);last=w;}
-  last.connect(g);g.connect(bus[smpOut(i)].inp);
+  last.connect(g);g.connect(bus[smpOut(i,b)].inp);
   const len=(e-s)/rate,pk=vel*C.gain;
   g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(pk,t+.003);
   let end=null;
   if(C.mode==='loop'){src.loop=true;src.loopStart=s;src.loopEnd=e;src.start(t,s);}
   else{src.start(t,s,e-s);end=t+len;}
   let done=false;
-  const v={stop(tt){if(done)return;done=true;tt=Math.max(tt===undefined?0:tt,ctx.currentTime);g.gain.cancelScheduledValues(tt);g.gain.setTargetAtTime(0,tt,.012);try{src.stop(tt+.1);}catch(x){}if(SMPL.voice[i]===v)SMPL.voice[i]=null;}};
+  const v={stop(tt){if(done)return;done=true;tt=Math.max(tt===undefined?0:tt,ctx.currentTime);g.gain.cancelScheduledValues(tt);g.gain.setTargetAtTime(0,tt,.012);try{src.stop(tt+.1);}catch(x){}if(VX[i]===v)VX[i]=null;}};
   if(C.mode==='one'&&dur){ /* secuenciador: one-shot completo */ }
-  if(C.mode==='one'){g.gain.setValueAtTime(pk,Math.max(t+.004,end-.01));g.gain.linearRampToValueAtTime(0,end);src.onended=()=>{done=true;if(SMPL.voice[i]===v)SMPL.voice[i]=null;};}
+  if(C.mode==='one'){g.gain.setValueAtTime(pk,Math.max(t+.004,end-.01));g.gain.linearRampToValueAtTime(0,end);src.onended=()=>{done=true;if(VX[i]===v)VX[i]=null;};}
   else if(dur){v.stop(t+dur);}
-  SMPL.voice[i]=v;return v;
+  VX[i]=v;return v;
 }
 /* ---- SYNC del sampler ----
    Q = cuántos tiempos dura la región. Se detecta al prender SYNC (el más cercano al BPM actual, en potencias de 2) y se ajusta con − / +.
@@ -654,7 +671,7 @@ function chopPlay(i,t,vel,dur){
 const SQA=[.25,.5,1,2,4,8,16,32],SQ=[.25,.5,1,2,3,4,6,8,12,16,24,32];
 const smpQ=(C,L)=>C.q||smpAutoQ(L);
 function smpAutoQ(L){const raw=L*S.bpm/60;let b=1,bd=9;SQA.forEach(q=>{const d=Math.abs(Math.log2(raw/q));if(d<bd){bd=d;b=q;}});return b;}
-function smpLen(i){const P=smpSrc(i),C=SMPL.chops[i];if(!P||!C)return 0;const R=smpReg(C);return (R[1]-R[0])*P.buf.duration;}
+function smpLen(i,b=curB()){const P=smpSrc(i,b),C=sBank(b)[i];if(!P||!C)return 0;const R=smpReg(C,b);return (R[1]-R[0])*P.buf.duration;}
 function wsola(x,outLen,sr){
   const N=Math.max(256,Math.round(sr*.03))&~1,Hs=N>>1,tol=Math.round(sr*.008),win=new Float32Array(N),X=x.length;
   for(let i=0;i<N;i++)win[i]=.5-.5*Math.cos(2*Math.PI*i/N);
@@ -685,24 +702,24 @@ function stWork(chans,n,sr){
   if(STW){const id=++STN;return new Promise(res=>{STP.set(id,res);STW.postMessage({id,c:chans,n,sr},chans.map(x=>x.buffer));});}
   return new Promise(res=>setTimeout(()=>res(chans.map(x=>wsola(x,n,sr))),0));}
 /* dejar listo ESTIRAR para todos los cortes con SYNC (al prenderlo, al cambiar tempo, región o speed) */
-function smpPrep(){for(let i=0;i<NSP;i++){const C=SMPL.chops[i],P=smpSrc(i);if(!P||!C||C.sync!=='tempo')continue;
-  const N=P.buf.duration,R=smpReg(C);let s=R[0]*N,e=R[1]*N;if(C.rev){const ss=N-e;e=N-s;s=ss;}const L=e-s;if(L<.005)continue;
+function smpPrep(){for(const b of [0,1])for(let i=0;i<NSP;i++){const C=sBank(b)[i],P=smpSrc(i,b);if(!P||!C||C.sync!=='tempo')continue;
+  const N=P.buf.duration,R=smpReg(C,b);let s=R[0]*N,e=R[1]*N;if(C.rev){const ss=N-e;e=N-s;s=ss;}const L=e-s;if(L<.005)continue;
   smpStretch(C,C.rev?P.rbuf:P.buf,s,e,smpQ(C,L)*60/S.bpm/(C.spd||1)*Math.pow(2,C.pitch/12));}}
 
 /* AUTO CUE: el inicio del corte/pad va al primer golpe (un poquito antes, en un cruce por cero) y el final corta el silencio */
-function smpCue(i){
-  const P=smpSrc(i),C=SMPL.chops[i];if(!P||!C)return null;const PM=SMPL.mode==='pads',d=P.buf.getChannelData(0),sr=P.buf.sampleRate,N=d.length;
-  const a=Math.floor((PM?(C.ps??0):C.s)*N),b=Math.min(N,Math.floor((PM?(C.pe??1):C.e)*N));if(b-a<sr*.02)return null;
-  const w=Math.max(32,Math.floor(sr*.004)),nb=Math.floor((b-a)/w),env=new Float32Array(nb);let pk=0;
+function smpCue(i,b=curB()){
+  const P=smpSrc(i,b),C=sBank(b)[i];if(!P||!C)return null;const PM=b===1,d=P.buf.getChannelData(0),sr=P.buf.sampleRate,N=d.length;
+  const a=Math.floor((PM?(C.ps??0):C.s)*N),b_=Math.min(N,Math.floor((PM?(C.pe??1):C.e)*N));if(b_-a<sr*.02)return null;
+  const w=Math.max(32,Math.floor(sr*.004)),nb=Math.floor((b_-a)/w),env=new Float32Array(nb);let pk=0;
   for(let k=0;k<nb;k++){let m=0;for(let j=a+k*w,e=j+w;j<e;j++){const v=Math.abs(d[j]);if(v>m)m=v;}env[k]=m;if(m>pk)pk=m;}
   if(pk<1e-4)return null;const th=pk*.12;
   let k0=0;while(k0<nb&&env[k0]<th)k0++;let k1=nb-1;while(k1>k0&&env[k1]<th*.25)k1--;
   let s=Math.max(a,a+k0*w-Math.floor(sr*.002));
   for(let j=s,lim=Math.max(a+1,s-Math.floor(sr*.003));j>=lim;j--){if((d[j-1]<=0&&d[j]>0)||(d[j-1]>=0&&d[j]<0)){s=j;break;}}
-  const e=Math.min(b,a+(k1+1)*w+Math.floor(sr*.012));
+  const e=Math.min(b_,a+(k1+1)*w+Math.floor(sr*.012));
   if(PM){C.ps=s/N;C.pe=Math.max(C.ps+.005,e/N);}else{C.s=s/N;C.e=Math.max(C.s+.005,e/N);}
   if(C.sync&&C.sync!=='off'&&C.qa)C.q=smpAutoQ((e-s)/sr);smpPrep();
-  return {ds:(s-a)/sr,de:(b-e)/sr};}
+  return {ds:(s-a)/sr,de:(b_-e)/sr};}
 
 /* captura: micrófono, resampleo del master (graba lo que suena) */
 let CAP=null,micStream=null;
@@ -745,19 +762,18 @@ function smpDemo(){
   [0,.5,.75,1,1.25,1.75].forEach(t=>add(t,(t_)=>Math.sin(2*Math.PI*(42*t_+118*(1-Math.exp(-t_*22))/22*1))*Math.exp(-t_*9)*.9,.4));
   [.25,.75,1.25,1.75].forEach(t=>add(t,(t_)=>((Math.random()*2-1)*.6+Math.sin(2*Math.PI*190*t_)*.4)*Math.exp(-t_*16)*.8,.22));
   for(let k=0;k<8;k++)add(k*.25+.125,(t_)=>(Math.random()*2-1)*Math.exp(-t_*60)*.35,.06);
-  if(smpSet(d,sr,'DEMO BREAK')){toast(SMPL.mode==='pads'?'DEMO EN PAD '+(SMPL.sel+1):'DEMO: 8 CHOPS · TOCÁ LOS PADS');smpUi();}
+  if(smpSet(d,sr,'DEMO BREAK')){toast(SMPL.mode==='pads'?'DEMO EN PAD '+(SMPL.sel+1):'DEMO EN SAMPLE '+(SMPL.cur+1));smpUi();}
 }
-function smpMode(m){
-  if(m===SMPL.mode)return;SMPL.voice.forEach(v=>{try{v&&v.stop();}catch(e){}});let conv=false;
-  if(m==='pads'&&SMPL.buf&&!SMPL.pads.some(Boolean)){const d=SMPL.buf.getChannelData(0),N=d.length,sr=SMPL.buf.sampleRate;
-    SMPL._rs=true;try{SMPL.chops.forEach((C,i)=>{const a=Math.floor(C.s*N),b=Math.floor(C.e*N);if(b-a>64)smpSet(d.slice(a,b),sr,(SMPL.name||'SAMPLE').slice(0,12)+' '+(i+1),i);});}finally{SMPL._rs=false;}conv=true;}
-  SMPL.mode=m;if(typeof smpStore==='function')smpStore();queueSave();return conv;
+function smpMode(m){   // elige qué banco se edita (los dos suenan siempre)
+  if(m===SMPL.mode)return false;SMPL.mode=m;
+  if(m==='chop'){const C=SMPL.cch[SMPL.sel];if(C&&C.src>=0&&SMPL.srcs[C.src])SMPL.cur=C.src;}
+  if(typeof smpStore==='function')smpStore();queueSave();return false;
 }
 /* copiar un pad en otro: en PADS copia el sample + recorte + ajustes; en CHOP copia la región y los ajustes */
 function smpCopy(a,b){
   if(a===b||a<0||b<0||a>=NSP||b>=NSP)return false;const A=SMPL.chops[a],B=SMPL.chops[b];
   if(SMPL.mode==='pads'){if(!SMPL.pads[a])return false;SMPL.pads[b]=Object.assign({},SMPL.pads[a]);}
-  try{SMPL.voice[b]&&SMPL.voice[b].stop();}catch(e){}
+  try{sVox(curB())[b]&&sVox(curB())[b].stop();}catch(e){}
   Object.assign(B,JSON.parse(JSON.stringify(A)));if(typeof smpStore==='function')smpStore();queueSave();return true;
 }
 function smpTransients(){
@@ -765,10 +781,11 @@ function smpTransients(){
   for(let b=0;b<nb;b++){let s=0;for(let i=0;i<w;i++){const v=d[b*w+i];s+=v*v;}env[b]=Math.sqrt(s/w);}
   const flux=[];for(let b=2;b<nb;b++){const df=env[b]-env[b-2];flux.push([df,b]);}
   flux.sort((a,b)=>b[0]-a[0]);const picks=[];
-  for(const [df,b] of flux){if(df<=0.002)break;if(b<4)continue;if(picks.every(p=>Math.abs(p-b)>8)){picks.push(b);if(picks.length===NSP-1)break;}}
-  if(picks.length<NSP-1){smpEqual();toast('POCOS GOLPES · '+NSP+' IGUALES');return;}
+  for(const [df,b] of flux){if(df<=0.002)break;if(b<4)continue;if(picks.every(p=>Math.abs(p-b)>8)){picks.push(b);if(picks.length===chopsOf(SMPL.cur).length-1)break;}}
+  const L=chopsOf(SMPL.cur),nn=L.length;if(nn<2){smpEqual();return;}picks.length=Math.min(picks.length,nn-1);
+  if(picks.length<nn-1){smpEqual();toast('POCOS GOLPES · '+nn+' IGUALES');return;}
   picks.sort((a,b)=>a-b);const pts=[0,...picks.map(b=>Math.max(0,(b-1)*w/d.length)),1];
-  SMPL.chops.forEach((C,i)=>{C.s=pts[i];C.e=pts[i+1];});toast('CORTE POR TRANSIENTES');
+  L.forEach((i,j)=>{const C=SMPL.cch[i];C.s=pts[j];C.e=pts[j+1];});toast('CORTE POR TRANSIENTES');
 }
 function smpEncode(B,nm){
   B=B||SMPL.buf;if(!B)return null;nm=nm===undefined?SMPL.name:nm;const b=B,src=b.getChannelData(0),sr=b.sampleRate,dur=b.duration;
@@ -777,10 +794,10 @@ function smpEncode(B,nm){
   const by=new Uint8Array(out.buffer);let s='';for(let i=0;i<by.length;i+=8192)s+=String.fromCharCode.apply(null,by.subarray(i,i+8192));
   return{rate:tr,len:n,name:nm,b64:btoa(s)};
 }
-function smpDecode(o,slot){
+function smpDecode(o,slot,k){   // slot ≥ 0: pad · si no: sample k (0–2) de CHOP. No toca ajustes.
   if(!o||!o.b64)return false;const s=atob(o.b64),by=new Uint8Array(s.length);for(let i=0;i<s.length;i++)by[i]=s.charCodeAt(i);
   const i16=new Int16Array(by.buffer,0,Math.floor(by.length/2)),f=new Float32Array(i16.length);for(let i=0;i<f.length;i++)f[i]=i16[i]/32767;
-  const keep=JSON.parse(JSON.stringify(SMPL.chops));const ok=smpSet(f,o.rate||22050,o.name,slot===undefined?-1:slot);SMPL.chops.forEach((C,i)=>Object.assign(C,keep[i]));return ok;
+  return slot!==undefined&&slot>=0?smpLoadPad(slot,f,o.rate||22050,o.name):smpLoadSrc(k||0,f,o.rate||22050,o.name);
 }
 
 /* ---------------- secuenciador ---------------- */
@@ -798,7 +815,7 @@ function trig(r,s,t){
   if(R.t==='drum')drumPlay(r,t,1);
   else if(R.t==='syn')xyPlay(r,s,[mkVoice(curP(R.k),mtof(scaleNote(seqN[R.k][s],BASEOCT[R.k])),t,.9,bus[1+R.k].inp,sd()*((synG[R.k][s]||1)-.1))],'syn'+R.k,t);
   else if(R.t==='chd')xyPlay(r,s,chordPlay(chdSeq[s],false,t,bus[3].inp,sd()*chdGate[s]*.95),'chd',t);
-  else if(R.t==='smp'&&sSeq(R)[s])chopPlay(sSeq(R)[s]-1,t,.9,sd()*.98);
+  else if(R.t==='smp'&&sSeq(R)[s])chopPlay(sSeq(R)[s]-1,t,.9,sd()*.98,R.k?1:0);   // SMPL = CHOP · SMP 2 = PADS
   else if(R.t==='vin')xyPlay(r,s,[vinPlay(vinN[R.k][s],false,t,sd()*(vinG[R.k][s]||1)*.97)],'vin',t);
 }
 const rowOn=r=>r!==R_SMP2||S.smp2;   // SMP 2 solo existe si está prendido
@@ -965,8 +982,8 @@ function setSteps(n){n=n===32?32:16;if(n===STEPS)return false;takeUndo();
 const KEY='musica_gb_mobile_v1';let saveT=null;
 function snapshot(withSample){
   const o={v:9,name:S.name,saved:Date.now(),bpm:S.bpm,key:S.key,scale:S.scale,pat,seqN,chdSeq,chdGate,smpSeq,smpSeq2,smp2:S.smp2,synG,vinN,vinG,xyr:XYR,steps:STEPS,sw:S.sw,vinPre:S.vinPre,vinPar:S.vinPar,vko:S.vko,vch:S.vch,pre:S.pre,par:S.par,chdPar:S.chdPar,chdPre:S.chdPre,ko:S.ko,master:S.master,
-    ch:CH.map(c=>[c.vol,c.dly,c.rev,c.mod,c.pan,c.dst]),fx:FXP,smp:{chops:SMPL.chops,mode:SMPL.mode},kit:S.kit,part:S.part,song:S.song,rep:S.rep,parts:PARTS,len:LEN,rm:RM,rs:RS,xy:S.xy,dk:S.dk};
-  if(withSample){const e=smpEncode();if(e)o.smp.pcm=e;if(SMPL.pads.some(Boolean))o.smp.pads=SMPL.pads.map(p=>p?smpEncode(p.buf,p.name):null);}
+    ch:CH.map(c=>[c.vol,c.dly,c.rev,c.mod,c.pan,c.dst]),fx:FXP,smp:{v:2,cch:SMPL.cch,pch:SMPL.pch,mode:SMPL.mode,cur:SMPL.cur},kit:S.kit,part:S.part,song:S.song,rep:S.rep,parts:PARTS,len:LEN,rm:RM,rs:RS,xy:S.xy,dk:S.dk};
+  if(withSample){o.smp.srcs=SMPL.srcs.map(s=>s?smpEncode(s.buf,s.name):null);if(SMPL.pads.some(Boolean))o.smp.pads=SMPL.pads.map(p=>p?smpEncode(p.buf,p.name):null);}
   return o;
 }
 function applySnapshot(j){
@@ -989,8 +1006,12 @@ function applySnapshot(j){
   for(let i=0;i<NR;i++){LEN[i]=Math.min((j.len&&j.len[i])||STEPS,MAXS);RM[i]=!!(j.rm&&j.rm[i]);RS[i]=!!(j.rs&&j.rs[i]);}
   if(j.fx){const b=FXD();['dly','rev','mod','mst','dst'].forEach(k=>Object.assign(FXP[k],b[k],j.fx[k]||{}));FXP.patch=patchClean(j.fx.patch)||b.patch;let O=j.fx.out;if(Array.isArray(O)&&(j.fx.outV||1)<2){O=O.map(c=>c.slice());['tdly','trev'].forEach(k=>{if(!O.some(c=>c[0]===k))O.push([k,'mst',1]);});}   // v13.27: DELAY/REVERB del pad con salida propia
     FXP.out=outClean(O)||b.out;FXP.outV=2;}
-  if(j.smp&&j.smp.chops){SMPL.chops.forEach((C,i)=>{const o=j.smp.chops[i];Object.assign(C,chopD(i),o||{});});   // sesiones viejas de 4: los pads 5–8 arrancan de cero
-    if(j.smp.chops.length<NSP&&j.smp.mode!=='pads'){const n=j.smp.chops.length;for(let i=n;i<NSP;i++){const A=SMPL.chops[i-n];Object.assign(SMPL.chops[i],{s:A.s,e:A.e});}}}
+  if(j.smp&&j.smp.v===2){SMPL.cch.forEach((C,i)=>Object.assign(C,chopD(i),(j.smp.cch||[])[i]||{}));SMPL.pch.forEach((C,i)=>Object.assign(C,chopD(i),(j.smp.pch||[])[i]||{}));SMPL.cur=clamp(j.smp.cur|0,0,NSRC-1);}
+  else if(j.smp&&j.smp.chops){   // sesiones de antes: CHOP y PADS compartían ajustes → van al banco que estaba en uso; los chops usan el sample 1
+    const P=j.smp.mode==='pads',T=P?SMPL.pch:SMPL.cch,O=P?SMPL.cch:SMPL.pch;
+    T.forEach((C,i)=>{const o=j.smp.chops[i];Object.assign(C,chopD(i),o||{});});O.forEach((C,i)=>Object.assign(C,chopD(i)));
+    if(!P&&j.smp.chops.length<NSP){const n=j.smp.chops.length;for(let i=n;i<NSP;i++){const A=SMPL.cch[i-n];Object.assign(SMPL.cch[i],{s:A.s,e:A.e});}}   // sesiones viejas de 4
+    SMPL.cch.forEach(C=>{C.src=0;delete C.out;});SMPL.pch.forEach(C=>{delete C.out;});SMPL.cur=0;}
   SMPL.mode=j.smp&&j.smp.mode==='pads'?'pads':'chop';
 }
 const CHG={on:false,t0:0,cb:null};   // hay cambios desde el último guardado en Drive

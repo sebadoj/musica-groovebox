@@ -25,7 +25,7 @@ const srv=http.createServer((q,r)=>{r.setHeader('content-type','text/html');r.en
  await p.screenshot({path:'s_seq.png'});
  for(const t of ['keys','mix','fx','smp']){await p.tap(`#tabs [data-t=${t}]`);await p.waitForTimeout(300);await p.screenshot({path:`s_${t}.png`});}
  // sampler
- await p.tap('#sDemo');await p.waitForTimeout(300);
+ await p.evaluate(()=>GB.smpDemo());await p.waitForTimeout(300);
  ok(await p.evaluate(()=>!!GB.SMPL.buf&&GB.SMPL.buf.duration>1.9),'demo sample');
  const box=await p.locator('#sPads .pad').nth(1).boundingBox();
  await p.touchscreen.tap(box.x+10,box.y+10);await p.waitForTimeout(150);
@@ -51,7 +51,7 @@ const srv=http.createServer((q,r)=>{r.setHeader('content-type','text/html');r.en
  // session roundtrip
  const j=await p.evaluate(()=>JSON.stringify(GB.snapshot(true)));
  ok(j.length<900000,'session size '+j.length);
- await p.evaluate(s=>{GB.SMPL.buf=null;GB.loadSession(JSON.parse(s));},j);
+ await p.evaluate(s=>{GB.SMPL.srcs.fill(null);GB.loadSession(JSON.parse(s));},j);
  ok(await p.evaluate(()=>!!GB.SMPL.buf),'sample restored after load');
  // drive save/list/load via mock
  await p.tap('#bSes');await p.waitForTimeout(500);

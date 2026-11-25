@@ -586,6 +586,10 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
 #v-smp.paron #sPads .pad small{display:none}
 #v-smp.paron #wave{height:84px}
 #sAj.on{background:var(--acc);color:#141414}
+/* v13.32: selector de sample de CHOP (1·2·3) + ASIGNAR; solo en CHOP */
+#sSel{gap:4px}#sSel .cap{height:30px;font-size:10px;letter-spacing:.04em;padding:0 4px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#sSel .sk{flex:1}#sSel .sk.on{background:rgba(255,210,122,.18);color:#ffd27a;box-shadow:inset 0 0 0 1.5px #ffd27a}#sSel .sk.vac{opacity:.55}
+#sSel #sAsg{flex:1.2}#v-smp.padsm #sSel{display:none}
 #fxSeg button.held{box-shadow:inset 0 0 0 2px #ff9440}
 #fxSeg button.held::after{content:' ●';color:#ff9440}
 @media (max-height:700px){#vview{height:62px}#scope{height:38px}.strip .sends{height:88px}#v-keys.paron #vview{height:54px}}
@@ -678,10 +682,9 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
       <button id="sMic" class="cap dark sm">● MIC</button>
       <label class="cap dark sm lblbtn" id="sRecL">GRABADOR<input id="sRecF" type="file" accept="audio/*" capture hidden></label>
       <label class="cap dark sm lblbtn" id="sFileL">ARCHIVO<input id="sFile" type="file" accept="audio/*" hidden></label>
-      <button id="sRes" class="cap dark sm">● RESAMP</button>
-      <button id="sDemo" class="cap dark sm">DEMO</button>
       <button id="sClr" class="cap dark sm">VACIAR</button>
     </div>
+    <div class="smprow ssel" id="sSel"><button class="cap dark sm sk" data-k="0">1</button><button class="cap dark sm sk" data-k="1">2</button><button class="cap dark sm sk" data-k="2">3</button><button id="sAsg" class="cap dark sm" aria-label="Pasar el chop elegido al sample que estás viendo">ASIGNAR</button></div>
     <div id="sInfo" class="lcd"></div>
     <canvas id="wave"></canvas>
     <div class="smprow">
@@ -690,7 +693,7 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
       <button id="sTr" class="cap dark sm" aria-label="Cortar por transientes">AUTO</button>
       <button id="sCopy" class="cap dark sm">⧉ COPIAR</button>
     </div>
-    <div class="smprow tools"><button id="sCue" class="cap dark sm" aria-label="Llevar el inicio al primer golpe y cortar el silencio">AUTO CUE</button><button id="s2ch" class="cap dark sm" aria-label="Segundo canal del sampler en el mixer y el secuenciador">2 CANALES</button><button id="sAj" class="cap dark sm" aria-label="Mostrar u ocultar los ajustes del pad">AJUSTES ▾</button></div>
+    <div class="smprow tools"><button id="sCue" class="cap dark sm" aria-label="Llevar el inicio al primer golpe y cortar el silencio">AUTO CUE</button><button id="s2ch" class="cap dark sm" aria-label="Mostrar el canal 2 (PADS) en el secuenciador y el mixer">CANAL 2</button><button id="sAj" class="cap dark sm" aria-label="Mostrar u ocultar los ajustes del pad">AJUSTES ▾</button></div>
     <div id="sPads"></div>
     <div id="sPar"></div>
   </section>
@@ -761,7 +764,7 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
 <script>
 'use strict';
 /* =====================================================================
-   MUSICA GROOVEBOX — versión celular v13.31 (20261124)
+   MUSICA GROOVEBOX — versión celular v13.32 (20261125)
    Un solo archivo, sin librerías, Web Audio.
    16/32 pasos · 2 synths · VINTAGE (órgano, piano eléctrico, analógico, clavinet, cuerdas) · acordes (4 presets + GATE) · 8 drums · SAMPLER (chop en 4 teclas)
    · mixer 6 canales + master (pan, 3 envíos, medidores) · buses FX (delay/reverb/mod/master)
@@ -1021,7 +1024,7 @@ function updateRoutes(){
 }
 function restartAudio(){
   try{if(window.liveStop)liveStop(true);}catch(e){}
-  const was=S.playing;if(S.playing)stop();if(CAP)capStop();sirHolds.clear();sirV=null;LIVE.clear();SMPL.voice.fill(null);bus.length=0;CHS.reset();CHO.reset();SCR.node=null;SCR._ld=false;SCR.held=SCR.landing=SCR.paused=SCR.commit=false;
+  const was=S.playing;if(S.playing)stop();if(CAP)capStop();sirHolds.clear();sirV=null;LIVE.clear();SMPL.vc.fill(null);SMPL.vp.fill(null);bus.length=0;CHS.reset();CHO.reset();SCR.node=null;SCR._ld=false;SCR.held=SCR.landing=SCR.paused=SCR.commit=false;
   clearTimeout(RVT.t);clearTimeout(MDT.t);clearTimeout(SDT.t);clearTimeout(dstOffT);clearTimeout(repOffT);RV.v=false;MD.v=false;SD.v=false;RVT.t=MDT.t=SDT.t=null;clearTimeout(PRVT.t);PRV.v=false;PRVT.t=null;padRev=false;padDly=false;lastDrive=-1;lastSd=-1;repOnFlag=false;
   const old=ctx;ctx=null;try{old&&old.close();}catch(e){}
   initAudio();if(was)play();
@@ -1354,34 +1357,51 @@ function mfxOff(type){
 }
 
 /* ---------------- SAMPLER: motor ---------------- */
-/* dos modos: CHOP = un sample cortado en 8 · PADS = cada uno de los 8 botones tiene su propio sample (con su recorte ps..pe) */
-const NSP=8;   // pads del sampler
-const chopD=i=>({s:i/NSP,e:(i+1)/NSP,ps:0,pe:1,pitch:0,filt:.5,crush:0,gain:1,rev:false,mode:'one',sync:'off',q:0,qa:true,spd:1,out:0});
-const SMPL={buf:null,rbuf:null,name:'',sel:0,mode:'chop',pads:Array(NSP).fill(null),voice:Array(NSP).fill(null),
-  chops:Array.from({length:NSP},(_,i)=>({s:i/NSP,e:(i+1)/NSP,ps:0,pe:1,pitch:0,filt:.5,crush:0,gain:1,rev:false,mode:'one',sync:'off',q:0,qa:true,spd:1,out:0}))};
-const smpOut=i=>S.smp2&&SMPL.chops[i]&&SMPL.chops[i].out?7:5;   // canal del mixer: SAMPLER o SAMPLER 2
-const smpSrc=i=>SMPL.mode==='pads'?SMPL.pads[i]:(SMPL.buf?{buf:SMPL.buf,rbuf:SMPL.rbuf,name:SMPL.name}:null);
-const smpHas=()=>SMPL.mode==='pads'?SMPL.pads.some(Boolean):!!SMPL.buf;
-const smpReg=(C)=>SMPL.mode==='pads'?[C.ps??0,C.pe??1]:[C.s,C.e];
+/* v13.32: dos samplers que suenan a la vez
+   CHOP (canal 1: renglón SMPL + canal SAMPLER) = hasta 3 samples cortados en 8 chops; cada chop usa uno de los 3 (C.src)
+   PADS (canal 2: renglón SMP 2 + canal SAMPLER 2) = 8 pads, cada uno con su propio sample (recorte ps..pe)
+   Cada banco tiene sus propios ajustes; el botón CHOP/PADS elige cuál se edita. */
+const NSP=8,NSRC=3;   // pads por banco · samples para CHOP
+const chopD=i=>({s:i/NSP,e:(i+1)/NSP,ps:0,pe:1,pitch:0,filt:.5,crush:0,gain:1,rev:false,mode:'one',sync:'off',q:0,qa:true,spd:1,src:-1});
+const SMPL={sel:0,mode:'chop',cur:0,srcs:Array(NSRC).fill(null),pads:Array(NSP).fill(null),vc:Array(NSP).fill(null),vp:Array(NSP).fill(null),
+  cch:Array.from({length:NSP},(_,i)=>chopD(i)),pch:Array.from({length:NSP},(_,i)=>chopD(i)),
+  get chops(){return this.mode==='pads'?this.pch:this.cch;},get voice(){return this.mode==='pads'?this.vp:this.vc;},
+  get buf(){const s=this.srcs[this.cur];return s?s.buf:null;},get rbuf(){const s=this.srcs[this.cur];return s?s.rbuf:null;},get name(){const s=this.srcs[this.cur];return s?s.name:'';}};
+const curB=()=>SMPL.mode==='pads'?1:0,sBank=b=>b?SMPL.pch:SMPL.cch,sVox=b=>b?SMPL.vp:SMPL.vc;
+const smpOut=(i,b=curB())=>b?7:5;   // CHOP → SAMPLER · PADS → SAMPLER 2
+const smpSrc=(i,b=curB())=>{if(b)return SMPL.pads[i];const C=SMPL.cch[i];return C&&C.src>=0?SMPL.srcs[C.src]:null;};
+const smpHas=()=>SMPL.srcs.some(Boolean)||SMPL.pads.some(Boolean);
+const smpReg=(C,b=curB())=>b?[C.ps??0,C.pe??1]:[C.s,C.e];
+const chopsOf=k=>SMPL.cch.map((C,i)=>C.src===k?i:-1).filter(i=>i>=0);
 const CRCACHE={};
 function crushCurve(bits){if(CRCACHE[bits])return CRCACHE[bits];const n=2048,c=new Float32Array(n),L=Math.pow(2,bits)/2;for(let i=0;i<n;i++){const x=i*2/(n-1)-1;c[i]=Math.round(x*L)/L;}return CRCACHE[bits]=c;}
-function smpEqual(){SMPL.chops.forEach((C,i)=>{C.s=i/NSP;C.e=(i+1)/NSP;});}
-function smpSet(data,rate,name,slot){
-  if(!data||data.length<64)return false;if(slot===undefined)slot=SMPL.mode==='pads'?SMPL.sel:-1;
+function smpEqual(k=SMPL.cur){const L=chopsOf(k),n=L.length;L.forEach((i,j)=>{const C=SMPL.cch[i];C.s=j/n;C.e=(j+1)/n;});}   // solo los chops de ese sample
+function smpBufs(data,rate){
   const mkB=(n,r)=>ctx?ctx.createBuffer(1,n,r):new AudioBuffer({length:n,sampleRate:r,numberOfChannels:1});
   const maxN=Math.floor(rate*12);if(data.length>maxN)data=data.subarray(0,maxN);
   let pk=0;for(let i=0;i<data.length;i++){const a=Math.abs(data[i]);if(a>pk)pk=a;}
   const g=pk>.0005?.95/pk:1,b=mkB(data.length,rate),d=b.getChannelData(0),rb=mkB(data.length,rate),rd=rb.getChannelData(0),N=data.length;
-  for(let i=0;i<N;i++){const v=data[i]*g;d[i]=v;rd[N-1-i]=v;}
-  if(slot>=0){SMPL.pads[slot]={buf:b,rbuf:rb,name:name||'SAMPLE'};const C=SMPL.chops[slot];C.ps=0;C.pe=1;}
-  else{SMPL.buf=b;SMPL.rbuf=rb;SMPL.name=name||'SAMPLE';smpEqual();if(SMPL.mode==='chop')SMPL.sel=0;}
+  for(let i=0;i<N;i++){const v=data[i]*g;d[i]=v;rd[N-1-i]=v;}return {b,rb};}
+/* restaurar sin tocar ajustes ni asignaciones (sesiones, teléfono) */
+function smpLoadSrc(k,data,rate,name){if(!data||data.length<64||k<0||k>=NSRC)return false;const {b,rb}=smpBufs(data,rate);SMPL.srcs[k]={buf:b,rbuf:rb,name:name||'SAMPLE'};return true;}
+function smpLoadPad(i,data,rate,name){if(!data||data.length<64||i<0||i>=NSP)return false;const {b,rb}=smpBufs(data,rate);SMPL.pads[i]={buf:b,rbuf:rb,name:name||'SAMPLE'};return true;}
+/* cargar un sample nuevo: en PADS va al pad elegido; en CHOP va al sample elegido (1–3) y toma los chops LIBRES —
+   los chops que ya usan otro sample no se tocan */
+function smpSet(data,rate,name,slot){
+  if(!data||data.length<64)return false;if(slot===undefined)slot=SMPL.mode==='pads'?SMPL.sel:-1;
+  if(slot>=0){smpLoadPad(slot,data,rate,name);const C=SMPL.pch[slot];C.ps=0;C.pe=1;}
+  else{const k=SMPL.cur;smpLoadSrc(k,data,rate,name);
+    const free=SMPL.cch.map((C,i)=>(C.src<0||!SMPL.srcs[C.src])?i:-1).filter(i=>i>=0);free.forEach(i=>{SMPL.cch[i].src=k;});
+    smpEqual(k);SMPL.last={k,took:free.length,n:chopsOf(k).length};
+    if(SMPL.mode==='chop'){const m=chopsOf(k);if(m.length&&!m.includes(SMPL.sel))SMPL.sel=m[0];}}
   if(!SMPL._rs&&typeof smpStore==='function')smpStore();   // queda guardado en el teléfono
+  if(!SMPL._rs&&typeof queueSave==='function')queueSave();   // y también qué chops usan cada sample
   return true;
 }
-function chopPlay(i,t,vel,dur){
-  const P=smpSrc(i);if(!ctx||!P)return null;const C=SMPL.chops[i],N=P.buf.duration;if(!C)return null;
-  if(SMPL.voice[i]){try{SMPL.voice[i].stop(t);}catch(e){}}
-  const R=smpReg(C);let s=R[0]*N,e=R[1]*N;if(C.rev){const ss=N-e;e=N-s;s=ss;}
+function chopPlay(i,t,vel,dur,bk){
+  const b=bk===undefined?curB():bk,VX=sVox(b),P=smpSrc(i,b);if(!ctx||!P)return null;const C=sBank(b)[i],N=P.buf.duration;if(!C)return null;
+  if(VX[i]){try{VX[i].stop(t);}catch(e){}}
+  const R=smpReg(C,b);let s=R[0]*N,e=R[1]*N;if(C.rev){const ss=N-e;e=N-s;s=ss;}
   if(e-s<.005)return null;
   /* SPEED multiplica la velocidad; SYNC ajusta la región a Q tiempos del tema (REPITCH: velocidad y altura · ESTIRAR: misma altura) */
   const sp=C.spd||1,L=e-s;let rate=Math.pow(2,C.pitch/12)*sp,buf=C.rev?P.rbuf:P.buf;
@@ -1395,17 +1415,17 @@ function chopPlay(i,t,vel,dur){
   else{f.type='lowpass';f.frequency.value=22000;}
   src.connect(f);let last=f;
   if(C.crush>.02){const w=ctx.createWaveShaper();w.curve=crushCurve(Math.round(16-C.crush*13));f.connect(w);last=w;}
-  last.connect(g);g.connect(bus[smpOut(i)].inp);
+  last.connect(g);g.connect(bus[smpOut(i,b)].inp);
   const len=(e-s)/rate,pk=vel*C.gain;
   g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(pk,t+.003);
   let end=null;
   if(C.mode==='loop'){src.loop=true;src.loopStart=s;src.loopEnd=e;src.start(t,s);}
   else{src.start(t,s,e-s);end=t+len;}
   let done=false;
-  const v={stop(tt){if(done)return;done=true;tt=Math.max(tt===undefined?0:tt,ctx.currentTime);g.gain.cancelScheduledValues(tt);g.gain.setTargetAtTime(0,tt,.012);try{src.stop(tt+.1);}catch(x){}if(SMPL.voice[i]===v)SMPL.voice[i]=null;}};
-  if(C.mode==='one'){g.gain.setValueAtTime(pk,Math.max(t+.004,end-.01));g.gain.linearRampToValueAtTime(0,end);src.onended=()=>{done=true;if(SMPL.voice[i]===v)SMPL.voice[i]=null;};}
+  const v={stop(tt){if(done)return;done=true;tt=Math.max(tt===undefined?0:tt,ctx.currentTime);g.gain.cancelScheduledValues(tt);g.gain.setTargetAtTime(0,tt,.012);try{src.stop(tt+.1);}catch(x){}if(VX[i]===v)VX[i]=null;}};
+  if(C.mode==='one'){g.gain.setValueAtTime(pk,Math.max(t+.004,end-.01));g.gain.linearRampToValueAtTime(0,end);src.onended=()=>{done=true;if(VX[i]===v)VX[i]=null;};}
   else if(dur){v.stop(t+dur);}
-  SMPL.voice[i]=v;return v;
+  VX[i]=v;return v;
 }
 /* ---- SYNC del sampler ----
    Q = cuántos tiempos dura la región. Se detecta al prender SYNC (el más cercano al BPM actual, en potencias de 2) y se ajusta con − / +.
@@ -1413,7 +1433,7 @@ function chopPlay(i,t,vel,dur){
 const SQA=[.25,.5,1,2,4,8,16,32],SQ=[.25,.5,1,2,3,4,6,8,12,16,24,32];
 const smpQ=(C,L)=>C.q||smpAutoQ(L);
 function smpAutoQ(L){const raw=L*S.bpm/60;let b=1,bd=9;SQA.forEach(q=>{const d=Math.abs(Math.log2(raw/q));if(d<bd){bd=d;b=q;}});return b;}
-function smpLen(i){const P=smpSrc(i),C=SMPL.chops[i];if(!P||!C)return 0;const R=smpReg(C);return (R[1]-R[0])*P.buf.duration;}
+function smpLen(i,b=curB()){const P=smpSrc(i,b),C=sBank(b)[i];if(!P||!C)return 0;const R=smpReg(C,b);return (R[1]-R[0])*P.buf.duration;}
 function wsola(x,outLen,sr){
   const N=Math.max(256,Math.round(sr*.03))&~1,Hs=N>>1,tol=Math.round(sr*.008),win=new Float32Array(N),X=x.length;
   for(let i=0;i<N;i++)win[i]=.5-.5*Math.cos(2*Math.PI*i/N);
@@ -1444,24 +1464,24 @@ function stWork(chans,n,sr){
   if(STW){const id=++STN;return new Promise(res=>{STP.set(id,res);STW.postMessage({id,c:chans,n,sr},chans.map(x=>x.buffer));});}
   return new Promise(res=>setTimeout(()=>res(chans.map(x=>wsola(x,n,sr))),0));}
 /* dejar listo ESTIRAR para todos los cortes con SYNC (al prenderlo, al cambiar tempo, región o speed) */
-function smpPrep(){for(let i=0;i<NSP;i++){const C=SMPL.chops[i],P=smpSrc(i);if(!P||!C||C.sync!=='tempo')continue;
-  const N=P.buf.duration,R=smpReg(C);let s=R[0]*N,e=R[1]*N;if(C.rev){const ss=N-e;e=N-s;s=ss;}const L=e-s;if(L<.005)continue;
+function smpPrep(){for(const b of [0,1])for(let i=0;i<NSP;i++){const C=sBank(b)[i],P=smpSrc(i,b);if(!P||!C||C.sync!=='tempo')continue;
+  const N=P.buf.duration,R=smpReg(C,b);let s=R[0]*N,e=R[1]*N;if(C.rev){const ss=N-e;e=N-s;s=ss;}const L=e-s;if(L<.005)continue;
   smpStretch(C,C.rev?P.rbuf:P.buf,s,e,smpQ(C,L)*60/S.bpm/(C.spd||1)*Math.pow(2,C.pitch/12));}}
 
 /* AUTO CUE: el inicio del corte/pad va al primer golpe (un poquito antes, en un cruce por cero) y el final corta el silencio */
-function smpCue(i){
-  const P=smpSrc(i),C=SMPL.chops[i];if(!P||!C)return null;const PM=SMPL.mode==='pads',d=P.buf.getChannelData(0),sr=P.buf.sampleRate,N=d.length;
-  const a=Math.floor((PM?(C.ps??0):C.s)*N),b=Math.min(N,Math.floor((PM?(C.pe??1):C.e)*N));if(b-a<sr*.02)return null;
-  const w=Math.max(32,Math.floor(sr*.004)),nb=Math.floor((b-a)/w),env=new Float32Array(nb);let pk=0;
+function smpCue(i,b=curB()){
+  const P=smpSrc(i,b),C=sBank(b)[i];if(!P||!C)return null;const PM=b===1,d=P.buf.getChannelData(0),sr=P.buf.sampleRate,N=d.length;
+  const a=Math.floor((PM?(C.ps??0):C.s)*N),b_=Math.min(N,Math.floor((PM?(C.pe??1):C.e)*N));if(b_-a<sr*.02)return null;
+  const w=Math.max(32,Math.floor(sr*.004)),nb=Math.floor((b_-a)/w),env=new Float32Array(nb);let pk=0;
   for(let k=0;k<nb;k++){let m=0;for(let j=a+k*w,e=j+w;j<e;j++){const v=Math.abs(d[j]);if(v>m)m=v;}env[k]=m;if(m>pk)pk=m;}
   if(pk<1e-4)return null;const th=pk*.12;
   let k0=0;while(k0<nb&&env[k0]<th)k0++;let k1=nb-1;while(k1>k0&&env[k1]<th*.25)k1--;
   let s=Math.max(a,a+k0*w-Math.floor(sr*.002));
   for(let j=s,lim=Math.max(a+1,s-Math.floor(sr*.003));j>=lim;j--){if((d[j-1]<=0&&d[j]>0)||(d[j-1]>=0&&d[j]<0)){s=j;break;}}
-  const e=Math.min(b,a+(k1+1)*w+Math.floor(sr*.012));
+  const e=Math.min(b_,a+(k1+1)*w+Math.floor(sr*.012));
   if(PM){C.ps=s/N;C.pe=Math.max(C.ps+.005,e/N);}else{C.s=s/N;C.e=Math.max(C.s+.005,e/N);}
   if(C.sync&&C.sync!=='off'&&C.qa)C.q=smpAutoQ((e-s)/sr);smpPrep();
-  return {ds:(s-a)/sr,de:(b-e)/sr};}
+  return {ds:(s-a)/sr,de:(b_-e)/sr};}
 
 /* captura: micrófono, resampleo del master (graba lo que suena) */
 let CAP=null,micStream=null;
@@ -1504,19 +1524,18 @@ function smpDemo(){
   [0,.5,.75,1,1.25,1.75].forEach(t=>add(t,(t_)=>Math.sin(2*Math.PI*(42*t_+118*(1-Math.exp(-t_*22))/22*1))*Math.exp(-t_*9)*.9,.4));
   [.25,.75,1.25,1.75].forEach(t=>add(t,(t_)=>((Math.random()*2-1)*.6+Math.sin(2*Math.PI*190*t_)*.4)*Math.exp(-t_*16)*.8,.22));
   for(let k=0;k<8;k++)add(k*.25+.125,(t_)=>(Math.random()*2-1)*Math.exp(-t_*60)*.35,.06);
-  if(smpSet(d,sr,'DEMO BREAK')){toast(SMPL.mode==='pads'?'DEMO EN PAD '+(SMPL.sel+1):'DEMO: 8 CHOPS · TOCÁ LOS PADS');smpUi();}
+  if(smpSet(d,sr,'DEMO BREAK')){toast(SMPL.mode==='pads'?'DEMO EN PAD '+(SMPL.sel+1):'DEMO EN SAMPLE '+(SMPL.cur+1));smpUi();}
 }
-function smpMode(m){
-  if(m===SMPL.mode)return;SMPL.voice.forEach(v=>{try{v&&v.stop();}catch(e){}});let conv=false;
-  if(m==='pads'&&SMPL.buf&&!SMPL.pads.some(Boolean)){const d=SMPL.buf.getChannelData(0),N=d.length,sr=SMPL.buf.sampleRate;
-    SMPL._rs=true;try{SMPL.chops.forEach((C,i)=>{const a=Math.floor(C.s*N),b=Math.floor(C.e*N);if(b-a>64)smpSet(d.slice(a,b),sr,(SMPL.name||'SAMPLE').slice(0,12)+' '+(i+1),i);});}finally{SMPL._rs=false;}conv=true;}
-  SMPL.mode=m;if(typeof smpStore==='function')smpStore();queueSave();return conv;
+function smpMode(m){   // elige qué banco se edita (los dos suenan siempre)
+  if(m===SMPL.mode)return false;SMPL.mode=m;
+  if(m==='chop'){const C=SMPL.cch[SMPL.sel];if(C&&C.src>=0&&SMPL.srcs[C.src])SMPL.cur=C.src;}
+  if(typeof smpStore==='function')smpStore();queueSave();return false;
 }
 /* copiar un pad en otro: en PADS copia el sample + recorte + ajustes; en CHOP copia la región y los ajustes */
 function smpCopy(a,b){
   if(a===b||a<0||b<0||a>=NSP||b>=NSP)return false;const A=SMPL.chops[a],B=SMPL.chops[b];
   if(SMPL.mode==='pads'){if(!SMPL.pads[a])return false;SMPL.pads[b]=Object.assign({},SMPL.pads[a]);}
-  try{SMPL.voice[b]&&SMPL.voice[b].stop();}catch(e){}
+  try{sVox(curB())[b]&&sVox(curB())[b].stop();}catch(e){}
   Object.assign(B,JSON.parse(JSON.stringify(A)));if(typeof smpStore==='function')smpStore();queueSave();return true;
 }
 function smpTransients(){
@@ -1524,10 +1543,11 @@ function smpTransients(){
   for(let b=0;b<nb;b++){let s=0;for(let i=0;i<w;i++){const v=d[b*w+i];s+=v*v;}env[b]=Math.sqrt(s/w);}
   const flux=[];for(let b=2;b<nb;b++){const df=env[b]-env[b-2];flux.push([df,b]);}
   flux.sort((a,b)=>b[0]-a[0]);const picks=[];
-  for(const [df,b] of flux){if(df<=0.002)break;if(b<4)continue;if(picks.every(p=>Math.abs(p-b)>8)){picks.push(b);if(picks.length===NSP-1)break;}}
-  if(picks.length<NSP-1){smpEqual();toast('POCOS GOLPES · '+NSP+' IGUALES');return;}
+  for(const [df,b] of flux){if(df<=0.002)break;if(b<4)continue;if(picks.every(p=>Math.abs(p-b)>8)){picks.push(b);if(picks.length===chopsOf(SMPL.cur).length-1)break;}}
+  const L=chopsOf(SMPL.cur),nn=L.length;if(nn<2){smpEqual();return;}picks.length=Math.min(picks.length,nn-1);
+  if(picks.length<nn-1){smpEqual();toast('POCOS GOLPES · '+nn+' IGUALES');return;}
   picks.sort((a,b)=>a-b);const pts=[0,...picks.map(b=>Math.max(0,(b-1)*w/d.length)),1];
-  SMPL.chops.forEach((C,i)=>{C.s=pts[i];C.e=pts[i+1];});toast('CORTE POR TRANSIENTES');
+  L.forEach((i,j)=>{const C=SMPL.cch[i];C.s=pts[j];C.e=pts[j+1];});toast('CORTE POR TRANSIENTES');
 }
 function smpEncode(B,nm){
   B=B||SMPL.buf;if(!B)return null;nm=nm===undefined?SMPL.name:nm;const b=B,src=b.getChannelData(0),sr=b.sampleRate,dur=b.duration;
@@ -1536,10 +1556,10 @@ function smpEncode(B,nm){
   const by=new Uint8Array(out.buffer);let s='';for(let i=0;i<by.length;i+=8192)s+=String.fromCharCode.apply(null,by.subarray(i,i+8192));
   return{rate:tr,len:n,name:nm,b64:btoa(s)};
 }
-function smpDecode(o,slot){
+function smpDecode(o,slot,k){   // slot ≥ 0: pad · si no: sample k (0–2) de CHOP. No toca ajustes.
   if(!o||!o.b64)return false;const s=atob(o.b64),by=new Uint8Array(s.length);for(let i=0;i<s.length;i++)by[i]=s.charCodeAt(i);
   const i16=new Int16Array(by.buffer,0,Math.floor(by.length/2)),f=new Float32Array(i16.length);for(let i=0;i<f.length;i++)f[i]=i16[i]/32767;
-  const keep=JSON.parse(JSON.stringify(SMPL.chops));const ok=smpSet(f,o.rate||22050,o.name,slot===undefined?-1:slot);SMPL.chops.forEach((C,i)=>Object.assign(C,keep[i]));return ok;
+  return slot!==undefined&&slot>=0?smpLoadPad(slot,f,o.rate||22050,o.name):smpLoadSrc(k||0,f,o.rate||22050,o.name);
 }
 
 /* ---------------- secuenciador ---------------- */
@@ -1557,7 +1577,7 @@ function trig(r,s,t){
   if(R.t==='drum')drumPlay(r,t,1);
   else if(R.t==='syn')xyPlay(r,s,[mkVoice(curP(R.k),mtof(scaleNote(seqN[R.k][s],BASEOCT[R.k])),t,.9,bus[1+R.k].inp,sd()*((synG[R.k][s]||1)-.1))],'syn'+R.k,t);
   else if(R.t==='chd')xyPlay(r,s,chordPlay(chdSeq[s],false,t,bus[3].inp,sd()*chdGate[s]*.95),'chd',t);
-  else if(R.t==='smp'&&sSeq(R)[s])chopPlay(sSeq(R)[s]-1,t,.9,sd()*.98);
+  else if(R.t==='smp'&&sSeq(R)[s])chopPlay(sSeq(R)[s]-1,t,.9,sd()*.98,R.k?1:0);   // SMPL = CHOP · SMP 2 = PADS
   else if(R.t==='vin')xyPlay(r,s,[vinPlay(vinN[R.k][s],false,t,sd()*(vinG[R.k][s]||1)*.97)],'vin',t);
 }
 const rowOn=r=>r!==R_SMP2||S.smp2;   // SMP 2 solo existe si está prendido
@@ -1724,8 +1744,8 @@ function setSteps(n){n=n===32?32:16;if(n===STEPS)return false;takeUndo();
 const KEY='musica_gb_mobile_v1';let saveT=null;
 function snapshot(withSample){
   const o={v:9,name:S.name,saved:Date.now(),bpm:S.bpm,key:S.key,scale:S.scale,pat,seqN,chdSeq,chdGate,smpSeq,smpSeq2,smp2:S.smp2,synG,vinN,vinG,xyr:XYR,steps:STEPS,sw:S.sw,vinPre:S.vinPre,vinPar:S.vinPar,vko:S.vko,vch:S.vch,pre:S.pre,par:S.par,chdPar:S.chdPar,chdPre:S.chdPre,ko:S.ko,master:S.master,
-    ch:CH.map(c=>[c.vol,c.dly,c.rev,c.mod,c.pan,c.dst]),fx:FXP,smp:{chops:SMPL.chops,mode:SMPL.mode},kit:S.kit,part:S.part,song:S.song,rep:S.rep,parts:PARTS,len:LEN,rm:RM,rs:RS,xy:S.xy,dk:S.dk};
-  if(withSample){const e=smpEncode();if(e)o.smp.pcm=e;if(SMPL.pads.some(Boolean))o.smp.pads=SMPL.pads.map(p=>p?smpEncode(p.buf,p.name):null);}
+    ch:CH.map(c=>[c.vol,c.dly,c.rev,c.mod,c.pan,c.dst]),fx:FXP,smp:{v:2,cch:SMPL.cch,pch:SMPL.pch,mode:SMPL.mode,cur:SMPL.cur},kit:S.kit,part:S.part,song:S.song,rep:S.rep,parts:PARTS,len:LEN,rm:RM,rs:RS,xy:S.xy,dk:S.dk};
+  if(withSample){o.smp.srcs=SMPL.srcs.map(s=>s?smpEncode(s.buf,s.name):null);if(SMPL.pads.some(Boolean))o.smp.pads=SMPL.pads.map(p=>p?smpEncode(p.buf,p.name):null);}
   return o;
 }
 function applySnapshot(j){
@@ -1748,8 +1768,12 @@ function applySnapshot(j){
   for(let i=0;i<NR;i++){LEN[i]=Math.min((j.len&&j.len[i])||STEPS,MAXS);RM[i]=!!(j.rm&&j.rm[i]);RS[i]=!!(j.rs&&j.rs[i]);}
   if(j.fx){const b=FXD();['dly','rev','mod','mst','dst'].forEach(k=>Object.assign(FXP[k],b[k],j.fx[k]||{}));FXP.patch=patchClean(j.fx.patch)||b.patch;let O=j.fx.out;if(Array.isArray(O)&&(j.fx.outV||1)<2){O=O.map(c=>c.slice());['tdly','trev'].forEach(k=>{if(!O.some(c=>c[0]===k))O.push([k,'mst',1]);});}   // v13.27: DELAY/REVERB del pad con salida propia
     FXP.out=outClean(O)||b.out;FXP.outV=2;}
-  if(j.smp&&j.smp.chops){SMPL.chops.forEach((C,i)=>{const o=j.smp.chops[i];Object.assign(C,chopD(i),o||{});});   // sesiones viejas de 4: los pads 5–8 arrancan de cero
-    if(j.smp.chops.length<NSP&&j.smp.mode!=='pads'){const n=j.smp.chops.length;for(let i=n;i<NSP;i++){const A=SMPL.chops[i-n];Object.assign(SMPL.chops[i],{s:A.s,e:A.e});}}}
+  if(j.smp&&j.smp.v===2){SMPL.cch.forEach((C,i)=>Object.assign(C,chopD(i),(j.smp.cch||[])[i]||{}));SMPL.pch.forEach((C,i)=>Object.assign(C,chopD(i),(j.smp.pch||[])[i]||{}));SMPL.cur=clamp(j.smp.cur|0,0,NSRC-1);}
+  else if(j.smp&&j.smp.chops){   // sesiones de antes: CHOP y PADS compartían ajustes → van al banco que estaba en uso; los chops usan el sample 1
+    const P=j.smp.mode==='pads',T=P?SMPL.pch:SMPL.cch,O=P?SMPL.cch:SMPL.pch;
+    T.forEach((C,i)=>{const o=j.smp.chops[i];Object.assign(C,chopD(i),o||{});});O.forEach((C,i)=>Object.assign(C,chopD(i)));
+    if(!P&&j.smp.chops.length<NSP){const n=j.smp.chops.length;for(let i=n;i<NSP;i++){const A=SMPL.cch[i-n];Object.assign(SMPL.cch[i],{s:A.s,e:A.e});}}   // sesiones viejas de 4
+    SMPL.cch.forEach(C=>{C.src=0;delete C.out;});SMPL.pch.forEach(C=>{delete C.out;});SMPL.cur=0;}
   SMPL.mode=j.smp&&j.smp.mode==='pads'?'pads':'chop';
 }
 const CHG={on:false,t0:0,cb:null};   // hay cambios desde el último guardado en Drive
@@ -1864,7 +1888,7 @@ function preview(r,st){
   if(!ctx)return;const R=ROWS[r],t=ctx.currentTime+.005;seqLit(r,st,t,.3);
   if(R.t==='syn')mkVoice(curP(R.k),mtof(scaleNote(seqN[R.k][st],BASEOCT[R.k])),t,.9,bus[1+R.k].inp,.3);
   else if(R.t==='chd')chordPlay(chdSeq[st],false,t,bus[3].inp,.5);
-  else if(R.t==='smp'&&sSeq(R)[st])chopPlay(sSeq(R)[st]-1,t,.9,.5);
+  else if(R.t==='smp'&&sSeq(R)[st])chopPlay(sSeq(R)[st]-1,t,.9,.5,R.k?1:0);
   else if(R.t==='vin')vinPlay(vinN[R.k][st],false,t,Math.min(1.2,sd()*(vinG[R.k][st]||1)));
 }
 const vinLbl=(d,ch)=>ch?chordName(((d%7)+7)%7,false).name:noteName(scaleNote(d,VBASE+(S.vinPar.oct||0)));
@@ -1947,7 +1971,7 @@ function renderPalette(){
       b.onclick=()=>{initAudio();vinN[R.k][st]=d;pat[S.sel.r][st]=1;preview(S.sel.r,st);dirty=true;queueSave();renderPalette();};}
     else if(R.t==='chd'){const c=chordName(i,S.seventh);b.innerHTML=c.roman+'<small>'+c.name+'</small>';
       b.onclick=()=>{initAudio();chdSeq[st]=i;pat[S.sel.r][st]=1;if(ctx)chordPlay(i,S.seventh,ctx.currentTime+.005,bus[3].inp,.5);dirty=true;queueSave();renderPalette();};}
-    else{b.classList.toggle('pk',sSeq(R)[st]===i+1&&!!pat[S.sel.r][st]);b.innerHTML=(SMPL.mode==='pads'?'PAD ':'CHOP ')+(i+1)+'<small>'+(smpSrc(i)?(SMPL.mode==='pads'?(smpSrc(i).name||'').slice(0,8):''):'sin sample')+'</small>';
+    else{const bk=R.k?1:0,P=smpSrc(i,bk);b.classList.toggle('pk',sSeq(R)[st]===i+1&&!!pat[S.sel.r][st]);b.innerHTML=(bk?'PAD ':'CHOP ')+(i+1)+'<small>'+(P?(bk?(P.name||'').slice(0,8):'S'+(SMPL.cch[i].src+1)):'sin sample')+'</small>';
       b.onclick=()=>{initAudio();sSeq(R)[st]=i+1;pat[S.sel.r][st]=1;SMPL.sel=i;preview(S.sel.r,st);dirty=true;queueSave();renderPalette();};}
     row.appendChild(b);
   }
@@ -2102,7 +2126,7 @@ function smp2Ui(){const on=!!S.smp2,rows=$$('#grid .row');if(rows[R_SMP2])rows[R
 const LQ=[],LIT=new Set();let SPB=0,SPT=null;
 function seqLit(r,s,t,dur){LQ.push({r,s,t,end:t+Math.max(.09,Math.min(dur||.13,4))});if(LQ.length>256)LQ.splice(0,LQ.length-256);}
 function litEls(r,s){const R=ROWS[r];
-  if(S.tab==='smp')return R.t==='smp'&&sSeq(R)[s]?[sPads.children[sSeq(R)[s]-1]]:[];
+  if(S.tab==='smp')return R.t==='smp'&&sSeq(R)[s]&&(R.k?1:0)===curB()?[sPads.children[sSeq(R)[s]-1]]:[];
   if(S.tab!=='keys')return [];const m=S.kmode,pads=$('#pads');
   if(R.t==='drum')return m==='drum'?[pads.children[r]]:[];
   if(R.t==='syn')return m==='syn'+R.k?[...pads.querySelectorAll('[data-d="'+seqN[R.k][s]+'"]')]:[];
@@ -2464,19 +2488,19 @@ function drawWave(){
   if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H;}
   const c=cv.getContext('2d');c.clearRect(0,0,W,H);
   const PM=SMPL.mode==='pads',P=PM?SMPL.pads[SMPL.sel]:(SMPL.buf?{buf:SMPL.buf}:null);
-  if(!P){c.fillStyle='#7b828c';c.font=(12*dpr)+'px '+getComputedStyle(document.body).getPropertyValue('--mono');c.textAlign='center';c.fillText(PM?'PAD '+(SMPL.sel+1)+' VACÍO · grabá, elegí un audio, DEMO o ⧉ COPIAR':'SIN SAMPLE · grabá, elegí un audio o probá DEMO',W/2,H/2);return;}
+  if(!P){c.fillStyle='#7b828c';c.font=(12*dpr)+'px '+getComputedStyle(document.body).getPropertyValue('--mono');c.textAlign='center';c.fillText(PM?'PAD '+(SMPL.sel+1)+' VACÍO · grabá, elegí un audio o ⧉ COPIAR':'SAMPLE '+(SMPL.cur+1)+' VACÍO · grabá o elegí un audio',W/2,H/2);return;}
   if(WV.src!==P.buf){WV.src=P.buf;WV.a=0;WV.b=1;}
   const d=P.buf.getChannelData(0),N=d.length,mid=H/2,X=f=>wvX(f,W),sp=wvSpan();
   if(PM){const C=SMPL.chops[SMPL.sel],a=X(C.ps??0),b=X(C.pe??1);c.fillStyle='rgba(0,0,0,.45)';c.fillRect(0,0,Math.max(0,a),H);c.fillRect(b,0,Math.max(0,W-b),H);c.fillStyle='rgba(255,210,122,.12)';c.fillRect(a,0,b-a,H);}
-  else SMPL.chops.forEach((C,i)=>{c.fillStyle=i===SMPL.sel?'rgba(255,210,122,.16)':'rgba(255,255,255,.025)';c.fillRect(X(C.s),0,X(C.e)-X(C.s),H);});
+  else SMPL.cch.forEach((C,i)=>{if(C.src!==SMPL.cur)return;c.fillStyle=i===SMPL.sel?'rgba(255,210,122,.16)':'rgba(255,255,255,.025)';c.fillRect(X(C.s),0,X(C.e)-X(C.s),H);});
   c.strokeStyle=CH[5].c;c.lineWidth=1;c.beginPath();
   for(let x=0;x<W;x++){const i0=Math.floor((WV.a+x/W*sp)*N),i1=Math.max(i0+1,Math.floor((WV.a+(x+1)/W*sp)*N)),st=Math.max(1,Math.floor((i1-i0)/48));let mn=1,mx=-1;for(let i=i0;i<i1&&i<N;i+=st){const v=d[i];if(v<mn)mn=v;if(v>mx)mx=v;}if(mx<mn)continue;c.moveTo(x+.5,mid-mx*mid*.92);c.lineTo(x+.5,mid-mn*mid*.92);}
   c.stroke();
-  {const C=SMPL.chops[SMPL.sel];if(C&&(C.sync==='pitch'||C.sync==='tempo')){const a=PM?(C.ps??0):C.s,b=PM?(C.pe??1):C.e,n=Math.round(smpQ(C,smpLen(SMPL.sel)));   // grilla de tiempos
+  {const C=SMPL.chops[SMPL.sel];if(C&&(PM||C.src===SMPL.cur)&&(C.sync==='pitch'||C.sync==='tempo')){const a=PM?(C.ps??0):C.s,b=PM?(C.pe??1):C.e,n=Math.round(smpQ(C,smpLen(SMPL.sel)));   // grilla de tiempos
     if(n>=1&&n<=64){c.fillStyle='rgba(255,210,122,.5)';for(let k=1;k<n;k++){const x=Math.round(X(a+(b-a)*k/n));c.fillRect(x,k%4===0?0:H*.3,Math.max(1,dpr),k%4===0?H:H*.4);}}}}
   if(PM){const C=SMPL.chops[SMPL.sel];c.fillStyle='#ffd27a';c.fillRect(Math.round(X(C.ps??0)),0,3*dpr,H);c.fillRect(Math.round(X(C.pe??1))-3*dpr,0,3*dpr,H);
     c.font='700 '+(13*dpr)+'px sans-serif';c.textAlign='left';c.fillText('PAD '+(SMPL.sel+1),Math.max(0,X(C.ps??0))+6*dpr,15*dpr);}
-  else SMPL.chops.forEach((C,i)=>{const sel=i===SMPL.sel;c.fillStyle=sel?'#ffd27a':'#c9ffee';c.globalAlpha=sel?1:.55;c.fillRect(Math.round(X(C.s)),0,sel?3*dpr:1.5*dpr,H);c.fillRect(Math.round(X(C.e))-(sel?3*dpr:1.5*dpr),0,sel?3*dpr:1.5*dpr,H);
+  else SMPL.cch.forEach((C,i)=>{if(C.src!==SMPL.cur)return;const sel=i===SMPL.sel;c.fillStyle=sel?'#ffd27a':'#c9ffee';c.globalAlpha=sel?1:.55;c.fillRect(Math.round(X(C.s)),0,sel?3*dpr:1.5*dpr,H);c.fillRect(Math.round(X(C.e))-(sel?3*dpr:1.5*dpr),0,sel?3*dpr:1.5*dpr,H);
     c.globalAlpha=1;c.font='700 '+(13*dpr)+'px sans-serif';c.textAlign='left';const lx=X(C.s)+5*dpr;if(lx>-10*dpr&&lx<W)c.fillText(String(i+1),lx,15*dpr);});
   if(sp<.999){   // zoom: cuánto y dónde estás
     c.font='400 '+(10*dpr)+'px sans-serif';c.textAlign='right';c.fillStyle='rgba(232,229,222,.7)';c.fillText('ZOOM ×'+(1/sp<10?(1/sp).toFixed(1):Math.round(1/sp))+' · 2 TOQUES = TODO',W-6*dpr,H-6*dpr);
@@ -2492,9 +2516,9 @@ function drawWave(){
     if(!smpSrc(SMPL.sel)&&!(SMPL.mode==='chop'&&SMPL.buf))return;
     const x=fr(e.clientX),r=wave.getBoundingClientRect(),tol=18/r.width*wvSpan();let best=null,bd=1;
     if(SMPL.mode==='pads'){const C=SMPL.chops[SMPL.sel];drag={i:SMPL.sel,k:Math.abs(x-(C.ps??0))<Math.abs(x-(C.pe??1))?'ps':'pe'};return;}
-    SMPL.chops.forEach((C,i)=>{[['s',C.s],['e',C.e]].forEach(h=>{const dd=Math.abs(h[1]-x);if(dd<bd){bd=dd;best={i,k:h[0]};}});});
+    SMPL.cch.forEach((C,i)=>{if(C.src!==SMPL.cur)return;[['s',C.s],['e',C.e]].forEach(h=>{const dd=Math.abs(h[1]-x);if(dd<bd){bd=dd;best={i,k:h[0]};}});});
     if(best&&bd<=tol){drag=best;SMPL.sel=best.i;}
-    else{const hit=SMPL.chops.findIndex(C=>x>=C.s&&x<=C.e);if(hit>=0)SMPL.sel=hit;drag=null;}
+    else{const hit=SMPL.cch.findIndex(C=>C.src===SMPL.cur&&x>=C.s&&x<=C.e);if(hit>=0)SMPL.sel=hit;drag=null;}
     smpUi();});
   wave.addEventListener('pointermove',e=>{if(!PT.has(e.pointerId))return;PT.set(e.pointerId,{x:e.clientX,y:e.clientY});moved=true;
     if(pinch&&PT.size>=2){const [p,q]=[...PT.values()],r=wave.getBoundingClientRect(),d=Math.max(8,Math.abs(p.x-q.x)),mx=(p.x+q.x)/2,sp=clamp(pinch.s0*pinch.d0/d,.004,1),a=pinch.c0-(mx-r.left)/r.width*sp;
@@ -2511,35 +2535,40 @@ const sPads=$('#sPads');
   for(let i=0;i<NSP;i++){
     const el=document.createElement('div');el.className='pad cap'+((i+(i>>2))%2?' dark':'');el.style.setProperty('--c',CH[5].c);el.dataset.i=i;
     el.innerHTML='<span class="rn">'+(i+1)+'</span><small></small>';
-    bindPad(el,()=>{if(SCP.on){smpCopyTo(i);return;}const ch=SMPL.sel!==i;SMPL.sel=i;if(ch)smpUi();if(!ctx)return;if(!smpSrc(i)){toast(SMPL.mode==='pads'?'PAD '+(i+1)+' VACÍO · GRABÁ O CARGÁ ACÁ':'PRIMERO GRABÁ O CARGÁ UN SAMPLE');smpUi(true);return;}el._v=chopPlay(i,ctx.currentTime+.003,1);recWrite(smpOut(i)===7?R_SMP2:R_SMP,i+1);smpUi(true);},
+    bindPad(el,()=>{if(SCP.on){smpCopyTo(i);return;}const bk=curB();let ch=SMPL.sel!==i;SMPL.sel=i;
+      if(!bk){const C=SMPL.cch[i];if(C.src>=0&&SMPL.srcs[C.src]&&C.src!==SMPL.cur){SMPL.cur=C.src;ch=true;}}   // la onda muestra el sample de ese chop
+      if(ch)smpUi();if(!ctx)return;if(!smpSrc(i,bk)){toast(bk?'PAD '+(i+1)+' VACÍO · GRABÁ O CARGÁ ACÁ':'CHOP '+(i+1)+' LIBRE · CARGÁ UN SAMPLE O TOCÁ ASIGNAR');smpUi(true);return;}
+      el._v=chopPlay(i,ctx.currentTime+.003,1,undefined,bk);if(bk&&S.rec&&!S.smp2){S.smp2=true;smp2Ui();toast('CANAL 2 PRENDIDO: los PADS se graban en SMP 2');}recWrite(bk?R_SMP2:R_SMP,i+1);smpUi(true);},
       ()=>{const C=SMPL.chops[i];if(ctx&&C.mode!=='one'&&SMPL.voice[i])SMPL.voice[i].stop(ctx.currentTime);});
     sPads.appendChild(el);
   }
 })();
 function smpUi(light){
-  const has=!!SMPL.buf,mic=$('#sMic'),res=$('#sRes');
+  const has=!!SMPL.buf,mic=$('#sMic');
   mic.classList.toggle('on',!!CAP&&CAP.label==='MIC');mic.classList.toggle('smp-rec',!!CAP&&CAP.label==='MIC');mic.textContent=CAP&&CAP.label==='MIC'?'■ PARAR':'● MIC';
-  res.classList.toggle('on',!!CAP&&CAP.label==='RESAMPLE');res.classList.toggle('smp-rec',!!CAP&&CAP.label==='RESAMPLE');res.textContent=CAP&&CAP.label==='RESAMPLE'?'■ PARAR':'● RESAMP';
   const PM=SMPL.mode==='pads',MD=C=>C.mode==='one'?'ONE':C.mode.toUpperCase();
+  $('#v-smp').classList.toggle('padsm',PM);
+  $$('#sSel .sk').forEach(b=>{const k=+b.dataset.k,s=SMPL.srcs[k],n=chopsOf(k).length;b.classList.toggle('on',k===SMPL.cur);b.classList.toggle('vac',!s);b.textContent=(k+1)+' · '+(s?(s.name||'SAMPLE').slice(0,7)+(n?' ('+n+')':''):'vacío');});
+  {const C=SMPL.cch[SMPL.sel],ab=$('#sAsg');ab.textContent=C&&C.src===SMPL.cur&&SMPL.srcs[SMPL.cur]?'CHOP '+(SMPL.sel+1)+' ✓ S'+(SMPL.cur+1):'ASIGNAR '+(SMPL.sel+1)+' → S'+(SMPL.cur+1);}
   [...sPads.children].forEach((el,i)=>{const C=SMPL.chops[i],P=smpSrc(i),R=smpReg(C);el.style.outline=(i===SMPL.sel)?'2px solid #ffd27a':'none';el.style.outlineOffset='2px';
     el.classList.toggle('cpdst',SCP.on&&i!==SMPL.sel);el.classList.toggle('cpsrc',SCP.on&&i===SMPL.sel);
     el.querySelector('.rn').textContent=PM?'P'+(i+1):String(i+1);
-    const sy=C.sync==='pitch'||C.sync==='tempo';el.querySelector('small').textContent=P?(smpOut(i)===7?'→2 ':'')+(sy?qName(smpQ(C,(R[1]-R[0])*P.buf.duration)).split(' ·')[0].replace(' TIEMPOS','T').replace(' TIEMPO','T'):((R[1]-R[0])*P.buf.duration).toFixed(2)+'s')+' · '+MD(C)+((C.spd||1)!==1?' · ×'+C.spd:''):'vacío';});
+    const sy=C.sync==='pitch'||C.sync==='tempo';el.querySelector('small').textContent=P?(PM?'':'S'+(C.src+1)+' · ')+(sy?qName(smpQ(C,(R[1]-R[0])*P.buf.duration)).split(' ·')[0].replace(' TIEMPOS','T').replace(' TIEMPO','T'):((R[1]-R[0])*P.buf.duration).toFixed(2)+'s')+' · '+MD(C)+((C.spd||1)!==1?' · ×'+C.spd:''):(PM?'vacío':'libre');});
   $$('#sModeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.m===SMPL.mode));
   $('#sEq').textContent=PM?'ENTERO':'IGUALES';$('#sTr').style.display=PM?'none':'';
-  $('#s2ch').classList.toggle('on',!!S.smp2);$('#s2ch').textContent=S.smp2?'2 CANALES ✓':'2 CANALES';
+  $('#s2ch').classList.toggle('on',!!S.smp2);$('#s2ch').textContent=S.smp2?'CANAL 2 ✓':'CANAL 2';
   $('#sCopy').classList.toggle('on',SCP.on);$('#sCopy').textContent=SCP.on?'ELEGÍ DESTINO ✕':'⧉ COPIAR';
   if(light)return;
   const P=smpSrc(SMPL.sel);
   $('#sInfo').textContent=CAP?'GRABANDO '+CAP.label+(CAP.slot>=0?' EN PAD '+(CAP.slot+1):'')+'…':
-    PM?('PAD '+(SMPL.sel+1)+' · '+(P?P.name+' · '+P.buf.duration.toFixed(2)+' s (arrastrá los bordes para recortar)':'vacío · MIC, ARCHIVO o DEMO graban acá')):
-    has?SMPL.name+' · '+SMPL.buf.duration.toFixed(2)+' s · CHOP '+(SMPL.sel+1)+' (arrastrá los bordes)':'Sin sample. Sin micrófono en el visor: GRABADOR abre la app del cel.';
+    PM?('CANAL 2 · PAD '+(SMPL.sel+1)+' · '+(P?P.name+' · '+P.buf.duration.toFixed(2)+' s (arrastrá los bordes para recortar)':'vacío · MIC, GRABADOR o ARCHIVO cargan acá')):
+    has?'S'+(SMPL.cur+1)+' '+SMPL.name+' · '+SMPL.buf.duration.toFixed(2)+' s · '+(SMPL.cch[SMPL.sel].src===SMPL.cur?'CHOP '+(SMPL.sel+1)+' (arrastrá los bordes)':'CHOP '+(SMPL.sel+1)+' usa '+(SMPL.cch[SMPL.sel].src>=0&&SMPL.srcs[SMPL.cch[SMPL.sel].src]?'S'+(SMPL.cch[SMPL.sel].src+1):'nada')+' · ASIGNAR lo pasa a S'+(SMPL.cur+1)):
+    'S'+(SMPL.cur+1)+' vacío · MIC, GRABADOR o ARCHIVO cargan acá (los chops libres lo toman)';
   const aj=$('#sAj');aj.classList.toggle('on',!!S.smpPar);aj.textContent='AJUSTES '+(S.smpPar?'▴':'▾');$('#v-smp').classList.toggle('paron',!!S.smpPar);
-  const pn=$('#sPar');pn.innerHTML='';const show=!!S.smpPar&&(PM?!!P:has);pn.style.display=show?'block':(S.smpPar?'block':'none');
-  if(S.smpPar&&!show){const n=document.createElement('div');n.className='pnote';n.textContent=PM?'PAD '+(SMPL.sel+1)+' vacío: grabá o cargá un sample para ajustarlo':'Cargá un sample para ajustar los chops';pn.appendChild(n);}
+  const pn=$('#sPar');pn.innerHTML='';const show=!!S.smpPar&&!!P;pn.style.display=show?'block':(S.smpPar?'block':'none');
+  if(S.smpPar&&!show){const n=document.createElement('div');n.className='pnote';n.textContent=PM?'PAD '+(SMPL.sel+1)+' vacío: grabá o cargá un sample para ajustarlo':'CHOP '+(SMPL.sel+1)+' libre: cargá un sample o tocá ASIGNAR';pn.appendChild(n);}
   if(show){const C=SMPL.chops[SMPL.sel];
     mkSeg(pn,(PM?'PAD ':'CHOP ')+(SMPL.sel+1),[['1-SHOT','one'],['GATE','gate'],['LOOP','loop']],o=>C.mode===o[1],o=>{C.mode=o[1];smpUi(true);queueSave();});
-    if(S.smp2)mkSeg(pn,'SALIDA',[['SAMPLER 1',0],['SAMPLER 2',1]],o=>(C.out||0)===o[1],o=>{C.out=o[1];try{SMPL.voice[SMPL.sel]&&SMPL.voice[SMPL.sel].stop();}catch(x){}smpUi(true);queueSave();});
     mkSeg(pn,'REVERSA',[['NO',false],['SÍ',true]],o=>C.rev===o[1],o=>{C.rev=o[1];smpPrep();queueSave();});
     const i=SMPL.sel,L=smpLen(i);
     mkSeg(pn,'SYNC AL TEMPO',[['NO','off'],['REPITCH','pitch'],['ESTIRAR','tempo']],o=>(C.sync||'off')===o[1],o=>{C.sync=o[1];if(o[1]!=='off'&&(!C.q||C.qa)){C.q=smpAutoQ(L);C.qa=true;}smpPrep();smpUi();queueSave();});
@@ -2555,21 +2584,25 @@ function smpUi(light){
     mkGrid(pn,C,['pitch','filt','crush','gain'],SMPDEF,k=>{if(k==='pitch')smpPrep();queueSave();});}
   drawWave();
 }
-$('#sMic').onclick=micToggle;$('#sRes').onclick=resToggle;
-$('#sDemo').onclick=smpDemo;
-$('#sClr').onclick=()=>{if(CAP)capStop();if(SMPL.mode==='pads'){SMPL.pads[SMPL.sel]=null;smpStore();smpUi();toast('PAD '+(SMPL.sel+1)+' VACÍO');return;}SMPL.buf=null;SMPL.rbuf=null;SMPL.name='';smpStore();smpUi();toast('SAMPLER VACÍO');};
+$('#sMic').onclick=micToggle;
+$('#sClr').onclick=()=>{if(CAP)capStop();if(SMPL.mode==='pads'){SMPL.pads[SMPL.sel]=null;smpStore();smpUi();toast('PAD '+(SMPL.sel+1)+' VACÍO');return;}const k=SMPL.cur,L=chopsOf(k);SMPL.srcs[k]=null;L.forEach(i=>{SMPL.cch[i].src=-1;});smpStore();smpUi();queueSave();toast('SAMPLE '+(k+1)+' VACÍO'+(L.length?' · sus '+L.length+' chops quedan libres':''));};
 $('#sEq').onclick=()=>{if(SMPL.mode==='pads'){const C=SMPL.chops[SMPL.sel];C.ps=0;C.pe=1;smpUi();queueSave();return;}if(!SMPL.buf)return;smpEqual();smpUi();queueSave();};
+/* selector de sample de CHOP y ASIGNAR */
+$$('#sSel .sk').forEach(b=>b.onclick=()=>{SMPL.cur=+b.dataset.k;const L=chopsOf(SMPL.cur);if(L.length&&!L.includes(SMPL.sel))SMPL.sel=L[0];smpUi();queueSave();
+  toast('SAMPLE '+(SMPL.cur+1)+(SMPL.srcs[SMPL.cur]?' · '+L.length+' chops':' · vacío: lo que cargues va acá (los chops ya asignados no se tocan)'));});
+$('#sAsg').onclick=()=>{const k=SMPL.cur,C=SMPL.cch[SMPL.sel];if(!SMPL.srcs[k]){toast('S'+(k+1)+' ESTÁ VACÍO · CARGÁ UN SAMPLE PRIMERO');return;}if(C.src===k){toast('EL CHOP '+(SMPL.sel+1)+' YA USA S'+(k+1));return;}
+  try{SMPL.vc[SMPL.sel]&&SMPL.vc[SMPL.sel].stop();}catch(e){}C.src=k;C.s=0;C.e=1;if(C.sync!=='off'&&C.qa)C.q=smpAutoQ(smpLen(SMPL.sel,0));smpPrep();smpUi();renderPalette();queueSave();toast('CHOP '+(SMPL.sel+1)+' → S'+(k+1)+' (entero: recortalo en la onda)');};
 /* modo y copia */
 const SCP={on:false};
-$$('#sModeSeg button').forEach(b=>b.onclick=()=>{SCP.on=false;const conv=smpMode(b.dataset.m);smpUi();renderPalette();
-  toast(b.dataset.m==='pads'?(conv?'PADS: LOS 8 CHOPS AHORA SON 8 SAMPLES':'PADS: CADA BOTÓN SU PROPIO SAMPLE'):'CHOP: UN SAMPLE EN 8 PARTES');});
+$$('#sModeSeg button').forEach(b=>b.onclick=()=>{SCP.on=false;smpMode(b.dataset.m);smpUi();renderPalette();
+  toast(b.dataset.m==='pads'?'PADS · CANAL 2 (SAMPLER 2 · SMP 2)'+(S.smp2?'':' · prendé CANAL 2 para verlo en el SEQ y el MIX'):'CHOP · CANAL 1 (SAMPLER · SMPL) · hasta 3 samples');});
 $('#sCopy').onclick=()=>{if(!SCP.on&&!smpSrc(SMPL.sel)){toast('ESE PAD ESTÁ VACÍO');return;}SCP.on=!SCP.on;smpUi(true);if(SCP.on)toast('TOCÁ EL PAD DONDE LO QUERÉS COPIAR');};
 function smpCopyTo(i){SCP.on=false;if(i===SMPL.sel){smpUi(true);toast('COPIA CANCELADA');return;}const a=SMPL.sel;if(smpCopy(a,i)){SMPL.sel=i;smpUi();renderPalette();toast((SMPL.mode==='pads'?'PAD ':'CHOP ')+(a+1)+' → '+(i+1));}else smpUi(true);}
 $('#sAj').onclick=()=>{S.smpPar=!S.smpPar;try{localStorage.setItem('musica_gb_smppar',S.smpPar?'1':'');}catch(x){}smpUi();};
 try{S.smpPar=!!localStorage.getItem('musica_gb_smppar');}catch(x){}
 $('#sCue').onclick=()=>{const i=SMPL.sel;const r=smpCue(i);if(!r){toast(smpSrc(i)?'NO ENCONTRÉ UN GOLPE CLARO':'SIN SAMPLE');return;}smpUi();queueSave();
   toast('AUTO CUE '+(SMPL.mode==='pads'?'PAD ':'CHOP ')+(i+1)+' · '+(r.ds>=.001?'−'+Math.round(r.ds*1000)+' ms al inicio':'inicio OK')+(r.de>=.005?' · −'+Math.round(r.de*1000)+' ms al final':''));};
-$('#s2ch').onclick=()=>{S.smp2=!S.smp2;smp2Ui();smpUi();renderPalette();queueSave();toast(S.smp2?'SAMPLER 2 PRENDIDO · canal SMP2 en el MIX y renglón SMP 2 en el SEQ · elegí la SALIDA de cada '+(SMPL.mode==='pads'?'pad':'chop'):'SAMPLER 2 APAGADO · todo sale por SAMPLER');};
+$('#s2ch').onclick=()=>{S.smp2=!S.smp2;smp2Ui();smpUi();renderPalette();queueSave();toast(S.smp2?'CANAL 2 (PADS) PRENDIDO · SMP 2 en el SEQ y SAMPLER 2 en el MIX':'CANAL 2 OCULTO · los PADS se pueden tocar igual');};
 $('#sTr').onclick=()=>{if(!SMPL.buf)return;smpTransients();smpUi();queueSave();};
 $('#sRecL').addEventListener('pointerdown',()=>initAudio());$('#sFileL').addEventListener('pointerdown',()=>initAudio());
 $('#sRecF').onchange=e=>{smpFromFile(e.target.files[0],'GRABACIÓN');e.target.value='';};
@@ -2623,7 +2656,7 @@ const pad2=n=>String(n).padStart(2,'0');
    · Las tomas LIVE van a la subcarpeta TOMAS.
    Navegadores sin carpetas (iPhone, Firefox): queda la biblioteca del teléfono de antes. */
 const AS_MIN=5,AS_KEEP=10,FOLDM='application/vnd.google-apps.folder',ASRX=/_AS_\d{12}\.json$/i;
-const APPV='13.31',APPD='20261124';
+const APPV='13.32',APPD='20261125';
 const DV={f:null,h:null,need:false,rec:[],last:0,lastT:'',lastBody:'',busy:false,err:'',sub:{}};
 const drvMode=()=>!!(window.claude&&window.claude.use);
 const FS_OK=typeof window.showDirectoryPicker==='function';
@@ -2794,7 +2827,8 @@ function extractText(r){
 }
 function loadSession(j){
   initAudio();applySnapshot(j);
-  if(j.smp&&j.smp.pcm)smpDecode(j.smp.pcm);
+  if(j.smp&&j.smp.pcm)smpDecode(j.smp.pcm,-1,0);   // formato de antes: un sample
+  if(j.smp&&Array.isArray(j.smp.srcs)){for(let k=0;k<NSRC;k++){const o=j.smp.srcs[k];if(o)smpDecode(o,-1,k);else SMPL.srcs[k]=null;}smpStore();}
   if(j.smp&&Array.isArray(j.smp.pads)){SMPL._rs=true;try{for(let i=0;i<NSP;i++){const p=j.smp.pads[i];if(p)smpDecode(p,i);else SMPL.pads[i]=null;}}finally{SMPL._rs=false;}smpStore();}
   $('#selKey').value=S.key;$('#selScale').value=S.scale;
   renderKeys();renderPalette();paints.forEach(p=>p());applyAll();applyFx();applyPatch();applyOut();PCH.sel=null;histReset();vinFx();sync();dirty=true;smpUi();fxUi();partUi();pageUi();smp2Ui();ensureKit();queueSave();
@@ -2804,7 +2838,7 @@ let newT=null;
 function newSession(){
   if(S.playing)stop();if(CAP)capStop();
   const j=JSON.parse(JSON.stringify(DEF));j.pat.forEach(r=>r.fill(0));j.seqN.forEach(r=>r.fill(0));j.chdSeq.fill(0);j.chdGate.fill(2);j.smpSeq.fill(0);if(j.smpSeq2)j.smpSeq2.fill(0);j.smp2=false;if(j.synG)j.synG.forEach(a=>a.fill(1));j.vinN.forEach(a=>a.fill(0));j.vinG.forEach(a=>a.fill(1));if(j.xyr)j.xyr.forEach(a=>a.fill(null));j.steps=16;j.sw=0;j.parts=null;j.part=0;j.song=false;j.name='';delete j.smp.pcm;
-  SMPL.buf=null;SMPL.rbuf=null;SMPL.name='';SMPL.pads.fill(null);SMPL.mode='chop';smpStore();
+  SMPL.srcs.fill(null);SMPL.pads.fill(null);SMPL.mode='chop';SMPL.cur=0;smpStore();
   loadSession(j);S.name='';$('#shName').value='';queueSave();CHG.on=false;DV.lastBody='';try{chgUi();}catch(e){}
 }
 $('#shNew').onclick=()=>{const b=$('#shNew');
@@ -2909,14 +2943,16 @@ const fmtD=ms=>{const d=new Date(ms);return pad2(d.getDate())+'/'+pad2(d.getMont
 /* sample actual: se guarda solo cada vez que cambia y vuelve al abrir */
 const smpPack=(b,nm)=>{if(b===undefined){b=SMPL.buf;nm=SMPL.name;}if(!b)return null;const d=b.getChannelData(0),q=new Int16Array(d.length);for(let i=0;i<d.length;i++)q[i]=Math.round(clamp(d[i],-1,1)*32767);return{rate:b.sampleRate,name:nm,pcm:q.buffer};};
 const padsPack=()=>SMPL.pads.map(p=>p?smpPack(p.buf,p.name):null);
-function smpUnpack(o,chops,slot){
+const srcsPack=()=>({v:2,cur:SMPL.cur,srcs:SMPL.srcs.map(s=>s?smpPack(s.buf,s.name):null)});
+function smpUnpack(o,slot,k){   // no toca ajustes ni asignaciones
   if(!o||!o.pcm)return false;const q=new Int16Array(o.pcm),f=new Float32Array(q.length);for(let i=0;i<q.length;i++)f[i]=q[i]/32767;
-  const keep=JSON.parse(JSON.stringify(chops||SMPL.chops));SMPL._rs=true;let ok=false;try{ok=smpSet(f,o.rate,o.name,slot===undefined?-1:slot);}finally{SMPL._rs=false;}
-  if(ok)SMPL.chops.forEach((C,i)=>{if(keep[i])Object.assign(C,keep[i]);});return ok;}
-function padsUnpack(a,chops){for(let i=0;i<NSP;i++){if(a&&a[i])smpUnpack(a[i],chops,i);else SMPL.pads[i]=null;}}
+  return slot!==undefined&&slot>=0?smpLoadPad(slot,f,o.rate,o.name):smpLoadSrc(k||0,f,o.rate,o.name);}
+function srcsUnpack(o){if(o&&o.v===2&&Array.isArray(o.srcs)){for(let k=0;k<NSRC;k++){if(o.srcs[k])smpUnpack(o.srcs[k],-1,k);else SMPL.srcs[k]=null;}return true;}
+  SMPL.srcs.fill(null);return o?smpUnpack(o,-1,0):false;}   // formato de antes: un solo sample → S1
+function padsUnpack(a){for(let i=0;i<NSP;i++){if(a&&a[i])smpUnpack(a[i],i);else SMPL.pads[i]=null;}}
 var smpT=null;
-function smpStore(){if(SMPL._rs)return;clearTimeout(smpT);smpT=setTimeout(()=>{const o=smpPack();(o?IDB.put('kv',Object.assign(o,{saved:Date.now()}),'smp'):IDB.del('kv','smp')).catch(()=>{});IDB.put('kv',{mode:SMPL.mode,pads:padsPack()},'smpP').catch(()=>{});},350);}
-const SMPR=(async()=>{try{const o=await IDB.get('kv','smp');if(o&&!SMPL.buf&&smpUnpack(o)){smpUi();dirty=true;}
+function smpStore(){if(SMPL._rs)return;clearTimeout(smpT);smpT=setTimeout(()=>{const o=srcsPack();(o.srcs.some(Boolean)?IDB.put('kv',Object.assign(o,{saved:Date.now()}),'smp'):IDB.del('kv','smp')).catch(()=>{});IDB.put('kv',{mode:SMPL.mode,pads:padsPack()},'smpP').catch(()=>{});},350);}
+const SMPR=(async()=>{try{const o=await IDB.get('kv','smp');if(o&&!SMPL.srcs.some(Boolean)&&srcsUnpack(o)){smpUi();dirty=true;}
   const p=await IDB.get('kv','smpP');if(p&&Array.isArray(p.pads)&&!SMPL.pads.some(Boolean)){padsUnpack(p.pads);smpUi();dirty=true;}}catch(e){}})();
 /* botón que pide un segundo toque */
 function armTap(b,txt,fn){if(b._arm){clearTimeout(b._arm);b._arm=null;b.classList.remove('arm');fn();return;}
@@ -2926,18 +2962,19 @@ const sesId=nm=>'s_'+(nm.trim().toLowerCase().replace(/[^\w\-]+/g,'_').replace(/
 async function libSave(){
   const nm=(($('#shName').value||S.name||'').trim()).slice(0,40)||('SESIÓN '+fmtD(Date.now()));S.name=nm;$('#shName').value=nm;
   const id=sesId(nm),snap=snapshot(false);snap.name=nm;let had=false;try{had=!!(await IDB.get('ses',id));}catch(e){}
-  try{await IDB.put('ses',{id,name:nm,saved:Date.now(),snap:JSON.parse(JSON.stringify(snap)),smp:smpPack(),pads:SMPL.pads.some(Boolean)?padsPack():null});}
+  try{await IDB.put('ses',{id,name:nm,saved:Date.now(),snap:JSON.parse(JSON.stringify(snap)),smp:srcsPack(),pads:SMPL.pads.some(Boolean)?padsPack():null});}
   catch(e){shMsg('No pude guardar en el teléfono ('+(e&&(e.name||e.message)||e)+').');return false;}
   queueSave();shMsg('✓ GUARDADA EN EL TELÉFONO: '+nm+(had?' (reemplacé la anterior con ese nombre)':''));libList();return true;}
 async function libOpen(id){
   let r=null;try{r=await IDB.get('ses',id);}catch(e){}if(!r){shMsg('No encontré esa sesión.');libList();return;}
   loadSession(r.snap);S.name=r.name;$('#shName').value=r.name;
-  const ch=r.snap.smp&&r.snap.smp.chops;if(r.smp){smpUnpack(r.smp,ch);}else{SMPL.buf=null;SMPL.rbuf=null;SMPL.name='';}padsUnpack(r.pads,ch);
+  srcsUnpack(r.smp||null);padsUnpack(r.pads);
   smpStore();smpUi();queueSave();shMsg('✓ ABIERTA: '+r.name);toast('SESIÓN '+r.name);setTimeout(()=>sheet.classList.remove('on'),700);}
 function libJson(r){
   const j=JSON.parse(JSON.stringify(r.snap));j.smp=j.smp||{};
-  if(r.smp){const q=new Int16Array(r.smp.pcm),f=new Float32Array(q.length);for(let i=0;i<q.length;i++)f[i]=q[i]/32767;
-    const e=smpEncode({getChannelData:()=>f,sampleRate:r.smp.rate,duration:f.length/r.smp.rate},r.smp.name);if(e)j.smp.pcm=e;}
+  const enc=o=>{if(!o||!o.pcm)return null;const q=new Int16Array(o.pcm),f=new Float32Array(q.length);for(let i=0;i<q.length;i++)f[i]=q[i]/32767;return smpEncode({getChannelData:()=>f,sampleRate:o.rate,duration:f.length/o.rate},o.name);};
+  if(r.smp&&r.smp.v===2)j.smp.srcs=r.smp.srcs.map(enc);   // los 3 samples de CHOP
+  else if(r.smp){const e=enc(r.smp);if(e)j.smp.pcm=e;}
   if(r.pads)j.smp.pads=r.pads.map(p=>{if(!p)return null;const q=new Int16Array(p.pcm),f=new Float32Array(q.length);for(let i=0;i<q.length;i++)f[i]=q[i]/32767;return smpEncode({getChannelData:()=>f,sampleRate:p.rate,duration:f.length/p.rate},p.name);});
   const d=new Date(r.saved),fn='GB-'+(r.name.replace(/[^\w\-]+/g,'_').replace(/^_+|_+$/g,'')||'sesion')+'-'+d.getFullYear()+pad2(d.getMonth()+1)+pad2(d.getDate())+'.json',data=JSON.stringify(j);
   return {fn,data};}
@@ -3173,7 +3210,7 @@ function killAll(){
   for(const t in XYH){const H=XYH[t];if(H.on){try{mfxOff(t);}catch(e){}H.on=false;}}XY.on=false;S.hold=false;
   try{$('#bHold').classList.remove('on');if(window.heldUi)heldUi();if(window.paintXY)paintXY();}catch(e){}
   try{djFxOff();}catch(e){}
-  try{SMPL.voice.forEach(v=>{try{v&&v.stop();}catch(e){}});}catch(e){}
+  try{[...SMPL.vc,...SMPL.vp].forEach(v=>{try{v&&v.stop();}catch(e){}});}catch(e){}
   try{if(ctx)restartAudio();}catch(e){}
   try{['#bSir','#bLatch','#sirPad'].forEach(s=>{const el=$(s);if(el)el.classList.remove('on','dn');});}catch(e){}
   try{$('#clipLed').classList.remove('on');}catch(e){}
@@ -3453,7 +3490,7 @@ document.addEventListener('keydown',e=>{if(e.code==='Space'&&!e.repeat&&e.target
 document.addEventListener('visibilitychange',()=>{if(document.hidden){sirHolds.clear();if(sirV)sirStop();$$('#pads .pad').forEach(el=>{if(el._v){try{(Array.isArray(el._v)?el._v:[el._v]).forEach(v=>v.stop());}catch(e){}el._v=null;el.classList.remove('dn');}});}});
 window.addEventListener('resize',()=>{if(S.tab==='smp')drawWave();});
 renderPalette();renderKeys();fxUi();sync();refreshSeq();smpUi();partUi();ringUi();smp2Ui();histReset();frame();
-window.GB={smpMode,smpCopy,smpSrc,SCP:()=>SCP,padsPack,IDB,libSave,libOpen,libList,libLive,smpPack,smpUnpack,SMPR,drumRe,dkE,renderDrum,KH:()=>KH,LV,wavEncode,xyApply,LIVE,drawSiren:()=>drawSiren(),TILT,partCopy,LEN,RM,RS,ringSel,rowTool,viz:{drawScope:()=>drawScope(),drawVoice:()=>drawVoice(),drawXY:()=>drawXY(),drawBus:()=>drawBus(),drawRing:()=>drawRing()},newSession,KB:()=>KB,SYNP,sdSend:(i,v)=>{CH[i].dst=v;applyCh(i);},anM:()=>anM,shareSes,PARTS,partGo,partSwitch,partBar,drumPreset,KITS,DPRE,trig,sd,PERF,S,CH,FXP,SMPL,pat,smpSeq,chdGate,snapshot,applySnapshot,loadSession,smpDemo,chopPlay,smpSet,smpEncode,smpDecode,get ctx(){return ctx;},get lim(){return lim;},get CAP(){return CAP;},recWrite,takeUndo,doUndo,bus,extractText,setSteps,get STEPS(){return STEPS;},vinPlay,vinVoice,VINP,vinN,vinG,vinRec,vinGate,VL,vinMig,XYR,xyRec,xyAuto,xyPlay,XYQ,synG,synGate,chordPlay,DV,CHG,queueSave,drvAuto,drvSaveOrig,drvRecent,drvSetF,foldSearch,liveUp,drvMode,drvLive,sesBase,fMode,BK,lbSet,lbPerm,sesSave,sesRecent,sesLoad,migUi,APPV,LBR,libJson,smpQ,smpAutoQ,smpStretch,smpPrep,wsola,smpLen,SQ,seqLit,LIT,mfxOn,mfxOff,restartAudio,NSP,chopD,smpEqual,smpTransients,chainUnplug,chainUnplugAll,CFS,CFO,patchSelUi,killAll,HIST,histUndo,histRedo,histFlush,histReset,histUi,XYH,XY,PRV,drumPlay,setDelayTime,applyFx,PATCHPRE,PATCHPRE2,outCycle,outPath,outClean,applyOut,CHS,CHO,patchCycle,patchClean,applyPatch,patchLevel,fxAct,fxLevel,PCH,FXP,DJV,DJXY,SIR,sirHolds,fxv:()=>({pdt:pdly?pdly.delayTime.value:0,dt:dly.delayTime.value,mDly:mDly.gain.value,dfb:pdfb.gain.value,sdfb:dfb.gain.value,fltF:fltM.frequency.value,fltQ:fltM.Q.value,mRev:mRev.gain.value}),SCR,scrOffNow,scrDown,scrMove,scrUp,scrQ,outTap,LV,applyCh,sirHold,smpCue,smpOut,rowAud,smpSeq2,sSeq,R_SMP2,smp2Ui,WV,wvSet,drawWave,rowOn,vinFx,latOut,vNow,calCalc,SCH,seqN,chdSeq,LIVE_:()=>LIVE,setBpm,pageUi,noteOpen,renderPalette,ROWS,R_VIN,swOff,get gT(){return gT;},orgWave,DHIT,lesToggle};
+window.GB={smpMode,smpCopy,smpSrc,SCP:()=>SCP,padsPack,IDB,libSave,libOpen,libList,libLive,smpPack,smpUnpack,SMPR,drumRe,dkE,renderDrum,KH:()=>KH,LV,wavEncode,xyApply,LIVE,drawSiren:()=>drawSiren(),TILT,partCopy,LEN,RM,RS,ringSel,rowTool,viz:{drawScope:()=>drawScope(),drawVoice:()=>drawVoice(),drawXY:()=>drawXY(),drawBus:()=>drawBus(),drawRing:()=>drawRing()},newSession,KB:()=>KB,SYNP,sdSend:(i,v)=>{CH[i].dst=v;applyCh(i);},anM:()=>anM,shareSes,PARTS,partGo,partSwitch,partBar,drumPreset,KITS,DPRE,trig,sd,PERF,S,CH,FXP,SMPL,pat,smpSeq,chdGate,snapshot,applySnapshot,loadSession,smpDemo,chopPlay,smpSet,smpEncode,smpDecode,get ctx(){return ctx;},get lim(){return lim;},get CAP(){return CAP;},recWrite,takeUndo,doUndo,bus,extractText,setSteps,get STEPS(){return STEPS;},vinPlay,vinVoice,VINP,vinN,vinG,vinRec,vinGate,VL,vinMig,XYR,xyRec,xyAuto,xyPlay,XYQ,synG,synGate,chordPlay,DV,CHG,queueSave,drvAuto,drvSaveOrig,drvRecent,drvSetF,foldSearch,liveUp,drvMode,drvLive,sesBase,fMode,BK,lbSet,lbPerm,sesSave,sesRecent,sesLoad,migUi,APPV,LBR,libJson,smpQ,smpAutoQ,smpStretch,smpPrep,wsola,smpLen,SQ,seqLit,LIT,mfxOn,mfxOff,restartAudio,NSP,chopD,smpEqual,smpTransients,chainUnplug,chainUnplugAll,CFS,CFO,patchSelUi,killAll,smpUi,NSRC,curB,sBank,chopsOf,smpLoadSrc,smpLoadPad,srcsPack,srcsUnpack,smpMode,smpCue,HIST,histUndo,histRedo,histFlush,histReset,histUi,XYH,XY,PRV,drumPlay,setDelayTime,applyFx,PATCHPRE,PATCHPRE2,outCycle,outPath,outClean,applyOut,CHS,CHO,patchCycle,patchClean,applyPatch,patchLevel,fxAct,fxLevel,PCH,FXP,DJV,DJXY,SIR,sirHolds,fxv:()=>({pdt:pdly?pdly.delayTime.value:0,dt:dly.delayTime.value,mDly:mDly.gain.value,dfb:pdfb.gain.value,sdfb:dfb.gain.value,fltF:fltM.frequency.value,fltQ:fltM.Q.value,mRev:mRev.gain.value}),SCR,scrOffNow,scrDown,scrMove,scrUp,scrQ,outTap,LV,applyCh,sirHold,smpCue,smpOut,rowAud,smpSeq2,sSeq,R_SMP2,smp2Ui,WV,wvSet,drawWave,rowOn,vinFx,latOut,vNow,calCalc,SCH,seqN,chdSeq,LIVE_:()=>LIVE,setBpm,pageUi,noteOpen,renderPalette,ROWS,R_VIN,swOff,get gT(){return gT;},orgWave,DHIT,lesToggle};
 </script>
 <script>
 /* app instalable: guarda la app en el teléfono para abrir sin internet y se actualiza sola */

@@ -106,7 +106,7 @@ function preview(r,st){
   if(!ctx)return;const R=ROWS[r],t=ctx.currentTime+.005;seqLit(r,st,t,.3);
   if(R.t==='syn')mkVoice(curP(R.k),mtof(scaleNote(seqN[R.k][st],BASEOCT[R.k])),t,.9,bus[1+R.k].inp,.3);
   else if(R.t==='chd')chordPlay(chdSeq[st],false,t,bus[3].inp,.5);
-  else if(R.t==='smp'&&sSeq(R)[st])chopPlay(sSeq(R)[st]-1,t,.9,.5);
+  else if(R.t==='smp'&&sSeq(R)[st])chopPlay(sSeq(R)[st]-1,t,.9,.5,R.k?1:0);
   else if(R.t==='vin')vinPlay(vinN[R.k][st],false,t,Math.min(1.2,sd()*(vinG[R.k][st]||1)));
 }
 const vinLbl=(d,ch)=>ch?chordName(((d%7)+7)%7,false).name:noteName(scaleNote(d,VBASE+(S.vinPar.oct||0)));
@@ -189,7 +189,7 @@ function renderPalette(){
       b.onclick=()=>{initAudio();vinN[R.k][st]=d;pat[S.sel.r][st]=1;preview(S.sel.r,st);dirty=true;queueSave();renderPalette();};}
     else if(R.t==='chd'){const c=chordName(i,S.seventh);b.innerHTML=c.roman+'<small>'+c.name+'</small>';
       b.onclick=()=>{initAudio();chdSeq[st]=i;pat[S.sel.r][st]=1;if(ctx)chordPlay(i,S.seventh,ctx.currentTime+.005,bus[3].inp,.5);dirty=true;queueSave();renderPalette();};}
-    else{b.classList.toggle('pk',sSeq(R)[st]===i+1&&!!pat[S.sel.r][st]);b.innerHTML=(SMPL.mode==='pads'?'PAD ':'CHOP ')+(i+1)+'<small>'+(smpSrc(i)?(SMPL.mode==='pads'?(smpSrc(i).name||'').slice(0,8):''):'sin sample')+'</small>';
+    else{const bk=R.k?1:0,P=smpSrc(i,bk);b.classList.toggle('pk',sSeq(R)[st]===i+1&&!!pat[S.sel.r][st]);b.innerHTML=(bk?'PAD ':'CHOP ')+(i+1)+'<small>'+(P?(bk?(P.name||'').slice(0,8):'S'+(SMPL.cch[i].src+1)):'sin sample')+'</small>';
       b.onclick=()=>{initAudio();sSeq(R)[st]=i+1;pat[S.sel.r][st]=1;SMPL.sel=i;preview(S.sel.r,st);dirty=true;queueSave();renderPalette();};}
     row.appendChild(b);
   }
@@ -344,7 +344,7 @@ function smp2Ui(){const on=!!S.smp2,rows=$$('#grid .row');if(rows[R_SMP2])rows[R
 const LQ=[],LIT=new Set();let SPB=0,SPT=null;
 function seqLit(r,s,t,dur){LQ.push({r,s,t,end:t+Math.max(.09,Math.min(dur||.13,4))});if(LQ.length>256)LQ.splice(0,LQ.length-256);}
 function litEls(r,s){const R=ROWS[r];
-  if(S.tab==='smp')return R.t==='smp'&&sSeq(R)[s]?[sPads.children[sSeq(R)[s]-1]]:[];
+  if(S.tab==='smp')return R.t==='smp'&&sSeq(R)[s]&&(R.k?1:0)===curB()?[sPads.children[sSeq(R)[s]-1]]:[];
   if(S.tab!=='keys')return [];const m=S.kmode,pads=$('#pads');
   if(R.t==='drum')return m==='drum'?[pads.children[r]]:[];
   if(R.t==='syn')return m==='syn'+R.k?[...pads.querySelectorAll('[data-d="'+seqN[R.k][s]+'"]')]:[];
@@ -706,19 +706,19 @@ function drawWave(){
   if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H;}
   const c=cv.getContext('2d');c.clearRect(0,0,W,H);
   const PM=SMPL.mode==='pads',P=PM?SMPL.pads[SMPL.sel]:(SMPL.buf?{buf:SMPL.buf}:null);
-  if(!P){c.fillStyle='#7b828c';c.font=(12*dpr)+'px '+getComputedStyle(document.body).getPropertyValue('--mono');c.textAlign='center';c.fillText(PM?'PAD '+(SMPL.sel+1)+' VACÍO · grabá, elegí un audio, DEMO o ⧉ COPIAR':'SIN SAMPLE · grabá, elegí un audio o probá DEMO',W/2,H/2);return;}
+  if(!P){c.fillStyle='#7b828c';c.font=(12*dpr)+'px '+getComputedStyle(document.body).getPropertyValue('--mono');c.textAlign='center';c.fillText(PM?'PAD '+(SMPL.sel+1)+' VACÍO · grabá, elegí un audio o ⧉ COPIAR':'SAMPLE '+(SMPL.cur+1)+' VACÍO · grabá o elegí un audio',W/2,H/2);return;}
   if(WV.src!==P.buf){WV.src=P.buf;WV.a=0;WV.b=1;}
   const d=P.buf.getChannelData(0),N=d.length,mid=H/2,X=f=>wvX(f,W),sp=wvSpan();
   if(PM){const C=SMPL.chops[SMPL.sel],a=X(C.ps??0),b=X(C.pe??1);c.fillStyle='rgba(0,0,0,.45)';c.fillRect(0,0,Math.max(0,a),H);c.fillRect(b,0,Math.max(0,W-b),H);c.fillStyle='rgba(255,210,122,.12)';c.fillRect(a,0,b-a,H);}
-  else SMPL.chops.forEach((C,i)=>{c.fillStyle=i===SMPL.sel?'rgba(255,210,122,.16)':'rgba(255,255,255,.025)';c.fillRect(X(C.s),0,X(C.e)-X(C.s),H);});
+  else SMPL.cch.forEach((C,i)=>{if(C.src!==SMPL.cur)return;c.fillStyle=i===SMPL.sel?'rgba(255,210,122,.16)':'rgba(255,255,255,.025)';c.fillRect(X(C.s),0,X(C.e)-X(C.s),H);});
   c.strokeStyle=CH[5].c;c.lineWidth=1;c.beginPath();
   for(let x=0;x<W;x++){const i0=Math.floor((WV.a+x/W*sp)*N),i1=Math.max(i0+1,Math.floor((WV.a+(x+1)/W*sp)*N)),st=Math.max(1,Math.floor((i1-i0)/48));let mn=1,mx=-1;for(let i=i0;i<i1&&i<N;i+=st){const v=d[i];if(v<mn)mn=v;if(v>mx)mx=v;}if(mx<mn)continue;c.moveTo(x+.5,mid-mx*mid*.92);c.lineTo(x+.5,mid-mn*mid*.92);}
   c.stroke();
-  {const C=SMPL.chops[SMPL.sel];if(C&&(C.sync==='pitch'||C.sync==='tempo')){const a=PM?(C.ps??0):C.s,b=PM?(C.pe??1):C.e,n=Math.round(smpQ(C,smpLen(SMPL.sel)));   // grilla de tiempos
+  {const C=SMPL.chops[SMPL.sel];if(C&&(PM||C.src===SMPL.cur)&&(C.sync==='pitch'||C.sync==='tempo')){const a=PM?(C.ps??0):C.s,b=PM?(C.pe??1):C.e,n=Math.round(smpQ(C,smpLen(SMPL.sel)));   // grilla de tiempos
     if(n>=1&&n<=64){c.fillStyle='rgba(255,210,122,.5)';for(let k=1;k<n;k++){const x=Math.round(X(a+(b-a)*k/n));c.fillRect(x,k%4===0?0:H*.3,Math.max(1,dpr),k%4===0?H:H*.4);}}}}
   if(PM){const C=SMPL.chops[SMPL.sel];c.fillStyle='#ffd27a';c.fillRect(Math.round(X(C.ps??0)),0,3*dpr,H);c.fillRect(Math.round(X(C.pe??1))-3*dpr,0,3*dpr,H);
     c.font='700 '+(13*dpr)+'px sans-serif';c.textAlign='left';c.fillText('PAD '+(SMPL.sel+1),Math.max(0,X(C.ps??0))+6*dpr,15*dpr);}
-  else SMPL.chops.forEach((C,i)=>{const sel=i===SMPL.sel;c.fillStyle=sel?'#ffd27a':'#c9ffee';c.globalAlpha=sel?1:.55;c.fillRect(Math.round(X(C.s)),0,sel?3*dpr:1.5*dpr,H);c.fillRect(Math.round(X(C.e))-(sel?3*dpr:1.5*dpr),0,sel?3*dpr:1.5*dpr,H);
+  else SMPL.cch.forEach((C,i)=>{if(C.src!==SMPL.cur)return;const sel=i===SMPL.sel;c.fillStyle=sel?'#ffd27a':'#c9ffee';c.globalAlpha=sel?1:.55;c.fillRect(Math.round(X(C.s)),0,sel?3*dpr:1.5*dpr,H);c.fillRect(Math.round(X(C.e))-(sel?3*dpr:1.5*dpr),0,sel?3*dpr:1.5*dpr,H);
     c.globalAlpha=1;c.font='700 '+(13*dpr)+'px sans-serif';c.textAlign='left';const lx=X(C.s)+5*dpr;if(lx>-10*dpr&&lx<W)c.fillText(String(i+1),lx,15*dpr);});
   if(sp<.999){   // zoom: cuánto y dónde estás
     c.font='400 '+(10*dpr)+'px sans-serif';c.textAlign='right';c.fillStyle='rgba(232,229,222,.7)';c.fillText('ZOOM ×'+(1/sp<10?(1/sp).toFixed(1):Math.round(1/sp))+' · 2 TOQUES = TODO',W-6*dpr,H-6*dpr);
@@ -734,9 +734,9 @@ function drawWave(){
     if(!smpSrc(SMPL.sel)&&!(SMPL.mode==='chop'&&SMPL.buf))return;
     const x=fr(e.clientX),r=wave.getBoundingClientRect(),tol=18/r.width*wvSpan();let best=null,bd=1;
     if(SMPL.mode==='pads'){const C=SMPL.chops[SMPL.sel];drag={i:SMPL.sel,k:Math.abs(x-(C.ps??0))<Math.abs(x-(C.pe??1))?'ps':'pe'};return;}
-    SMPL.chops.forEach((C,i)=>{[['s',C.s],['e',C.e]].forEach(h=>{const dd=Math.abs(h[1]-x);if(dd<bd){bd=dd;best={i,k:h[0]};}});});
+    SMPL.cch.forEach((C,i)=>{if(C.src!==SMPL.cur)return;[['s',C.s],['e',C.e]].forEach(h=>{const dd=Math.abs(h[1]-x);if(dd<bd){bd=dd;best={i,k:h[0]};}});});
     if(best&&bd<=tol){drag=best;SMPL.sel=best.i;}
-    else{const hit=SMPL.chops.findIndex(C=>x>=C.s&&x<=C.e);if(hit>=0)SMPL.sel=hit;drag=null;}
+    else{const hit=SMPL.cch.findIndex(C=>C.src===SMPL.cur&&x>=C.s&&x<=C.e);if(hit>=0)SMPL.sel=hit;drag=null;}
     smpUi();});
   wave.addEventListener('pointermove',e=>{if(!PT.has(e.pointerId))return;PT.set(e.pointerId,{x:e.clientX,y:e.clientY});moved=true;
     if(pinch&&PT.size>=2){const [p,q]=[...PT.values()],r=wave.getBoundingClientRect(),d=Math.max(8,Math.abs(p.x-q.x)),mx=(p.x+q.x)/2,sp=clamp(pinch.s0*pinch.d0/d,.004,1),a=pinch.c0-(mx-r.left)/r.width*sp;
@@ -753,35 +753,40 @@ const sPads=$('#sPads');
   for(let i=0;i<NSP;i++){
     const el=document.createElement('div');el.className='pad cap'+((i+(i>>2))%2?' dark':'');el.style.setProperty('--c',CH[5].c);el.dataset.i=i;
     el.innerHTML='<span class="rn">'+(i+1)+'</span><small></small>';
-    bindPad(el,()=>{if(SCP.on){smpCopyTo(i);return;}const ch=SMPL.sel!==i;SMPL.sel=i;if(ch)smpUi();if(!ctx)return;if(!smpSrc(i)){toast(SMPL.mode==='pads'?'PAD '+(i+1)+' VACÍO · GRABÁ O CARGÁ ACÁ':'PRIMERO GRABÁ O CARGÁ UN SAMPLE');smpUi(true);return;}el._v=chopPlay(i,ctx.currentTime+.003,1);recWrite(smpOut(i)===7?R_SMP2:R_SMP,i+1);smpUi(true);},
+    bindPad(el,()=>{if(SCP.on){smpCopyTo(i);return;}const bk=curB();let ch=SMPL.sel!==i;SMPL.sel=i;
+      if(!bk){const C=SMPL.cch[i];if(C.src>=0&&SMPL.srcs[C.src]&&C.src!==SMPL.cur){SMPL.cur=C.src;ch=true;}}   // la onda muestra el sample de ese chop
+      if(ch)smpUi();if(!ctx)return;if(!smpSrc(i,bk)){toast(bk?'PAD '+(i+1)+' VACÍO · GRABÁ O CARGÁ ACÁ':'CHOP '+(i+1)+' LIBRE · CARGÁ UN SAMPLE O TOCÁ ASIGNAR');smpUi(true);return;}
+      el._v=chopPlay(i,ctx.currentTime+.003,1,undefined,bk);if(bk&&S.rec&&!S.smp2){S.smp2=true;smp2Ui();toast('CANAL 2 PRENDIDO: los PADS se graban en SMP 2');}recWrite(bk?R_SMP2:R_SMP,i+1);smpUi(true);},
       ()=>{const C=SMPL.chops[i];if(ctx&&C.mode!=='one'&&SMPL.voice[i])SMPL.voice[i].stop(ctx.currentTime);});
     sPads.appendChild(el);
   }
 })();
 function smpUi(light){
-  const has=!!SMPL.buf,mic=$('#sMic'),res=$('#sRes');
+  const has=!!SMPL.buf,mic=$('#sMic');
   mic.classList.toggle('on',!!CAP&&CAP.label==='MIC');mic.classList.toggle('smp-rec',!!CAP&&CAP.label==='MIC');mic.textContent=CAP&&CAP.label==='MIC'?'■ PARAR':'● MIC';
-  res.classList.toggle('on',!!CAP&&CAP.label==='RESAMPLE');res.classList.toggle('smp-rec',!!CAP&&CAP.label==='RESAMPLE');res.textContent=CAP&&CAP.label==='RESAMPLE'?'■ PARAR':'● RESAMP';
   const PM=SMPL.mode==='pads',MD=C=>C.mode==='one'?'ONE':C.mode.toUpperCase();
+  $('#v-smp').classList.toggle('padsm',PM);
+  $$('#sSel .sk').forEach(b=>{const k=+b.dataset.k,s=SMPL.srcs[k],n=chopsOf(k).length;b.classList.toggle('on',k===SMPL.cur);b.classList.toggle('vac',!s);b.textContent=(k+1)+' · '+(s?(s.name||'SAMPLE').slice(0,7)+(n?' ('+n+')':''):'vacío');});
+  {const C=SMPL.cch[SMPL.sel],ab=$('#sAsg');ab.textContent=C&&C.src===SMPL.cur&&SMPL.srcs[SMPL.cur]?'CHOP '+(SMPL.sel+1)+' ✓ S'+(SMPL.cur+1):'ASIGNAR '+(SMPL.sel+1)+' → S'+(SMPL.cur+1);}
   [...sPads.children].forEach((el,i)=>{const C=SMPL.chops[i],P=smpSrc(i),R=smpReg(C);el.style.outline=(i===SMPL.sel)?'2px solid #ffd27a':'none';el.style.outlineOffset='2px';
     el.classList.toggle('cpdst',SCP.on&&i!==SMPL.sel);el.classList.toggle('cpsrc',SCP.on&&i===SMPL.sel);
     el.querySelector('.rn').textContent=PM?'P'+(i+1):String(i+1);
-    const sy=C.sync==='pitch'||C.sync==='tempo';el.querySelector('small').textContent=P?(smpOut(i)===7?'→2 ':'')+(sy?qName(smpQ(C,(R[1]-R[0])*P.buf.duration)).split(' ·')[0].replace(' TIEMPOS','T').replace(' TIEMPO','T'):((R[1]-R[0])*P.buf.duration).toFixed(2)+'s')+' · '+MD(C)+((C.spd||1)!==1?' · ×'+C.spd:''):'vacío';});
+    const sy=C.sync==='pitch'||C.sync==='tempo';el.querySelector('small').textContent=P?(PM?'':'S'+(C.src+1)+' · ')+(sy?qName(smpQ(C,(R[1]-R[0])*P.buf.duration)).split(' ·')[0].replace(' TIEMPOS','T').replace(' TIEMPO','T'):((R[1]-R[0])*P.buf.duration).toFixed(2)+'s')+' · '+MD(C)+((C.spd||1)!==1?' · ×'+C.spd:''):(PM?'vacío':'libre');});
   $$('#sModeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.m===SMPL.mode));
   $('#sEq').textContent=PM?'ENTERO':'IGUALES';$('#sTr').style.display=PM?'none':'';
-  $('#s2ch').classList.toggle('on',!!S.smp2);$('#s2ch').textContent=S.smp2?'2 CANALES ✓':'2 CANALES';
+  $('#s2ch').classList.toggle('on',!!S.smp2);$('#s2ch').textContent=S.smp2?'CANAL 2 ✓':'CANAL 2';
   $('#sCopy').classList.toggle('on',SCP.on);$('#sCopy').textContent=SCP.on?'ELEGÍ DESTINO ✕':'⧉ COPIAR';
   if(light)return;
   const P=smpSrc(SMPL.sel);
   $('#sInfo').textContent=CAP?'GRABANDO '+CAP.label+(CAP.slot>=0?' EN PAD '+(CAP.slot+1):'')+'…':
-    PM?('PAD '+(SMPL.sel+1)+' · '+(P?P.name+' · '+P.buf.duration.toFixed(2)+' s (arrastrá los bordes para recortar)':'vacío · MIC, ARCHIVO o DEMO graban acá')):
-    has?SMPL.name+' · '+SMPL.buf.duration.toFixed(2)+' s · CHOP '+(SMPL.sel+1)+' (arrastrá los bordes)':'Sin sample. Sin micrófono en el visor: GRABADOR abre la app del cel.';
+    PM?('CANAL 2 · PAD '+(SMPL.sel+1)+' · '+(P?P.name+' · '+P.buf.duration.toFixed(2)+' s (arrastrá los bordes para recortar)':'vacío · MIC, GRABADOR o ARCHIVO cargan acá')):
+    has?'S'+(SMPL.cur+1)+' '+SMPL.name+' · '+SMPL.buf.duration.toFixed(2)+' s · '+(SMPL.cch[SMPL.sel].src===SMPL.cur?'CHOP '+(SMPL.sel+1)+' (arrastrá los bordes)':'CHOP '+(SMPL.sel+1)+' usa '+(SMPL.cch[SMPL.sel].src>=0&&SMPL.srcs[SMPL.cch[SMPL.sel].src]?'S'+(SMPL.cch[SMPL.sel].src+1):'nada')+' · ASIGNAR lo pasa a S'+(SMPL.cur+1)):
+    'S'+(SMPL.cur+1)+' vacío · MIC, GRABADOR o ARCHIVO cargan acá (los chops libres lo toman)';
   const aj=$('#sAj');aj.classList.toggle('on',!!S.smpPar);aj.textContent='AJUSTES '+(S.smpPar?'▴':'▾');$('#v-smp').classList.toggle('paron',!!S.smpPar);
-  const pn=$('#sPar');pn.innerHTML='';const show=!!S.smpPar&&(PM?!!P:has);pn.style.display=show?'block':(S.smpPar?'block':'none');
-  if(S.smpPar&&!show){const n=document.createElement('div');n.className='pnote';n.textContent=PM?'PAD '+(SMPL.sel+1)+' vacío: grabá o cargá un sample para ajustarlo':'Cargá un sample para ajustar los chops';pn.appendChild(n);}
+  const pn=$('#sPar');pn.innerHTML='';const show=!!S.smpPar&&!!P;pn.style.display=show?'block':(S.smpPar?'block':'none');
+  if(S.smpPar&&!show){const n=document.createElement('div');n.className='pnote';n.textContent=PM?'PAD '+(SMPL.sel+1)+' vacío: grabá o cargá un sample para ajustarlo':'CHOP '+(SMPL.sel+1)+' libre: cargá un sample o tocá ASIGNAR';pn.appendChild(n);}
   if(show){const C=SMPL.chops[SMPL.sel];
     mkSeg(pn,(PM?'PAD ':'CHOP ')+(SMPL.sel+1),[['1-SHOT','one'],['GATE','gate'],['LOOP','loop']],o=>C.mode===o[1],o=>{C.mode=o[1];smpUi(true);queueSave();});
-    if(S.smp2)mkSeg(pn,'SALIDA',[['SAMPLER 1',0],['SAMPLER 2',1]],o=>(C.out||0)===o[1],o=>{C.out=o[1];try{SMPL.voice[SMPL.sel]&&SMPL.voice[SMPL.sel].stop();}catch(x){}smpUi(true);queueSave();});
     mkSeg(pn,'REVERSA',[['NO',false],['SÍ',true]],o=>C.rev===o[1],o=>{C.rev=o[1];smpPrep();queueSave();});
     const i=SMPL.sel,L=smpLen(i);
     mkSeg(pn,'SYNC AL TEMPO',[['NO','off'],['REPITCH','pitch'],['ESTIRAR','tempo']],o=>(C.sync||'off')===o[1],o=>{C.sync=o[1];if(o[1]!=='off'&&(!C.q||C.qa)){C.q=smpAutoQ(L);C.qa=true;}smpPrep();smpUi();queueSave();});
@@ -797,21 +802,25 @@ function smpUi(light){
     mkGrid(pn,C,['pitch','filt','crush','gain'],SMPDEF,k=>{if(k==='pitch')smpPrep();queueSave();});}
   drawWave();
 }
-$('#sMic').onclick=micToggle;$('#sRes').onclick=resToggle;
-$('#sDemo').onclick=smpDemo;
-$('#sClr').onclick=()=>{if(CAP)capStop();if(SMPL.mode==='pads'){SMPL.pads[SMPL.sel]=null;smpStore();smpUi();toast('PAD '+(SMPL.sel+1)+' VACÍO');return;}SMPL.buf=null;SMPL.rbuf=null;SMPL.name='';smpStore();smpUi();toast('SAMPLER VACÍO');};
+$('#sMic').onclick=micToggle;
+$('#sClr').onclick=()=>{if(CAP)capStop();if(SMPL.mode==='pads'){SMPL.pads[SMPL.sel]=null;smpStore();smpUi();toast('PAD '+(SMPL.sel+1)+' VACÍO');return;}const k=SMPL.cur,L=chopsOf(k);SMPL.srcs[k]=null;L.forEach(i=>{SMPL.cch[i].src=-1;});smpStore();smpUi();queueSave();toast('SAMPLE '+(k+1)+' VACÍO'+(L.length?' · sus '+L.length+' chops quedan libres':''));};
 $('#sEq').onclick=()=>{if(SMPL.mode==='pads'){const C=SMPL.chops[SMPL.sel];C.ps=0;C.pe=1;smpUi();queueSave();return;}if(!SMPL.buf)return;smpEqual();smpUi();queueSave();};
+/* selector de sample de CHOP y ASIGNAR */
+$$('#sSel .sk').forEach(b=>b.onclick=()=>{SMPL.cur=+b.dataset.k;const L=chopsOf(SMPL.cur);if(L.length&&!L.includes(SMPL.sel))SMPL.sel=L[0];smpUi();queueSave();
+  toast('SAMPLE '+(SMPL.cur+1)+(SMPL.srcs[SMPL.cur]?' · '+L.length+' chops':' · vacío: lo que cargues va acá (los chops ya asignados no se tocan)'));});
+$('#sAsg').onclick=()=>{const k=SMPL.cur,C=SMPL.cch[SMPL.sel];if(!SMPL.srcs[k]){toast('S'+(k+1)+' ESTÁ VACÍO · CARGÁ UN SAMPLE PRIMERO');return;}if(C.src===k){toast('EL CHOP '+(SMPL.sel+1)+' YA USA S'+(k+1));return;}
+  try{SMPL.vc[SMPL.sel]&&SMPL.vc[SMPL.sel].stop();}catch(e){}C.src=k;C.s=0;C.e=1;if(C.sync!=='off'&&C.qa)C.q=smpAutoQ(smpLen(SMPL.sel,0));smpPrep();smpUi();renderPalette();queueSave();toast('CHOP '+(SMPL.sel+1)+' → S'+(k+1)+' (entero: recortalo en la onda)');};
 /* modo y copia */
 const SCP={on:false};
-$$('#sModeSeg button').forEach(b=>b.onclick=()=>{SCP.on=false;const conv=smpMode(b.dataset.m);smpUi();renderPalette();
-  toast(b.dataset.m==='pads'?(conv?'PADS: LOS 8 CHOPS AHORA SON 8 SAMPLES':'PADS: CADA BOTÓN SU PROPIO SAMPLE'):'CHOP: UN SAMPLE EN 8 PARTES');});
+$$('#sModeSeg button').forEach(b=>b.onclick=()=>{SCP.on=false;smpMode(b.dataset.m);smpUi();renderPalette();
+  toast(b.dataset.m==='pads'?'PADS · CANAL 2 (SAMPLER 2 · SMP 2)'+(S.smp2?'':' · prendé CANAL 2 para verlo en el SEQ y el MIX'):'CHOP · CANAL 1 (SAMPLER · SMPL) · hasta 3 samples');});
 $('#sCopy').onclick=()=>{if(!SCP.on&&!smpSrc(SMPL.sel)){toast('ESE PAD ESTÁ VACÍO');return;}SCP.on=!SCP.on;smpUi(true);if(SCP.on)toast('TOCÁ EL PAD DONDE LO QUERÉS COPIAR');};
 function smpCopyTo(i){SCP.on=false;if(i===SMPL.sel){smpUi(true);toast('COPIA CANCELADA');return;}const a=SMPL.sel;if(smpCopy(a,i)){SMPL.sel=i;smpUi();renderPalette();toast((SMPL.mode==='pads'?'PAD ':'CHOP ')+(a+1)+' → '+(i+1));}else smpUi(true);}
 $('#sAj').onclick=()=>{S.smpPar=!S.smpPar;try{localStorage.setItem('musica_gb_smppar',S.smpPar?'1':'');}catch(x){}smpUi();};
 try{S.smpPar=!!localStorage.getItem('musica_gb_smppar');}catch(x){}
 $('#sCue').onclick=()=>{const i=SMPL.sel;const r=smpCue(i);if(!r){toast(smpSrc(i)?'NO ENCONTRÉ UN GOLPE CLARO':'SIN SAMPLE');return;}smpUi();queueSave();
   toast('AUTO CUE '+(SMPL.mode==='pads'?'PAD ':'CHOP ')+(i+1)+' · '+(r.ds>=.001?'−'+Math.round(r.ds*1000)+' ms al inicio':'inicio OK')+(r.de>=.005?' · −'+Math.round(r.de*1000)+' ms al final':''));};
-$('#s2ch').onclick=()=>{S.smp2=!S.smp2;smp2Ui();smpUi();renderPalette();queueSave();toast(S.smp2?'SAMPLER 2 PRENDIDO · canal SMP2 en el MIX y renglón SMP 2 en el SEQ · elegí la SALIDA de cada '+(SMPL.mode==='pads'?'pad':'chop'):'SAMPLER 2 APAGADO · todo sale por SAMPLER');};
+$('#s2ch').onclick=()=>{S.smp2=!S.smp2;smp2Ui();smpUi();renderPalette();queueSave();toast(S.smp2?'CANAL 2 (PADS) PRENDIDO · SMP 2 en el SEQ y SAMPLER 2 en el MIX':'CANAL 2 OCULTO · los PADS se pueden tocar igual');};
 $('#sTr').onclick=()=>{if(!SMPL.buf)return;smpTransients();smpUi();queueSave();};
 $('#sRecL').addEventListener('pointerdown',()=>initAudio());$('#sFileL').addEventListener('pointerdown',()=>initAudio());
 $('#sRecF').onchange=e=>{smpFromFile(e.target.files[0],'GRABACIÓN');e.target.value='';};
@@ -1036,7 +1045,8 @@ function extractText(r){
 }
 function loadSession(j){
   initAudio();applySnapshot(j);
-  if(j.smp&&j.smp.pcm)smpDecode(j.smp.pcm);
+  if(j.smp&&j.smp.pcm)smpDecode(j.smp.pcm,-1,0);   // formato de antes: un sample
+  if(j.smp&&Array.isArray(j.smp.srcs)){for(let k=0;k<NSRC;k++){const o=j.smp.srcs[k];if(o)smpDecode(o,-1,k);else SMPL.srcs[k]=null;}smpStore();}
   if(j.smp&&Array.isArray(j.smp.pads)){SMPL._rs=true;try{for(let i=0;i<NSP;i++){const p=j.smp.pads[i];if(p)smpDecode(p,i);else SMPL.pads[i]=null;}}finally{SMPL._rs=false;}smpStore();}
   $('#selKey').value=S.key;$('#selScale').value=S.scale;
   renderKeys();renderPalette();paints.forEach(p=>p());applyAll();applyFx();applyPatch();applyOut();PCH.sel=null;histReset();vinFx();sync();dirty=true;smpUi();fxUi();partUi();pageUi();smp2Ui();ensureKit();queueSave();
@@ -1046,7 +1056,7 @@ let newT=null;
 function newSession(){
   if(S.playing)stop();if(CAP)capStop();
   const j=JSON.parse(JSON.stringify(DEF));j.pat.forEach(r=>r.fill(0));j.seqN.forEach(r=>r.fill(0));j.chdSeq.fill(0);j.chdGate.fill(2);j.smpSeq.fill(0);if(j.smpSeq2)j.smpSeq2.fill(0);j.smp2=false;if(j.synG)j.synG.forEach(a=>a.fill(1));j.vinN.forEach(a=>a.fill(0));j.vinG.forEach(a=>a.fill(1));if(j.xyr)j.xyr.forEach(a=>a.fill(null));j.steps=16;j.sw=0;j.parts=null;j.part=0;j.song=false;j.name='';delete j.smp.pcm;
-  SMPL.buf=null;SMPL.rbuf=null;SMPL.name='';SMPL.pads.fill(null);SMPL.mode='chop';smpStore();
+  SMPL.srcs.fill(null);SMPL.pads.fill(null);SMPL.mode='chop';SMPL.cur=0;smpStore();
   loadSession(j);S.name='';$('#shName').value='';queueSave();CHG.on=false;DV.lastBody='';try{chgUi();}catch(e){}
 }
 $('#shNew').onclick=()=>{const b=$('#shNew');
@@ -1151,14 +1161,16 @@ const fmtD=ms=>{const d=new Date(ms);return pad2(d.getDate())+'/'+pad2(d.getMont
 /* sample actual: se guarda solo cada vez que cambia y vuelve al abrir */
 const smpPack=(b,nm)=>{if(b===undefined){b=SMPL.buf;nm=SMPL.name;}if(!b)return null;const d=b.getChannelData(0),q=new Int16Array(d.length);for(let i=0;i<d.length;i++)q[i]=Math.round(clamp(d[i],-1,1)*32767);return{rate:b.sampleRate,name:nm,pcm:q.buffer};};
 const padsPack=()=>SMPL.pads.map(p=>p?smpPack(p.buf,p.name):null);
-function smpUnpack(o,chops,slot){
+const srcsPack=()=>({v:2,cur:SMPL.cur,srcs:SMPL.srcs.map(s=>s?smpPack(s.buf,s.name):null)});
+function smpUnpack(o,slot,k){   // no toca ajustes ni asignaciones
   if(!o||!o.pcm)return false;const q=new Int16Array(o.pcm),f=new Float32Array(q.length);for(let i=0;i<q.length;i++)f[i]=q[i]/32767;
-  const keep=JSON.parse(JSON.stringify(chops||SMPL.chops));SMPL._rs=true;let ok=false;try{ok=smpSet(f,o.rate,o.name,slot===undefined?-1:slot);}finally{SMPL._rs=false;}
-  if(ok)SMPL.chops.forEach((C,i)=>{if(keep[i])Object.assign(C,keep[i]);});return ok;}
-function padsUnpack(a,chops){for(let i=0;i<NSP;i++){if(a&&a[i])smpUnpack(a[i],chops,i);else SMPL.pads[i]=null;}}
+  return slot!==undefined&&slot>=0?smpLoadPad(slot,f,o.rate,o.name):smpLoadSrc(k||0,f,o.rate,o.name);}
+function srcsUnpack(o){if(o&&o.v===2&&Array.isArray(o.srcs)){for(let k=0;k<NSRC;k++){if(o.srcs[k])smpUnpack(o.srcs[k],-1,k);else SMPL.srcs[k]=null;}return true;}
+  SMPL.srcs.fill(null);return o?smpUnpack(o,-1,0):false;}   // formato de antes: un solo sample → S1
+function padsUnpack(a){for(let i=0;i<NSP;i++){if(a&&a[i])smpUnpack(a[i],i);else SMPL.pads[i]=null;}}
 var smpT=null;
-function smpStore(){if(SMPL._rs)return;clearTimeout(smpT);smpT=setTimeout(()=>{const o=smpPack();(o?IDB.put('kv',Object.assign(o,{saved:Date.now()}),'smp'):IDB.del('kv','smp')).catch(()=>{});IDB.put('kv',{mode:SMPL.mode,pads:padsPack()},'smpP').catch(()=>{});},350);}
-const SMPR=(async()=>{try{const o=await IDB.get('kv','smp');if(o&&!SMPL.buf&&smpUnpack(o)){smpUi();dirty=true;}
+function smpStore(){if(SMPL._rs)return;clearTimeout(smpT);smpT=setTimeout(()=>{const o=srcsPack();(o.srcs.some(Boolean)?IDB.put('kv',Object.assign(o,{saved:Date.now()}),'smp'):IDB.del('kv','smp')).catch(()=>{});IDB.put('kv',{mode:SMPL.mode,pads:padsPack()},'smpP').catch(()=>{});},350);}
+const SMPR=(async()=>{try{const o=await IDB.get('kv','smp');if(o&&!SMPL.srcs.some(Boolean)&&srcsUnpack(o)){smpUi();dirty=true;}
   const p=await IDB.get('kv','smpP');if(p&&Array.isArray(p.pads)&&!SMPL.pads.some(Boolean)){padsUnpack(p.pads);smpUi();dirty=true;}}catch(e){}})();
 /* botón que pide un segundo toque */
 function armTap(b,txt,fn){if(b._arm){clearTimeout(b._arm);b._arm=null;b.classList.remove('arm');fn();return;}
@@ -1168,18 +1180,19 @@ const sesId=nm=>'s_'+(nm.trim().toLowerCase().replace(/[^\w\-]+/g,'_').replace(/
 async function libSave(){
   const nm=(($('#shName').value||S.name||'').trim()).slice(0,40)||('SESIÓN '+fmtD(Date.now()));S.name=nm;$('#shName').value=nm;
   const id=sesId(nm),snap=snapshot(false);snap.name=nm;let had=false;try{had=!!(await IDB.get('ses',id));}catch(e){}
-  try{await IDB.put('ses',{id,name:nm,saved:Date.now(),snap:JSON.parse(JSON.stringify(snap)),smp:smpPack(),pads:SMPL.pads.some(Boolean)?padsPack():null});}
+  try{await IDB.put('ses',{id,name:nm,saved:Date.now(),snap:JSON.parse(JSON.stringify(snap)),smp:srcsPack(),pads:SMPL.pads.some(Boolean)?padsPack():null});}
   catch(e){shMsg('No pude guardar en el teléfono ('+(e&&(e.name||e.message)||e)+').');return false;}
   queueSave();shMsg('✓ GUARDADA EN EL TELÉFONO: '+nm+(had?' (reemplacé la anterior con ese nombre)':''));libList();return true;}
 async function libOpen(id){
   let r=null;try{r=await IDB.get('ses',id);}catch(e){}if(!r){shMsg('No encontré esa sesión.');libList();return;}
   loadSession(r.snap);S.name=r.name;$('#shName').value=r.name;
-  const ch=r.snap.smp&&r.snap.smp.chops;if(r.smp){smpUnpack(r.smp,ch);}else{SMPL.buf=null;SMPL.rbuf=null;SMPL.name='';}padsUnpack(r.pads,ch);
+  srcsUnpack(r.smp||null);padsUnpack(r.pads);
   smpStore();smpUi();queueSave();shMsg('✓ ABIERTA: '+r.name);toast('SESIÓN '+r.name);setTimeout(()=>sheet.classList.remove('on'),700);}
 function libJson(r){
   const j=JSON.parse(JSON.stringify(r.snap));j.smp=j.smp||{};
-  if(r.smp){const q=new Int16Array(r.smp.pcm),f=new Float32Array(q.length);for(let i=0;i<q.length;i++)f[i]=q[i]/32767;
-    const e=smpEncode({getChannelData:()=>f,sampleRate:r.smp.rate,duration:f.length/r.smp.rate},r.smp.name);if(e)j.smp.pcm=e;}
+  const enc=o=>{if(!o||!o.pcm)return null;const q=new Int16Array(o.pcm),f=new Float32Array(q.length);for(let i=0;i<q.length;i++)f[i]=q[i]/32767;return smpEncode({getChannelData:()=>f,sampleRate:o.rate,duration:f.length/o.rate},o.name);};
+  if(r.smp&&r.smp.v===2)j.smp.srcs=r.smp.srcs.map(enc);   // los 3 samples de CHOP
+  else if(r.smp){const e=enc(r.smp);if(e)j.smp.pcm=e;}
   if(r.pads)j.smp.pads=r.pads.map(p=>{if(!p)return null;const q=new Int16Array(p.pcm),f=new Float32Array(q.length);for(let i=0;i<q.length;i++)f[i]=q[i]/32767;return smpEncode({getChannelData:()=>f,sampleRate:p.rate,duration:f.length/p.rate},p.name);});
   const d=new Date(r.saved),fn='GB-'+(r.name.replace(/[^\w\-]+/g,'_').replace(/^_+|_+$/g,'')||'sesion')+'-'+d.getFullYear()+pad2(d.getMonth()+1)+pad2(d.getDate())+'.json',data=JSON.stringify(j);
   return {fn,data};}
@@ -1415,7 +1428,7 @@ function killAll(){
   for(const t in XYH){const H=XYH[t];if(H.on){try{mfxOff(t);}catch(e){}H.on=false;}}XY.on=false;S.hold=false;
   try{$('#bHold').classList.remove('on');if(window.heldUi)heldUi();if(window.paintXY)paintXY();}catch(e){}
   try{djFxOff();}catch(e){}
-  try{SMPL.voice.forEach(v=>{try{v&&v.stop();}catch(e){}});}catch(e){}
+  try{[...SMPL.vc,...SMPL.vp].forEach(v=>{try{v&&v.stop();}catch(e){}});}catch(e){}
   try{if(ctx)restartAudio();}catch(e){}
   try{['#bSir','#bLatch','#sirPad'].forEach(s=>{const el=$(s);if(el)el.classList.remove('on','dn');});}catch(e){}
   try{$('#clipLed').classList.remove('on');}catch(e){}

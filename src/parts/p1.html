@@ -586,6 +586,10 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
 #v-smp.paron #sPads .pad small{display:none}
 #v-smp.paron #wave{height:84px}
 #sAj.on{background:var(--acc);color:#141414}
+/* v13.32: selector de sample de CHOP (1·2·3) + ASIGNAR; solo en CHOP */
+#sSel{gap:4px}#sSel .cap{height:30px;font-size:10px;letter-spacing:.04em;padding:0 4px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#sSel .sk{flex:1}#sSel .sk.on{background:rgba(255,210,122,.18);color:#ffd27a;box-shadow:inset 0 0 0 1.5px #ffd27a}#sSel .sk.vac{opacity:.55}
+#sSel #sAsg{flex:1.2}#v-smp.padsm #sSel{display:none}
 #fxSeg button.held{box-shadow:inset 0 0 0 2px #ff9440}
 #fxSeg button.held::after{content:' ●';color:#ff9440}
 @media (max-height:700px){#vview{height:62px}#scope{height:38px}.strip .sends{height:88px}#v-keys.paron #vview{height:54px}}
@@ -671,10 +675,9 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
       <button id="sMic" class="cap dark sm">● MIC</button>
       <label class="cap dark sm lblbtn" id="sRecL">GRABADOR<input id="sRecF" type="file" accept="audio/*" capture hidden></label>
       <label class="cap dark sm lblbtn" id="sFileL">ARCHIVO<input id="sFile" type="file" accept="audio/*" hidden></label>
-      <button id="sRes" class="cap dark sm">● RESAMP</button>
-      <button id="sDemo" class="cap dark sm">DEMO</button>
       <button id="sClr" class="cap dark sm">VACIAR</button>
     </div>
+    <div class="smprow ssel" id="sSel"><button class="cap dark sm sk" data-k="0">1</button><button class="cap dark sm sk" data-k="1">2</button><button class="cap dark sm sk" data-k="2">3</button><button id="sAsg" class="cap dark sm" aria-label="Pasar el chop elegido al sample que estás viendo">ASIGNAR</button></div>
     <div id="sInfo" class="lcd"></div>
     <canvas id="wave"></canvas>
     <div class="smprow">
@@ -683,7 +686,7 @@ nav button.on::before{content:"";position:absolute;left:26%;right:26%;top:-1px;h
       <button id="sTr" class="cap dark sm" aria-label="Cortar por transientes">AUTO</button>
       <button id="sCopy" class="cap dark sm">⧉ COPIAR</button>
     </div>
-    <div class="smprow tools"><button id="sCue" class="cap dark sm" aria-label="Llevar el inicio al primer golpe y cortar el silencio">AUTO CUE</button><button id="s2ch" class="cap dark sm" aria-label="Segundo canal del sampler en el mixer y el secuenciador">2 CANALES</button><button id="sAj" class="cap dark sm" aria-label="Mostrar u ocultar los ajustes del pad">AJUSTES ▾</button></div>
+    <div class="smprow tools"><button id="sCue" class="cap dark sm" aria-label="Llevar el inicio al primer golpe y cortar el silencio">AUTO CUE</button><button id="s2ch" class="cap dark sm" aria-label="Mostrar el canal 2 (PADS) en el secuenciador y el mixer">CANAL 2</button><button id="sAj" class="cap dark sm" aria-label="Mostrar u ocultar los ajustes del pad">AJUSTES ▾</button></div>
     <div id="sPads"></div>
     <div id="sPar"></div>
   </section>

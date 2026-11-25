@@ -51,9 +51,9 @@ await p.evaluate(()=>{[...document.querySelectorAll('#sPar .qrow .cap')].find(b=
 ok(await p.evaluate(()=>GB.SMPL.chops[0].q===3),'− baja a 3 tiempos');
 await p.evaluate(()=>{[...document.querySelectorAll('#sPar .qrow .cap')].find(b=>b.textContent.includes('BPM'))||document.querySelector('#sPar .qbpm');document.querySelector('#sPar .qbpm').click();});
 ok(await p.evaluate(()=>GB.S.bpm===90),'BPM ← SAMPLE: 3 tiempos en 2 s = 90 BPM');
-ok(await p.evaluate(()=>document.querySelector('#sPads .pad small').textContent.startsWith('3T · ONE')),'el pad muestra 3T · ONE');
+ok(await p.evaluate(()=>document.querySelector('#sPads .pad small').textContent.replace(/^S1 · /,'').startsWith('3T · ONE')),'el pad muestra 3T · ONE');
 if(SH)await p.screenshot({path:SH+'/u-smp.png'});
-const rt=await p.evaluate(()=>{const j=JSON.parse(JSON.stringify(GB.snapshot(false)));const C=GB.SMPL.chops[0];C.sync='off';C.q=0;C.spd=1;GB.applySnapshot(j);const D=GB.SMPL.chops[0];return D.sync==='tempo'&&D.q===3&&D.spd===1&&!('_st' in j.smp.chops[0]);});
+const rt=await p.evaluate(()=>{const j=JSON.parse(JSON.stringify(GB.snapshot(false)));const C=GB.SMPL.chops[0];C.sync='off';C.q=0;C.spd=1;GB.applySnapshot(j);const D=GB.SMPL.chops[0];return D.sync==='tempo'&&D.q===3&&D.spd===1&&!('_st' in j.smp.cch[0]);});
 ok(rt,'la sesión guarda SYNC/tiempos/SPEED (y no el audio estirado)');
 /* luces */
 await p.evaluate(()=>{GB.pat.forEach(r=>r.fill(0));GB.pat[0].fill(1);GB.pat[8].fill(1);GB.seqN[0].fill(3);GB.pat[11].fill(1);GB.smpSeq.fill(1);GB.setBpm(120);});

@@ -55,5 +55,5 @@ await p.tap('#lvDel');await p.waitForTimeout(100);await p.tap('#lvDel');await p.
 ok(await p.evaluate(async()=>(await GB.IDB.all('live')).length===0),'borrar toma (2 toques)');
 // compartir sesión: fallback descarga json con sample
 const [dl2]=await Promise.all([p.waitForEvent('download',{timeout:15000}),p.tap('#shLocL .li')]);
-const j=JSON.parse(require('fs').readFileSync(await dl2.path(),'utf8'));ok(j.smp&&j.smp.pcm&&j.dk&&j.name==='PRUEBA AMIGOS','enviar a Drive (acá descarga): '+dl2.suggestedFilename()+' con sample');
+const j=JSON.parse(require('fs').readFileSync(await dl2.path(),'utf8'));ok(j.smp&&(j.smp.pcm||(Array.isArray(j.smp.srcs)&&j.smp.srcs.some(Boolean)))&&j.dk&&j.name==='PRUEBA AMIGOS','enviar a Drive (acá descarga): '+dl2.suggestedFilename()+' con sample');
 console.log('errors',e.length?e:'none');await b.close();})();

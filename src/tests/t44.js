@@ -16,7 +16,7 @@ ok(!r.on&&!r.aud,'apagado: SMP 2 no suena');
 await p.evaluate(()=>{const sr=44100,n=sr*2,d=new Float32Array(n);for(let i=Math.floor(sr*.3);i<Math.floor(sr*.7);i++){const t=(i-sr*.3)/sr;d[i]=Math.sin(2*Math.PI*220*t)*.8*Math.exp(-t*6);}
   GB.smpMode('chop');GB.smpSet(d,sr,'GOLPE',-1);Object.assign(GB.SMPL.chops[0],{s:0,e:1,pitch:0,rev:false,mode:'one',sync:'off',q:0,qa:true,spd:1,out:0});GB.SMPL.chops.slice(1).forEach((C,i)=>Object.assign(C,{s:.9+i*.03,e:.92+i*.03}));GB.SMPL.sel=0;});
 await tab('smp');await W(150);
-ok(await p.evaluate(()=>!!document.querySelector('#sCue')&&!!document.querySelector('#s2ch')&&!document.body.innerText.includes('SALIDA')),'botones AUTO CUE y 2 CANALES; sin SALIDA mientras está apagado');
+ok(await p.evaluate(()=>!!document.querySelector('#sCue')&&!!document.querySelector('#s2ch')&&!document.querySelector('#sPar').innerText.includes('SALIDA')),'botones AUTO CUE y CANAL 2 (v13.32: sin SALIDA por chop)');
 /* ---- AUTO CUE */
 await p.tap('#sCue');await W(150);
 r=await p.evaluate(()=>({s:GB.SMPL.chops[0].s*2,e:GB.SMPL.chops[0].e*2,t:document.querySelector('#toast')?.textContent||''}));
@@ -47,39 +47,40 @@ await p.evaluate(()=>{const w=document.querySelector('#wave'),R=w.getBoundingCli
 r=await p.evaluate(()=>({a:GB.WV.a,b:GB.WV.b}));ok(r.b-r.a<.85&&Math.abs(r.a+(r.b-r.a)*.25-.25)<.01,'rueda del mouse: zoom anclado al puntero');
 await p.evaluate(()=>{GB.wvSet(.2,.3);const sr=44100,d=new Float32Array(sr);GB.smpSet(d,sr,'OTRO',-1);GB.drawWave();});
 ok(await p.evaluate(()=>GB.WV.a===0&&GB.WV.b===1),'sample nuevo → zoom a la onda entera');
-/* ---- prender SAMPLER 2 */
-await p.evaluate(()=>{const sr=44100,n=sr,d=new Float32Array(n);for(let i=0;i<n;i++)d[i]=Math.sin(i/9)*.4;GB.smpSet(d,sr,'TONO',-1);GB.SMPL.chops.forEach((C,i)=>Object.assign(C,{s:i/4,e:(i+1)/4,sync:'off',spd:1,pitch:0,out:0}));GB.SMPL.sel=1;});
+/* ---- v13.32: CHOP = canal 1 · PADS = canal 2 (el botón CANAL 2 los muestra en SEQ y MIX) */
+await p.evaluate(()=>{GB.smpMode('chop');const sr=44100,n=sr,d=new Float32Array(n);for(let i=0;i<n;i++)d[i]=Math.sin(i/9)*.4;GB.smpSet(d,sr,'TONO',-1);GB.SMPL.cch.forEach((C,i)=>Object.assign(C,{sync:'off',spd:1,pitch:0}));
+  GB.smpLoadPad(1,d,sr,'PADTONO');GB.SMPL.sel=1;GB.smpUi();});
 await p.tap('#s2ch');await W(150);
-r=await p.evaluate(()=>{const rows=document.querySelectorAll('#grid .row'),st=document.querySelectorAll('#strips .strip');return {on:GB.S.smp2,h:rows[GB.R_SMP2].hidden,sh:st[7].hidden,salida:document.body.innerText.includes('SALIDA'),btn:document.querySelector('#s2ch').textContent};});
-ok(r.on&&!r.h&&!r.sh,'2 CANALES: aparece el renglón SMP 2 y el canal SMP2');
-ok(r.salida&&/✓/.test(r.btn),'aparece SALIDA en el corte elegido ('+r.btn+')');
-await p.evaluate(()=>{const b=[...document.querySelectorAll('#sPar button')].find(x=>x.textContent==='SAMPLER 2');b&&b.click();});await W(80);
-ok(await p.evaluate(()=>GB.SMPL.chops[1].out===1&&GB.smpOut(1)===7&&GB.smpOut(0)===5),'el chop 2 sale por SAMPLER 2, el 1 sigue en SAMPLER');
-ok(await p.evaluate(()=>/→2/.test(document.querySelector('#sPads').children[1].textContent)),'el pad muestra →2');
-/* ruteo real al bus 7 */
+r=await p.evaluate(()=>{const rows=document.querySelectorAll('#grid .row'),st=document.querySelectorAll('#strips .strip');return {on:GB.S.smp2,h:rows[GB.R_SMP2].hidden,sh:st[7].hidden,btn:document.querySelector('#s2ch').textContent};});
+ok(r.on&&!r.h&&!r.sh,'CANAL 2: aparece el renglón SMP 2 y el canal SMP2');
+ok(/CANAL 2 ✓/.test(r.btn),'el botón muestra CANAL 2 ✓');
+ok(await p.evaluate(()=>GB.smpOut(1,0)===5&&GB.smpOut(1,1)===7),'CHOP sale por SAMPLER, PADS por SAMPLER 2');
+/* ruteo real */
 await p.evaluate(()=>{const o=AudioNode.prototype.connect;window.__cn=[];AudioNode.prototype.connect=function(d,...a){window.__cn.push(d);return o.call(this,d,...a);};});
-r=await p.evaluate(()=>{window.__cn=[];GB.chopPlay(1,GB.ctx.currentTime+.01,1);const a=window.__cn.includes(GB.bus[7].inp);window.__cn=[];GB.chopPlay(0,GB.ctx.currentTime+.01,1);return [a,window.__cn.includes(GB.bus[5].inp),window.__cn.includes(GB.bus[7].inp)];});
-ok(r[0]&&r[1]&&!r[2],'audio: chop 2 → bus SAMPLER 2, chop 1 → bus SAMPLER');
-/* el renglón SMP 2 dispara desde el secuenciador */
-r=await p.evaluate(()=>{GB.smpSeq2[0]=2;GB.pat[GB.R_SMP2][0]=1;window.__cn=[];GB.trig(GB.R_SMP2,0,GB.ctx.currentTime+.02);return window.__cn.includes(GB.bus[7].inp)&&GB.rowAud(GB.R_SMP2);});
-ok(r,'secuenciador: SMP 2 dispara su chop por el canal 2');
+r=await p.evaluate(()=>{window.__cn=[];GB.chopPlay(1,GB.ctx.currentTime+.01,1,undefined,1);const a=window.__cn.includes(GB.bus[7].inp);window.__cn=[];GB.chopPlay(0,GB.ctx.currentTime+.01,1,undefined,0);return [a,window.__cn.includes(GB.bus[5].inp),window.__cn.includes(GB.bus[7].inp)];});
+ok(r[0]&&r[1]&&!r[2],'audio: pad 2 → bus SAMPLER 2, chop 1 → bus SAMPLER');
+/* el renglón SMP 2 dispara los PADS; SMPL los CHOPS */
+r=await p.evaluate(()=>{GB.smpSeq2[0]=2;GB.pat[GB.R_SMP2][0]=1;window.__cn=[];GB.trig(GB.R_SMP2,0,GB.ctx.currentTime+.02);const a=window.__cn.includes(GB.bus[7].inp)&&GB.rowAud(GB.R_SMP2)&&!!GB.SMPL.vp[1];
+  GB.smpSeq[0]=2;GB.pat[11][0]=1;window.__cn=[];GB.trig(11,0,GB.ctx.currentTime+.02);return [a,window.__cn.includes(GB.bus[5].inp)&&!!GB.SMPL.vc[1]];});
+ok(r[0],'secuenciador: SMP 2 dispara el PAD por el canal 2');ok(r[1],'secuenciador: SMPL dispara el CHOP por el canal 1');
 ok(await p.evaluate(()=>GB.sSeq(GB.ROWS[GB.R_SMP2])===GB.smpSeq2&&GB.sSeq(GB.ROWS[11])===GB.smpSeq),'cada renglón tiene su secuencia');
 /* guardar/abrir sesión */
-r=await p.evaluate(()=>{const j=JSON.parse(JSON.stringify(GB.snapshot(false)));const ok1=j.smp2===true&&j.smpSeq2[0]===2&&j.smp.chops[1].out===1;
+r=await p.evaluate(()=>{const j=JSON.parse(JSON.stringify(GB.snapshot(false)));const ok1=j.smp2===true&&j.smpSeq2[0]===2&&j.smp.v===2&&Array.isArray(j.smp.pch);
   GB.loadSession(Object.assign(JSON.parse(JSON.stringify(j)),{smp2:false}));const off=!GB.S.smp2&&document.querySelectorAll('#grid .row')[GB.R_SMP2].hidden;
   GB.loadSession(j);return [ok1,off,GB.S.smp2&&GB.smpSeq2[0]===2&&!document.querySelectorAll('#grid .row')[GB.R_SMP2].hidden];});
-ok(r[0],'la sesión guarda SAMPLER 2, su secuencia y la salida de cada corte');
-ok(r[1]&&r[2],'abrir sesión restaura SAMPLER 2 prendido/apagado');
-r=await p.evaluate(()=>{const j=JSON.parse(JSON.stringify(GB.snapshot(false)));delete j.smp2;delete j.smpSeq2;j.smp.chops.forEach(C=>delete C.out);GB.applySnapshot(j);return !GB.S.smp2&&GB.smpSeq2.every(v=>v===0)&&GB.SMPL.chops.every(C=>C.out===0);});
-ok(r,'sesión vieja (v13.16) abre con SAMPLER 2 apagado');
+ok(r[0],'la sesión guarda CANAL 2, su secuencia y los ajustes de cada banco');
+ok(r[1]&&r[2],'abrir sesión restaura CANAL 2 prendido/apagado');
+r=await p.evaluate(()=>{const j=JSON.parse(JSON.stringify(GB.snapshot(false)));delete j.smp2;delete j.smpSeq2;j.smp={chops:GB.SMPL.cch.map(C=>({s:C.s,e:C.e,pitch:0,out:1})),mode:'chop'};GB.applySnapshot(j);
+  return !GB.S.smp2&&GB.smpSeq2.every(v=>v===0)&&GB.SMPL.cch.every(C=>C.src===0&&!('out' in C));});
+ok(r,'sesión vieja (v13.16) abre con CANAL 2 oculto y los chops en S1');
 /* anillo y mixer con SMP 2 prendido */
 await p.evaluate(()=>{GB.S.smp2=true;GB.smp2Ui();});await tab('seq');await W(200);
 ok(await p.evaluate(()=>{const b=[...document.querySelectorAll('#rPickBox .cap')];return b.length>=18?!b[GB.R_SMP2].hidden:true;}),'selector de pista del anillo muestra SMP 2');
 await tab('mix');await W(120);
 ok(await p.$$eval('#strips .strip',a=>a.filter(x=>!x.hidden).length===9),'mixer con 9 canales visibles');
 await p.evaluate(()=>{GB.S.smp2=true;});await tab('smp');await W(60);await p.tap('#s2ch');await W(100);
-r=await p.evaluate(()=>({on:GB.S.smp2,o:GB.smpOut(1),aud:GB.rowAud(GB.R_SMP2),h:document.querySelectorAll('#strips .strip')[7].hidden}));
-ok(!r.on&&r.o===5&&!r.aud&&r.h,'apagar 2 CANALES: todo vuelve a SAMPLER y SMP 2 se calla');
+r=await p.evaluate(()=>({on:GB.S.smp2,aud:GB.rowAud(GB.R_SMP2),h:document.querySelectorAll('#strips .strip')[7].hidden,pad:!!GB.chopPlay(1,GB.ctx.currentTime+.01,1,undefined,1)}));
+ok(!r.on&&!r.aud&&r.h&&r.pad,'ocultar CANAL 2: SMP 2 se calla en el SEQ, los PADS se tocan igual');
 await tab('seq');await W(300);
 ok(e.length===0,'errors '+(e.length?e.join(' | '):'none'));console.log('errors',e.length?e.join(' | '):'none');
 await b.close();})();

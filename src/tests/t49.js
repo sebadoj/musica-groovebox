@@ -8,7 +8,7 @@ await p.goto('file://'+require('path').resolve(__dirname,'../build/MUSICA-GROOVE
 const tab=t=>p.evaluate(t=>[...document.querySelectorAll('nav button')].find(x=>x.dataset.t===t).click(),t);
 await p.tap('#bPlay');await W(100);await p.tap('#bPlay');await tab('smp');await W(150);
 /* fila de fuentes */
-let r=await p.evaluate(()=>{const ids=['#sMic','#sRecL','#sFileL','#sRes','#sDemo','#sClr'].map(s=>document.querySelector(s).getBoundingClientRect());return {tops:ids.map(x=>Math.round(x.top)),h:Math.max(...ids.map(x=>x.height))};});
+let r=await p.evaluate(()=>{const ids=['#sMic','#sRecL','#sFileL','#sClr'].map(s=>document.querySelector(s).getBoundingClientRect());return {tops:ids.map(x=>Math.round(x.top)),h:Math.max(...ids.map(x=>x.height))};});
 ok(new Set(r.tops).size===1,'MIC · GRABADOR · ARCHIVO · RESAMP · DEMO · VACIAR en una sola fila');
 ok(r.h<=32,'fila de fuentes chica ('+Math.round(r.h)+' px de alto)');
 /* 8 pads */
@@ -18,7 +18,7 @@ const hBig=r.h;
 ok(await p.evaluate(()=>GB.NSP===8&&GB.SMPL.chops.length===8&&GB.SMPL.pads.length===8&&GB.SMPL.voice.length===8),'el motor tiene 8 chops / 8 pads');
 /* AJUSTES apagado por defecto */
 ok(await p.evaluate(()=>getComputedStyle(document.querySelector('#sPar')).display==='none'&&!document.querySelector('#sAj').classList.contains('on')),'AJUSTES apagado: no se ven los parámetros');
-await p.evaluate(()=>document.querySelector('#sDemo').click());await W(500);
+await p.evaluate(()=>GB.smpDemo());await W(500);
 r=await p.evaluate(()=>GB.SMPL.chops.map(C=>[+C.s.toFixed(3),+C.e.toFixed(3)]));ok(r.length===8&&Math.abs(r[7][0]-.875)<1e-3&&r[7][1]===1,'DEMO: el sample se corta en 8');
 ok(await p.evaluate(()=>!!GB.chopPlay(7,GB.ctx.currentTime+.01,1)),'el pad 8 suena');
 /* AJUSTES prendido */
@@ -42,13 +42,13 @@ ok(await p.evaluate(()=>[...document.querySelectorAll('#palette .pal button')].f
 r=await p.evaluate(()=>{GB.smpSeq.fill(0);GB.smpSeq[3]=8;GB.pat[11].fill(0);GB.pat[11][3]=1;const o=AudioNode.prototype.connect;let hit=false;AudioNode.prototype.connect=function(d,...a){if(d===GB.bus[5].inp)hit=true;return o.call(this,d,...a);};GB.trig(11,3,GB.ctx.currentTime+.02);AudioNode.prototype.connect=o;return hit;});
 ok(r,'un paso con el pad 8 suena desde el secuenciador');
 /* sesiones viejas de 4 pads */
-r=await p.evaluate(()=>{const j=JSON.parse(JSON.stringify(GB.snapshot(false)));j.smp.chops=j.smp.chops.slice(0,4).map((C,i)=>Object.assign(C,{s:i/4,e:(i+1)/4,pitch:i}));j.smp.mode='chop';GB.loadSession(j);
+r=await p.evaluate(()=>{const j=JSON.parse(JSON.stringify(GB.snapshot(false)));j.smp={chops:GB.SMPL.cch.slice(0,4).map((C,i)=>({s:i/4,e:(i+1)/4,pitch:i})),mode:'chop'};GB.loadSession(j);
   return GB.SMPL.chops.map(C=>[C.s,C.e,C.pitch]);});
 ok(r[0][1]===.25&&r[3][1]===1&&r[4][0]===0&&r[4][1]===.25&&r[7][1]===1&&r[4][2]===0,'sesión vieja de 4 chops: 1–4 como estaban, 5–8 repiten las regiones con ajustes de fábrica');
-ok(await p.evaluate(()=>GB.SMPL.chops.every(C=>C.out===0&&C.spd===1)),'los 8 chops con valores válidos');
+ok(await p.evaluate(()=>GB.SMPL.chops.every(C=>C.spd===1&&C.src===0)),'los 8 chops con valores válidos (en S1)');
 /* PADS: convierte 8 chops en 8 samples */
-r=await p.evaluate(()=>{GB.smpMode('chop');document.querySelector('#sDemo').click();GB.SMPL.pads.fill(null);const conv=GB.smpMode('pads');return {conv,n:GB.SMPL.pads.filter(Boolean).length};});
-ok(r.conv&&r.n===8,'pasar a PADS convierte los 8 chops en 8 samples');
+r=await p.evaluate(()=>{GB.smpMode('chop');GB.smpDemo();GB.SMPL.pads.fill(null);GB.smpMode('pads');const n0=GB.SMPL.pads.filter(Boolean).length;for(let k=0;k<8;k++){GB.SMPL.sel=k;GB.smpDemo();}return {n0,n:GB.SMPL.pads.filter(Boolean).length,chop:!!GB.SMPL.srcs[0]};});
+ok(r.n0===0&&r.n===8&&r.chop,'v13.32: PADS es otro sampler (no convierte los chops); se cargan los 8 pads y el CHOP sigue');
 r=await p.evaluate(()=>{const j=JSON.parse(JSON.stringify(GB.snapshot(true)));const n=j.smp.pads.length;j.smp.pads=j.smp.pads.slice(0,4);GB.loadSession(j);return {n,after:GB.SMPL.pads.filter(Boolean).length};});
 ok(r.n===8&&r.after===4,'sesión con 4 pads: los pads 5–8 quedan vacíos ('+r.after+' cargados)');
 ok(e.length===0,'errors '+(e.length?e.join(' | '):'none'));console.log('errors',e.length?e.join(' | '):'none');
